@@ -8,8 +8,27 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Pogo Paint — тёплая закатная палитра, как уровни Crash */
+    --background: 25 60% 12%;
+    --foreground: 40 80% 96%;
+
+    /* Игровые токены */
+    --game-sky-top: 285 55% 22%;
+    --game-sky-bottom: 18 80% 55%;
+    --tile-unpainted-top: 40 25% 78%;
+    --tile-unpainted-left: 30 22% 56%;
+    --tile-unpainted-right: 30 22% 44%;
+    --tile-painted-top: 145 75% 55%;
+    --tile-painted-left: 145 70% 38%;
+    --tile-painted-right: 145 70% 28%;
+    --tile-start-top: 50 95% 65%;
+    --tile-start-left: 40 85% 45%;
+    --tile-start-right: 40 85% 32%;
+    --tile-edge: 0 0% 0%;
+    --player-body: 0 85% 55%;
+    --player-stick: 35 25% 30%;
+    --player-spring: 0 0% 75%;
+    --player-shadow: 0 0% 0%;
 
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
