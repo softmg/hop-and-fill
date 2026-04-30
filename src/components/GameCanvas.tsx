@@ -84,44 +84,51 @@ export const GameCanvas = () => {
 
 
       {/* HUD */}
-      <header className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-2">
-          <h1 className="text-foreground text-lg font-bold drop-shadow">Pogo Paint</h1>
-          <span className="text-muted-foreground text-sm">· {currentLevel.name}</span>
+      <header className="absolute top-0 left-0 right-0 px-2 sm:px-4 py-2 sm:py-3 pointer-events-none">
+        <div className="flex items-center justify-between gap-2">
+          <div className="pointer-events-auto flex items-baseline gap-1.5 min-w-0">
+            <h1 className="text-foreground text-base sm:text-lg font-bold drop-shadow truncate">
+              Pogo Paint
+            </h1>
+            <span className="hidden sm:inline text-muted-foreground text-sm truncate">
+              · {currentLevel.name}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-3 pointer-events-auto shrink-0">
+            <div className="bg-background/60 backdrop-blur px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-foreground text-xs sm:text-sm font-medium tabular-nums whitespace-nowrap">
+              {hops}/{limit}
+            </div>
+            <div
+              className="bg-background/60 backdrop-blur px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-foreground text-xs sm:text-sm font-medium tabular-nums whitespace-nowrap"
+              title="Идеальное число ходов"
+            >
+              ★ {optimal}
+            </div>
+            <Button size="sm" variant="secondary" onClick={restart} className="h-7 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm">
+              Заново
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3 pointer-events-auto">
-          <div className="bg-background/60 backdrop-blur px-3 py-1.5 rounded-md text-foreground text-sm font-medium tabular-nums">
-            Ходы: {hops} / {limit}
-          </div>
-          <div
-            className="bg-background/60 backdrop-blur px-3 py-1.5 rounded-md text-foreground text-sm font-medium tabular-nums"
-            title="Идеальное число ходов"
+
+        {/* Навигация по уровням — отдельной строкой под HUD */}
+        <div className="mt-1.5 sm:mt-2 flex items-center justify-center gap-2 pointer-events-auto">
+          <Button size="sm" variant="ghost" onClick={prevLevel} disabled={levelIdx === 0} className="h-7 w-7 sm:h-9 sm:w-9 p-0 bg-background/40 backdrop-blur">
+            ←
+          </Button>
+          <span className="text-foreground text-xs sm:text-sm bg-background/60 backdrop-blur px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-md whitespace-nowrap">
+            Уровень {levelIdx + 1} / {levels.length}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => levelIdx < levels.length - 1 && setLevelIdx((i) => i + 1)}
+            disabled={levelIdx === levels.length - 1}
+            className="h-7 w-7 sm:h-9 sm:w-9 p-0 bg-background/40 backdrop-blur"
           >
-            ★ {optimal}
-          </div>
-          <Button size="sm" variant="secondary" onClick={restart}>
-            Заново
+            →
           </Button>
         </div>
       </header>
-
-      {/* Навигация по уровням */}
-      <div className="absolute top-16 left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-auto">
-        <Button size="sm" variant="ghost" onClick={prevLevel} disabled={levelIdx === 0}>
-          ←
-        </Button>
-        <span className="text-foreground text-sm bg-background/60 backdrop-blur px-3 py-1 rounded-md">
-          Уровень {levelIdx + 1} / {levels.length}
-        </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => levelIdx < levels.length - 1 && setLevelIdx((i) => i + 1)}
-          disabled={levelIdx === levels.length - 1}
-        >
-          →
-        </Button>
-      </div>
 
       {/* Подсказка управления (только для десктопа на первой загрузке) */}
       {status === "playing" && hops === 0 && levelIdx === 0 && (
