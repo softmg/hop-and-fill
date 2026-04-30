@@ -137,6 +137,7 @@ export class Player {
     const t0 = performance.now();
     const DURATION = 600;
     const tick = () => {
+      if (!this.body || (this.body as any).destroyed) return;
       const elapsed = performance.now() - t0;
       const t = Math.min(1, elapsed / DURATION);
       const x = startX + (endX - startX) * t;

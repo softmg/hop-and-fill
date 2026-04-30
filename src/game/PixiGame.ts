@@ -7,7 +7,7 @@ import { colors, type Palette } from "./theme";
 
 export interface GameCallbacks {
   onHopCount: (n: number) => void;
-  onWin: () => void;
+  onWin: (hops: number) => void;
   onLose: () => void;
 }
 
@@ -20,6 +20,7 @@ export class PixiGame {
   private input!: Input;
   private palette: Palette;
   private hops = 0;
+  private moveLimit: number | null = null;
   private state: "playing" | "won" | "lost" = "playing";
   private currentLevelData: LevelData;
   private hoveredTile: { gx: number; gy: number } | null = null;
@@ -147,6 +148,16 @@ export class PixiGame {
     this.layout();
   }
 
+  setLevel(data: LevelData) {
+    this.currentLevelData = data;
+    this.buildLevel(data);
+    this.layout();
+  }
+
+  setMoveLimit(limit: number | null) {
+    this.moveLimit = limit;
+  }
+
   private handleDir = (dir: Parameters<Input["emit"]>[0]) => {
     if (this.state !== "playing") return;
     if (this.player.isAnimating) return;
@@ -172,7 +183,12 @@ export class PixiGame {
       () => {
         if (this.level.isComplete()) {
           this.state = "won";
-          this.cb.onWin();
+          this.cb.onWin(this.hops);
+          return;
+        }
+        if (this.moveLimit !== null && this.hops >= this.moveLimit) {
+          this.state = "lost";
+          this.cb.onLose();
         }
       },
     );
