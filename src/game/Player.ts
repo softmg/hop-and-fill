@@ -67,8 +67,8 @@ export class Player {
     this.gx = gx;
     this.gy = gy;
     const { x, y } = gridToScreen(gx, gy);
-    // ставим в центр верхней грани плитки
-    this.container.position.set(x, y + TILE_H / 2);
+    // ставим в центр верхней грани плитки (gridToScreen уже даёт центр верха)
+    this.container.position.set(x, y);
     this.container.zIndex = isoZ(gx, gy, 50);
   }
 
