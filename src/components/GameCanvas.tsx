@@ -56,7 +56,7 @@ export const GameCanvas = () => {
       {/* Подсказка управления (только для десктопа на первой загрузке) */}
       {status === "playing" && hops === 0 && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-background/60 backdrop-blur px-4 py-2 rounded-md text-foreground text-sm text-center pointer-events-none">
-          Стрелки / WASD на ПК · свайп на телефоне
+          Мышь / стрелки / WASD на ПК · свайп на телефоне
         </div>
       )}
 
