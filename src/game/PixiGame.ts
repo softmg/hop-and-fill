@@ -1,8 +1,8 @@
-import { Application, Container, Graphics } from "pixi.js";
+import { Application, Container, Graphics, FederatedPointerEvent } from "pixi.js";
 import { Level, type LevelData } from "./Level";
 import { Player } from "./Player";
 import { Input } from "./Input";
-import { dirToDelta, gridToScreen, TILE_H } from "./iso";
+import { dirToDelta, gridToScreen, screenToGrid, TILE_H, type Dir } from "./iso";
 import { colors, type Palette } from "./theme";
 
 export interface GameCallbacks {
@@ -22,6 +22,7 @@ export class PixiGame {
   private hops = 0;
   private state: "playing" | "won" | "lost" = "playing";
   private currentLevelData: LevelData;
+  private hoveredTile: { gx: number; gy: number } | null = null;
 
   constructor(
     private host: HTMLDivElement,
@@ -48,8 +49,72 @@ export class PixiGame {
     this.buildLevel(levelData);
     this.input = new Input(host, this.handleDir);
     this.app.renderer.on("resize", this.layout);
+
+    // Мышь: hover + клик. Используем eventMode на stage.
+    this.app.stage.eventMode = "static";
+    this.app.stage.hitArea = this.app.screen;
+    this.app.stage.on("pointermove", this.onPointerMove);
+    this.app.stage.on("pointerdown", this.onPointerDown);
+    this.app.stage.on("pointerleave", this.onPointerLeave);
+
     this.layout();
   }
+
+  private screenPointToGrid(globalX: number, globalY: number) {
+    // Переводим из stage-координат в world-координаты
+    const local = this.world.toLocal({ x: globalX, y: globalY });
+    const { gx, gy } = screenToGrid(local.x, local.y);
+    return { gx: Math.round(gx), gy: Math.round(gy) };
+  }
+
+  // Возвращает направление, если (gx, gy) — соседняя плитка по изо-оси, иначе null
+  private dirToNeighbor(gx: number, gy: number): Dir | null {
+    const dx = gx - this.player.gx;
+    const dy = gy - this.player.gy;
+    if (dx === -1 && dy === -1) return "NW";
+    if (dx === 1 && dy === 1) return "SE";
+    if (dx === 1 && dy === -1) return "NE";
+    if (dx === -1 && dy === 1) return "SW";
+    return null;
+  }
+
+  private setHover(target: { gx: number; gy: number } | null) {
+    if (this.hoveredTile && (!target || this.hoveredTile.gx !== target.gx || this.hoveredTile.gy !== target.gy)) {
+      const prev = this.level.get(this.hoveredTile.gx, this.hoveredTile.gy);
+      prev?.setHovered(false);
+      this.hoveredTile = null;
+      this.host.style.cursor = "default";
+    }
+    if (target) {
+      const t = this.level.get(target.gx, target.gy);
+      if (!t) return;
+      const dir = this.dirToNeighbor(target.gx, target.gy);
+      if (!dir) return;
+      t.setHovered(true);
+      this.hoveredTile = target;
+      this.host.style.cursor = "pointer";
+    }
+  }
+
+  private onPointerMove = (e: FederatedPointerEvent) => {
+    if (this.state !== "playing" || this.player.isAnimating) {
+      this.setHover(null);
+      return;
+    }
+    const { gx, gy } = this.screenPointToGrid(e.global.x, e.global.y);
+    this.setHover({ gx, gy });
+  };
+
+  private onPointerLeave = () => {
+    this.setHover(null);
+  };
+
+  private onPointerDown = (e: FederatedPointerEvent) => {
+    if (this.state !== "playing" || this.player.isAnimating) return;
+    const { gx, gy } = this.screenPointToGrid(e.global.x, e.global.y);
+    const dir = this.dirToNeighbor(gx, gy);
+    if (dir) this.handleDir(dir);
+  };
 
   triggerDir(d: Parameters<Input["emit"]>[0]) {
     this.input.emit(d);
@@ -58,6 +123,7 @@ export class PixiGame {
   private buildLevel(data: LevelData) {
     // очистка
     this.world.removeChildren();
+    this.hoveredTile = null;
     this.level = new Level(data, this.palette);
     this.world.addChild(this.level.container);
 
@@ -80,6 +146,8 @@ export class PixiGame {
   private handleDir = (dir: Parameters<Input["emit"]>[0]) => {
     if (this.state !== "playing") return;
     if (this.player.isAnimating) return;
+    // Сбрасываем hover, чтобы курсор не "прилипал" к старой плитке
+    this.setHover(null);
     const { dx, dy } = dirToDelta(dir);
     const tx = this.player.gx + dx;
     const ty = this.player.gy + dy;

@@ -9,8 +9,10 @@ export class Tile {
   private top: Graphics;
   private left: Graphics;
   private right: Graphics;
+  private highlight: Graphics;
   state: TileState = "unpainted";
   isStart: boolean;
+  private hovered = false;
 
   constructor(
     public gx: number,
@@ -23,13 +25,36 @@ export class Tile {
     this.top = new Graphics();
     this.left = new Graphics();
     this.right = new Graphics();
-    this.container.addChild(this.left, this.right, this.top);
+    this.highlight = new Graphics();
+    this.highlight.visible = false;
+    this.container.addChild(this.left, this.right, this.top, this.highlight);
 
     const { x, y } = gridToScreen(gx, gy);
     this.container.position.set(x, y);
     this.container.zIndex = isoZ(gx, gy, 0);
 
     this.draw();
+    this.drawHighlight();
+  }
+
+  setHovered(on: boolean) {
+    if (this.hovered === on) return;
+    this.hovered = on;
+    this.highlight.visible = on;
+  }
+
+  private drawHighlight() {
+    const hw = TILE_W / 2;
+    const hh = TILE_H / 2;
+    this.highlight.clear();
+    this.highlight.lineStyle({ width: 3, color: 0xffffff, alpha: 0.95 });
+    this.highlight.beginFill(0xffffff, 0.18);
+    this.highlight.moveTo(0, 0);
+    this.highlight.lineTo(hw, hh);
+    this.highlight.lineTo(0, TILE_H);
+    this.highlight.lineTo(-hw, hh);
+    this.highlight.closePath();
+    this.highlight.endFill();
   }
 
   paint() {
