@@ -278,10 +278,12 @@ export class PixiGame {
     const scale = Math.min(maxScale, Math.min(scaleX, scaleY));
     this.world.scale.set(scale);
 
-    // Центрируем
+    // Центрируем по горизонтали; по вертикали — в доступной области
+    // (между HUD сверху и нижним отступом).
+    const availY = (padTop + (h - padBottom)) / 2;
     this.world.position.set(
       w / 2 - bounds.cx * scale,
-      h / 2 - bounds.cy * scale,
+      availY - bounds.cy * scale,
     );
   };
 
