@@ -80,8 +80,8 @@ export class Player {
 
     const startScreen = gridToScreen(this.gx, this.gy);
     const endScreen = gridToScreen(targetGx, targetGy);
-    const startY = startScreen.y + TILE_H / 2;
-    const endY = endScreen.y + TILE_H / 2;
+    const startY = startScreen.y;
+    const endY = endScreen.y;
     const startX = startScreen.x;
     const endX = endScreen.x;
 
