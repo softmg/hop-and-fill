@@ -26,6 +26,8 @@ export class PixiGame {
   private hoveredTile: { gx: number; gy: number } | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private lastSize: { w: number; h: number } = { w: 0, h: 0 };
+  private pendingSize: { w: number; h: number } | null = null;
+  private resizeRafId: number | null = null;
 
   constructor(
     private host: HTMLDivElement,
@@ -72,11 +74,22 @@ export class PixiGame {
         const { width, height } = entry.contentRect;
         const w = Math.round(width);
         const h = Math.round(height);
-        if (w === this.lastSize.w && h === this.lastSize.h) return;
         if (w === 0 || h === 0) return;
-        this.lastSize = { w, h };
-        this.app.resize();
-        this.layout();
+        if (w === this.lastSize.w && h === this.lastSize.h) return;
+        // Throttle через rAF: коалесцируем серию событий ресайза
+        // в один вызов на кадр (≈60fps), сохраняя только последний размер.
+        this.pendingSize = { w, h };
+        if (this.resizeRafId !== null) return;
+        this.resizeRafId = requestAnimationFrame(() => {
+          this.resizeRafId = null;
+          const size = this.pendingSize;
+          this.pendingSize = null;
+          if (!size) return;
+          if (size.w === this.lastSize.w && size.h === this.lastSize.h) return;
+          this.lastSize = size;
+          this.app.resize();
+          this.layout();
+        });
       });
       this.resizeObserver.observe(host);
     }
@@ -265,6 +278,11 @@ export class PixiGame {
     this.input.destroy();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    if (this.resizeRafId !== null) {
+      cancelAnimationFrame(this.resizeRafId);
+      this.resizeRafId = null;
+    }
+    this.pendingSize = null;
     this.app.destroy(true, { children: true });
   }
 }
