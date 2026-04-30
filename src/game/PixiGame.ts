@@ -228,11 +228,7 @@ export class PixiGame {
     const ty = this.player.gy + dy;
     const target = this.level.get(tx, ty);
     if (!target) {
-      // прыжок в пустоту — проигрыш
-      this.state = "lost";
-      this.player.fall(tx, ty, () => {
-        this.cb.onLose();
-      });
+      // За пределы поля ходить нельзя — игнорируем ход без штрафа
       return;
     }
     this.hops++;
