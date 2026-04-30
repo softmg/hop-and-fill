@@ -4,6 +4,7 @@ import { levels } from "@/game/levels";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
 import { ysdkReady } from "@/sdk/yandex";
 import { Button } from "@/components/ui/button";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
 import type { Dir } from "@/game/iso";
 
 const Star = ({ filled }: { filled: boolean }) => (
@@ -77,6 +78,10 @@ export const GameCanvas = () => {
   return (
     <div className="relative w-full h-full overflow-hidden touch-none select-none">
       <div ref={hostRef} className="absolute inset-0" />
+
+      {/* Интерактивный туториал — только для первого уровня и пока игрок не пройдёт его */}
+      <TutorialOverlay levelIdx={levelIdx} hops={hops} />
+
 
       {/* HUD */}
       <header className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 pointer-events-none">
