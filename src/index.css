@@ -122,3 +122,34 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* === Tutorial animations === */
+@keyframes tutorial-arrow-pulse {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.85;
+    filter: drop-shadow(0 0 6px hsl(var(--tile-start-top) / 0.6));
+  }
+  50% {
+    transform: translate(12px, 12px) scale(1.15);
+    opacity: 1;
+    filter: drop-shadow(0 0 14px hsl(var(--tile-start-top) / 0.9));
+  }
+}
+
+.tutorial-arrow-pulse {
+  animation: tutorial-arrow-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tutorial-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsl(var(--tile-start-top) / 0.6);
+  }
+  50% {
+    box-shadow: 0 0 24px 4px hsl(var(--tile-start-top) / 0.7);
+  }
+}
+
+.tutorial-glow {
+  animation: tutorial-glow 1.6s ease-in-out infinite;
+}
