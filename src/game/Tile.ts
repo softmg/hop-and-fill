@@ -1,14 +1,23 @@
-import { Container, Graphics } from "pixi.js";
-import { TILE_W, TILE_H, TILE_DEPTH, gridToScreen, isoZ } from "./iso";
+import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { TILE_W, TILE_H, gridToScreen, isoZ } from "./iso";
 import type { Palette } from "./theme";
+import tileUnpaintedUrl from "@/assets/tile-unpainted.png";
+import tilePaintedUrl from "@/assets/tile-painted.png";
 
 export type TileState = "unpainted" | "painted";
 
+// Кэш текстур, чтобы не грузить на каждую плитку
+let _texUnpainted: Texture | null = null;
+let _texPainted: Texture | null = null;
+function getTextures() {
+  if (!_texUnpainted) _texUnpainted = Texture.from(tileUnpaintedUrl);
+  if (!_texPainted) _texPainted = Texture.from(tilePaintedUrl);
+  return { unpainted: _texUnpainted, painted: _texPainted };
+}
+
 export class Tile {
   readonly container: Container;
-  private top: Graphics;
-  private left: Graphics;
-  private right: Graphics;
+  private sprite: Sprite;
   private highlight: Graphics;
   state: TileState = "unpainted";
   isStart: boolean;
@@ -22,19 +31,29 @@ export class Tile {
   ) {
     this.isStart = isStart;
     this.container = new Container();
-    this.top = new Graphics();
-    this.left = new Graphics();
-    this.right = new Graphics();
+
+    const { unpainted } = getTextures();
+    this.sprite = new Sprite(unpainted);
+    // Спрайт центрируем по горизонтали; по вертикали — так, чтобы верхняя
+    // грань "клая" попадала в ромб плитки (origin = верхний угол ромба).
+    this.sprite.anchor.set(0.5, 0.18);
+    // Подгоняем размер: ширина ≈ ромбу плитки + немного для плотной укладки
+    const targetW = TILE_W * 1.18;
+    this.sprite.width = targetW;
+    this.sprite.scale.y = this.sprite.scale.x; // сохраняем пропорции
+
     this.highlight = new Graphics();
     this.highlight.visible = false;
-    this.container.addChild(this.left, this.right, this.top, this.highlight);
+    this.drawHighlight();
+
+    // Контейнер: центр верхнего ромба находится в (0, TILE_H/2)
+    this.container.addChild(this.sprite, this.highlight);
+    // Сдвигаем спрайт так, чтобы его «верх» лёг на верх плитки
+    this.sprite.position.set(0, TILE_H / 2);
 
     const { x, y } = gridToScreen(gx, gy);
     this.container.position.set(x, y);
     this.container.zIndex = isoZ(gx, gy, 0);
-
-    this.draw();
-    this.drawHighlight();
   }
 
   setHovered(on: boolean) {
@@ -60,60 +79,12 @@ export class Tile {
   paint() {
     if (this.state === "painted") return false;
     this.state = "painted";
-    this.draw();
+    this.sprite.texture = getTextures().painted;
     return true;
   }
 
   reset() {
     this.state = "unpainted";
-    this.draw();
-  }
-
-  private draw() {
-    const p = this.palette;
-    const useStart = this.isStart && this.state === "unpainted";
-    const topColor = useStart ? p.tileStartTop
-      : this.state === "painted" ? p.tilePaintedTop : p.tileUnpaintedTop;
-    const leftColor = useStart ? p.tileStartLeft
-      : this.state === "painted" ? p.tilePaintedLeft : p.tileUnpaintedLeft;
-    const rightColor = useStart ? p.tileStartRight
-      : this.state === "painted" ? p.tilePaintedRight : p.tileUnpaintedRight;
-
-    const hw = TILE_W / 2;
-    const hh = TILE_H / 2;
-    const d = TILE_DEPTH;
-
-    // Top diamond (центр спрайта = верхний центр ромба верхней грани)
-    this.top.clear();
-    this.top.lineStyle({ width: 1, color: p.tileEdge, alpha: 0.35 });
-    this.top.beginFill(topColor);
-    this.top.moveTo(0, 0);
-    this.top.lineTo(hw, hh);
-    this.top.lineTo(0, TILE_H);
-    this.top.lineTo(-hw, hh);
-    this.top.closePath();
-    this.top.endFill();
-
-    // Левая боковая грань (от нижней-левой вершины ромба вниз)
-    this.left.clear();
-    this.left.lineStyle({ width: 1, color: p.tileEdge, alpha: 0.4 });
-    this.left.beginFill(leftColor);
-    this.left.moveTo(-hw, hh);
-    this.left.lineTo(0, TILE_H);
-    this.left.lineTo(0, TILE_H + d);
-    this.left.lineTo(-hw, hh + d);
-    this.left.closePath();
-    this.left.endFill();
-
-    // Правая боковая грань
-    this.right.clear();
-    this.right.lineStyle({ width: 1, color: p.tileEdge, alpha: 0.4 });
-    this.right.beginFill(rightColor);
-    this.right.moveTo(hw, hh);
-    this.right.lineTo(0, TILE_H);
-    this.right.lineTo(0, TILE_H + d);
-    this.right.lineTo(hw, hh + d);
-    this.right.closePath();
-    this.right.endFill();
+    this.sprite.texture = getTextures().unpainted;
   }
 }
