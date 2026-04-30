@@ -54,7 +54,7 @@ export class PixiGame {
     this.world.sortableChildren = true;
     this.app.stage.addChild(this.bg, this.world);
 
-    this.preloadAndBuild(levelData);
+    this.preloadAndBuild();
     this.input = new Input(host, this.handleDir);
     this.app.renderer.on("resize", this.layout);
 
@@ -95,13 +95,13 @@ export class PixiGame {
     }
   }
 
-  private async preloadAndBuild(levelData: LevelData) {
+  private async preloadAndBuild() {
     // На первой загрузке Pixi может создать спрайты до готовности PNG-текстур,
     // из-за чего часть плиток появляется только после restart. Ждём ассеты явно.
     await Promise.all([preloadTileTextures(), preloadPlayerTexture()]);
     if (this.destroyed) return;
     this.ready = true;
-    this.buildLevel(levelData);
+    this.buildLevel(this.currentLevelData);
     this.queueLayout();
   }
 
