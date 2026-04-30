@@ -117,6 +117,7 @@ export class Player {
       if (t < 1) {
         requestAnimationFrame(tick);
       } else {
+        this.body.y = 0;
         this.body.scale.set(1, 1);
         onLand();
         // микро-сжатие при посадке
