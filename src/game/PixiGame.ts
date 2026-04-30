@@ -20,6 +20,7 @@ export class PixiGame {
   private input!: Input;
   private palette: Palette;
   private hops = 0;
+  private moveLimit: number | null = null;
   private state: "playing" | "won" | "lost" = "playing";
   private currentLevelData: LevelData;
   private hoveredTile: { gx: number; gy: number } | null = null;
