@@ -29,12 +29,15 @@ export class Player {
     this.drawShadow();
 
     this.body = new Sprite(getPlayerTexture());
-    // Якорь: горизонтально по центру, по вертикали — у "ног" персонажа
     this.body.anchor.set(0.5, 0.92);
-    // Размер: чуть меньше плитки по ширине
     const targetW = TILE_W * 0.92;
-    this.body.width = targetW;
-    this.body.scale.y = this.body.scale.x;
+    const applySize = () => {
+      const w = this.body.texture.width || 1;
+      const s = targetW / w;
+      this.body.scale.set(s, s);
+    };
+    if (this.body.texture.baseTexture.valid) applySize();
+    else this.body.texture.baseTexture.once("loaded", applySize);
 
     this.container.addChild(this.shadow, this.body);
     this.snapTo(gx, gy);

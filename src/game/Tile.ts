@@ -6,6 +6,21 @@ import tilePaintedUrl from "@/assets/tile-painted.png";
 
 export type TileState = "unpainted" | "painted";
 
+// Подгоняет ширину спрайта, сохраняя пропорции, даже если текстура
+// ещё не загружена (Texture.from асинхронный).
+function fitSpriteWidth(sprite: Sprite, targetW: number) {
+  const apply = () => {
+    const w = sprite.texture.width || 1;
+    const s = targetW / w;
+    sprite.scale.set(s, s);
+  };
+  if (sprite.texture.baseTexture.valid) {
+    apply();
+  } else {
+    sprite.texture.baseTexture.once("loaded", apply);
+  }
+}
+
 // Кэш текстур, чтобы не грузить на каждую плитку
 let _texUnpainted: Texture | null = null;
 let _texPainted: Texture | null = null;
@@ -34,13 +49,8 @@ export class Tile {
 
     const { unpainted } = getTextures();
     this.sprite = new Sprite(unpainted);
-    // Спрайт центрируем по горизонтали; по вертикали — так, чтобы верхняя
-    // грань "клая" попадала в ромб плитки (origin = верхний угол ромба).
     this.sprite.anchor.set(0.5, 0.18);
-    // Подгоняем размер: ширина ≈ ромбу плитки + немного для плотной укладки
-    const targetW = TILE_W * 1.18;
-    this.sprite.width = targetW;
-    this.sprite.scale.y = this.sprite.scale.x; // сохраняем пропорции
+    fitSpriteWidth(this.sprite, TILE_W * 1.18);
 
     this.highlight = new Graphics();
     this.highlight.visible = false;
