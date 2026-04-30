@@ -83,6 +83,7 @@ export class Player {
     this.gy = targetGy;
 
     const tick = () => {
+      if (!this.body || (this.body as any).destroyed) return;
       const elapsed = performance.now() - t0;
       const t = Math.min(1, elapsed / HOP_DURATION);
       const x = startX + (endX - startX) * t;
@@ -107,6 +108,7 @@ export class Player {
         onLand();
         const t1 = performance.now();
         const settle = () => {
+          if (!this.body || (this.body as any).destroyed) return;
           const e = (performance.now() - t1) / 140;
           if (e >= 1) {
             this.body.scale.set(baseScaleX, baseScaleY);
