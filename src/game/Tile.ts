@@ -49,8 +49,15 @@ export class Tile {
 
     const { unpainted } = getTextures();
     this.sprite = new Sprite(unpainted);
-    this.sprite.anchor.set(0.5, 0.18);
-    fitSpriteWidth(this.sprite, TILE_W * 1.18);
+    // Центр верхнего ромба плитки на исходной картинке (1262x1262) находится
+    // примерно в (0.5, 0.424). Используем это как anchor — тогда позиция
+    // спрайта совпадает с центром верхней грани в мировых координатах.
+    this.sprite.anchor.set(0.5, 0.424);
+    // Видимая ширина ромба спрайта ≈ 1090/1262 от полной ширины.
+    // Чтобы шаг сетки TILE_W соответствовал ромбу с небольшим зазором,
+    // делаем спрайт чуть уже сетки.
+    const SPRITE_W = TILE_W * (1262 / 1090) * 0.92; // ~0.92 → воздух между плитками
+    fitSpriteWidth(this.sprite, SPRITE_W);
 
     this.highlight = new Graphics();
     this.highlight.visible = false;
@@ -58,7 +65,6 @@ export class Tile {
 
     // Контейнер: центр верхнего ромба находится в (0, TILE_H/2)
     this.container.addChild(this.sprite, this.highlight);
-    // Сдвигаем спрайт так, чтобы его «верх» лёг на верх плитки
     this.sprite.position.set(0, TILE_H / 2);
 
     const { x, y } = gridToScreen(gx, gy);
