@@ -1,9 +1,12 @@
 // Изометрическая проекция: grid (gx, gy) -> экран (screenX, screenY)
 // Используем классический "diamond" iso со соотношением 2:1.
 
-export const TILE_W = 112; // ширина ромба верхней грани (шаг сетки)
-export const TILE_H = 56;  // высота ромба верхней грани (шаг сетки)
-export const TILE_DEPTH = 28; // высота "куба" плитки
+// Соотношение TILE_H/TILE_W подобрано под пропорции верхнего ромба
+// у спрайта плитки (≈ 765/1090 ≈ 0.70), чтобы плитки стыковались
+// без ступенек по высоте.
+export const TILE_W = 112;
+export const TILE_H = 78; // 112 * 0.70
+export const TILE_DEPTH = 28;
 
 export function gridToScreen(gx: number, gy: number) {
   const x = (gx - gy) * (TILE_W / 2);
