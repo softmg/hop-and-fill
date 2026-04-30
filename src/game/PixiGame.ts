@@ -159,7 +159,7 @@ export class PixiGame {
   }
 
   private onPointerMove = (e: FederatedPointerEvent) => {
-    if (this.state !== "playing" || this.player.isAnimating) {
+    if (!this.ready || this.state !== "playing" || this.player.isAnimating) {
       this.setHover(null);
       return;
     }
@@ -172,7 +172,7 @@ export class PixiGame {
   };
 
   private onPointerDown = (e: FederatedPointerEvent) => {
-    if (this.state !== "playing" || this.player.isAnimating) return;
+    if (!this.ready || this.state !== "playing" || this.player.isAnimating) return;
     const { gx, gy } = this.screenPointToGrid(e.global.x, e.global.y);
     const dir = this.dirToNeighbor(gx, gy);
     if (dir) this.handleDir(dir);
@@ -218,6 +218,7 @@ export class PixiGame {
   }
 
   private handleDir = (dir: Parameters<Input["emit"]>[0]) => {
+    if (!this.ready) return;
     if (this.state !== "playing") return;
     if (this.player.isAnimating) return;
     // Сбрасываем hover, чтобы курсор не "прилипал" к старой плитке
