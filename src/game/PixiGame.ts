@@ -208,13 +208,13 @@ export class PixiGame {
 
   private computeLevelBounds() {
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const halfW = TILE_H; // запас по ширине под выпуклые края спрайта
     for (const t of this.level.tiles.values()) {
       const { x, y } = gridToScreen(t.gx, t.gy);
-      // верх плитки
-      if (x - 48 < minX) minX = x - 48;
-      if (x + 48 > maxX) maxX = x + 48;
-      if (y - 4 < minY) minY = y - 4;
-      if (y + TILE_H + 28 > maxY) maxY = y + TILE_H + 28;
+      if (x - TILE_H * 1.2 < minX) minX = x - TILE_H * 1.2;
+      if (x + TILE_H * 1.2 > maxX) maxX = x + TILE_H * 1.2;
+      if (y - TILE_H * 0.4 < minY) minY = y - TILE_H * 0.4;
+      if (y + TILE_H * 1.6 > maxY) maxY = y + TILE_H * 1.6;
     }
     return {
       width: maxX - minX,
