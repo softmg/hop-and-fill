@@ -67,7 +67,7 @@ export class PixiGame {
     return { gx: Math.round(gx), gy: Math.round(gy) };
   }
 
-  // Возвращает направление, если (gx, gy) — соседняя плитка по изо-оси, иначе null
+  // Возвращает направление, если (gx, gy) — одна из 8 соседних плиток, иначе null
   private dirToNeighbor(gx: number, gy: number): Dir | null {
     const dx = gx - this.player.gx;
     const dy = gy - this.player.gy;
@@ -75,6 +75,10 @@ export class PixiGame {
     if (dx === 1 && dy === 1) return "SE";
     if (dx === 1 && dy === -1) return "NE";
     if (dx === -1 && dy === 1) return "SW";
+    if (dx === 0 && dy === -1) return "N";
+    if (dx === 1 && dy === 0) return "E";
+    if (dx === 0 && dy === 1) return "S";
+    if (dx === -1 && dy === 0) return "W";
     return null;
   }
 
