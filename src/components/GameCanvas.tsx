@@ -88,7 +88,7 @@ export const GameCanvas = () => {
         <div className="flex items-center justify-between gap-2">
           <div className="pointer-events-auto flex items-baseline gap-1.5 min-w-0">
             <h1 className="text-foreground text-base sm:text-lg font-bold drop-shadow truncate">
-              Pogo Paint
+              Hop &amp; Fill
             </h1>
             <span className="hidden sm:inline text-muted-foreground text-sm truncate">
               · {currentLevel.name}
