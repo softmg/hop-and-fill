@@ -100,7 +100,10 @@ export class Player {
       const x = startX + (endX - startX) * ease;
       const y = startY + (endY - startY) * ease;
       const arc = -Math.sin(t * Math.PI) * HOP_HEIGHT;
-      this.container.position.set(x, y + arc);
+      // Контейнер следует по земле (без арки) — тень всегда под целевой клеткой по траектории
+      this.container.position.set(x, y);
+      // Тело прыгает вверх отдельно, тень остаётся на земле (y=0 в локальных координатах)
+      this.body.y = arc;
 
       // squash на старте/приземлении
       const sq = 1 + Math.sin(t * Math.PI) * 0.1;
@@ -114,6 +117,7 @@ export class Player {
       if (t < 1) {
         requestAnimationFrame(tick);
       } else {
+        this.body.y = 0;
         this.body.scale.set(1, 1);
         onLand();
         // микро-сжатие при посадке
