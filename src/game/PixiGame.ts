@@ -59,6 +59,18 @@ export class PixiGame {
     this.app.stage.on("pointerleave", this.onPointerLeave);
 
     this.layout();
+    // Хост может ещё не иметь финальный размер на момент конструктора
+    // (особенно при первой загрузке). Перепроверяем размер в следующих кадрах.
+    requestAnimationFrame(() => {
+      this.app.resize();
+      this.layout();
+    });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.app.resize();
+        this.layout();
+      });
+    });
   }
 
   private screenPointToGrid(globalX: number, globalY: number) {
