@@ -264,12 +264,18 @@ export class PixiGame {
     this.bg.drawRect(0, h * 0.55, w, h * 0.45);
     this.bg.endFill();
 
-    // Подгоняем масштаб мира, чтобы level помещался с отступом
+    // Подгоняем масштаб мира, чтобы level помещался с отступом.
+    // На узких экранах (мобильные) уменьшаем горизонтальный отступ
+    // и резервируем больше места сверху под HUD/навигацию.
     const bounds = this.computeLevelBounds();
-    const padding = 80;
-    const scaleX = (w - padding * 2) / bounds.width;
-    const scaleY = (h - padding * 2) / bounds.height;
-    const scale = Math.min(1.1, Math.min(scaleX, scaleY));
+    const isMobile = w < 640;
+    const padX = isMobile ? 12 : 80;
+    const padTop = isMobile ? 140 : 100;
+    const padBottom = isMobile ? 80 : 80;
+    const scaleX = (w - padX * 2) / bounds.width;
+    const scaleY = (h - padTop - padBottom) / bounds.height;
+    const maxScale = isMobile ? 1.6 : 1.1;
+    const scale = Math.min(maxScale, Math.min(scaleX, scaleY));
     this.world.scale.set(scale);
 
     // Центрируем
