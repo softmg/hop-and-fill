@@ -7,7 +7,7 @@ import { colors, type Palette } from "./theme";
 
 export interface GameCallbacks {
   onHopCount: (n: number) => void;
-  onWin: () => void;
+  onWin: (hops: number) => void;
   onLose: () => void;
 }
 
@@ -172,7 +172,7 @@ export class PixiGame {
       () => {
         if (this.level.isComplete()) {
           this.state = "won";
-          this.cb.onWin();
+          this.cb.onWin(this.hops);
         }
       },
     );
