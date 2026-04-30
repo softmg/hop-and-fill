@@ -146,7 +146,7 @@ export class Player {
     this.animating = true;
     const startScreen = gridToScreen(this.gx, this.gy);
     const endScreen = gridToScreen(targetGx, targetGy);
-    const startY = startScreen.y + TILE_H / 2;
+    const startY = startScreen.y;
     const startX = startScreen.x;
     const endX = endScreen.x;
     const t0 = performance.now();
