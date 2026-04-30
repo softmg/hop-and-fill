@@ -123,6 +123,7 @@ export class PixiGame {
   private buildLevel(data: LevelData) {
     // очистка
     this.world.removeChildren();
+    this.hoveredTile = null;
     this.level = new Level(data, this.palette);
     this.world.addChild(this.level.container);
 
@@ -145,6 +146,8 @@ export class PixiGame {
   private handleDir = (dir: Parameters<Input["emit"]>[0]) => {
     if (this.state !== "playing") return;
     if (this.player.isAnimating) return;
+    // Сбрасываем hover, чтобы курсор не "прилипал" к старой плитке
+    this.setHover(null);
     const { dx, dy } = dirToDelta(dir);
     const tx = this.player.gx + dx;
     const ty = this.player.gy + dy;
