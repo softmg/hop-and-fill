@@ -1,13 +1,16 @@
 import type { LevelData } from "../Level";
 
-// 5x5 в форме плюса с центральной стартовой плиткой
+// 8x8 поле, старт в центре
 export const level1: LevelData = {
   name: "Уровень 1",
   rows: [
-    ".XXX.",
-    "XXXXX",
-    "XXSXX",
-    "XXXXX",
-    ".XXX.",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    "XXXSXXXX",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    "XXXXXXXX",
+    "XXXXXXXX",
   ],
 };
