@@ -33,7 +33,7 @@ export class Player {
   private drawShadow() {
     this.shadow.clear();
     this.shadow.beginFill(this.palette.playerShadow, 0.35);
-    this.shadow.drawEllipse(0, TILE_H / 2 - 2, TILE_W * 0.28, TILE_H * 0.28);
+    this.shadow.drawEllipse(0, 0, TILE_W * 0.28, TILE_H * 0.28);
     this.shadow.endFill();
   }
 
