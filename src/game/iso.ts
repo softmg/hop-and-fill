@@ -1,8 +1,8 @@
 // Изометрическая проекция: grid (gx, gy) -> экран (screenX, screenY)
 // Используем классический "diamond" iso со соотношением 2:1.
 
-export const TILE_W = 96; // ширина ромба
-export const TILE_H = 48; // высота ромба
+export const TILE_W = 112; // ширина ромба верхней грани (шаг сетки)
+export const TILE_H = 56;  // высота ромба верхней грани (шаг сетки)
 export const TILE_DEPTH = 28; // высота "куба" плитки
 
 export function gridToScreen(gx: number, gy: number) {
