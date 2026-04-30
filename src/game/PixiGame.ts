@@ -24,6 +24,8 @@ export class PixiGame {
   private state: "playing" | "won" | "lost" = "playing";
   private currentLevelData: LevelData;
   private hoveredTile: { gx: number; gy: number } | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+  private lastSize: { w: number; h: number } = { w: 0, h: 0 };
 
   constructor(
     private host: HTMLDivElement,
@@ -59,18 +61,25 @@ export class PixiGame {
     this.app.stage.on("pointerleave", this.onPointerLeave);
 
     this.layout();
-    // Хост может ещё не иметь финальный размер на момент конструктора
-    // (особенно при первой загрузке). Перепроверяем размер в следующих кадрах.
-    requestAnimationFrame(() => {
-      this.app.resize();
-      this.layout();
-    });
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+
+    // Следим за реальным изменением размера контейнера и вызываем
+    // app.resize() + layout() только когда размеры действительно поменялись.
+    // Это решает проблему первой загрузки, когда host ещё не имеет финального размера.
+    if (typeof ResizeObserver !== "undefined") {
+      this.resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        const { width, height } = entry.contentRect;
+        const w = Math.round(width);
+        const h = Math.round(height);
+        if (w === this.lastSize.w && h === this.lastSize.h) return;
+        if (w === 0 || h === 0) return;
+        this.lastSize = { w, h };
         this.app.resize();
         this.layout();
       });
-    });
+      this.resizeObserver.observe(host);
+    }
   }
 
   private screenPointToGrid(globalX: number, globalY: number) {
@@ -254,6 +263,8 @@ export class PixiGame {
 
   destroy() {
     this.input.destroy();
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this.app.destroy(true, { children: true });
   }
 }
