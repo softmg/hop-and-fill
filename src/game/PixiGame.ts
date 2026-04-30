@@ -1,6 +1,7 @@
 import { Application, Container, Graphics, FederatedPointerEvent } from "pixi.js";
 import { Level, type LevelData } from "./Level";
-import { Player } from "./Player";
+import { Player, preloadPlayerTexture } from "./Player";
+import { preloadTileTextures } from "./Tile";
 import { Input } from "./Input";
 import { dirToDelta, gridToScreen, screenToGrid, TILE_H, type Dir } from "./iso";
 import { colors, type Palette } from "./theme";
@@ -28,6 +29,8 @@ export class PixiGame {
   private lastSize: { w: number; h: number } = { w: 0, h: 0 };
   private pendingSize: { w: number; h: number } | null = null;
   private resizeRafId: number | null = null;
+  private ready = false;
+  private destroyed = false;
 
   constructor(
     private host: HTMLDivElement,
@@ -51,7 +54,7 @@ export class PixiGame {
     this.world.sortableChildren = true;
     this.app.stage.addChild(this.bg, this.world);
 
-    this.buildLevel(levelData);
+    this.preloadAndBuild();
     this.input = new Input(host, this.handleDir);
     this.app.renderer.on("resize", this.layout);
 
@@ -61,9 +64,6 @@ export class PixiGame {
     this.app.stage.on("pointermove", this.onPointerMove);
     this.app.stage.on("pointerdown", this.onPointerDown);
     this.app.stage.on("pointerleave", this.onPointerLeave);
-
-    this.layout();
-
     // Следим за реальным изменением размера контейнера и вызываем
     // app.resize() + layout() только когда размеры действительно поменялись.
     // Это решает проблему первой загрузки, когда host ещё не имеет финального размера.
@@ -93,6 +93,29 @@ export class PixiGame {
       });
       this.resizeObserver.observe(host);
     }
+  }
+
+  private async preloadAndBuild() {
+    // На первой загрузке Pixi может создать спрайты до готовности PNG-текстур,
+    // из-за чего часть плиток появляется только после restart. Ждём ассеты явно.
+    await Promise.all([preloadTileTextures(), preloadPlayerTexture()]);
+    if (this.destroyed) return;
+    this.ready = true;
+    this.buildLevel(this.currentLevelData);
+    this.queueLayout();
+  }
+
+  private queueLayout() {
+    if (this.resizeRafId !== null) return;
+    this.resizeRafId = requestAnimationFrame(() => {
+      this.resizeRafId = null;
+      if (!this.ready || this.destroyed) return;
+      this.app.resize();
+      const w = Math.round(this.host.clientWidth);
+      const h = Math.round(this.host.clientHeight);
+      if (w > 0 && h > 0) this.lastSize = { w, h };
+      this.layout();
+    });
   }
 
   private screenPointToGrid(globalX: number, globalY: number) {
@@ -136,7 +159,7 @@ export class PixiGame {
   }
 
   private onPointerMove = (e: FederatedPointerEvent) => {
-    if (this.state !== "playing" || this.player.isAnimating) {
+    if (!this.ready || this.state !== "playing" || this.player.isAnimating) {
       this.setHover(null);
       return;
     }
@@ -149,7 +172,7 @@ export class PixiGame {
   };
 
   private onPointerDown = (e: FederatedPointerEvent) => {
-    if (this.state !== "playing" || this.player.isAnimating) return;
+    if (!this.ready || this.state !== "playing" || this.player.isAnimating) return;
     const { gx, gy } = this.screenPointToGrid(e.global.x, e.global.y);
     const dir = this.dirToNeighbor(gx, gy);
     if (dir) this.handleDir(dir);
@@ -178,12 +201,14 @@ export class PixiGame {
   }
 
   reset() {
+    if (!this.ready) return;
     this.buildLevel(this.currentLevelData);
     this.layout();
   }
 
   setLevel(data: LevelData) {
     this.currentLevelData = data;
+    if (!this.ready) return;
     this.buildLevel(data);
     this.layout();
   }
@@ -193,6 +218,7 @@ export class PixiGame {
   }
 
   private handleDir = (dir: Parameters<Input["emit"]>[0]) => {
+    if (!this.ready) return;
     if (this.state !== "playing") return;
     if (this.player.isAnimating) return;
     // Сбрасываем hover, чтобы курсор не "прилипал" к старой плитке
@@ -229,6 +255,7 @@ export class PixiGame {
   };
 
   private layout = () => {
+    if (!this.ready || !this.level) return;
     const w = this.app.renderer.width / this.app.renderer.resolution;
     const h = this.app.renderer.height / this.app.renderer.resolution;
 
@@ -275,6 +302,7 @@ export class PixiGame {
   }
 
   destroy() {
+    this.destroyed = true;
     this.input.destroy();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;

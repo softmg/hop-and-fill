@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { TILE_W, TILE_H, gridToScreen, isoZ } from "./iso";
 import type { Palette } from "./theme";
 import tileUnpaintedUrl from "@/assets/tile-unpainted.png";
@@ -24,6 +24,16 @@ function fitSpriteWidth(sprite: Sprite, targetW: number) {
 // Кэш текстур, чтобы не грузить на каждую плитку
 let _texUnpainted: Texture | null = null;
 let _texPainted: Texture | null = null;
+
+export async function preloadTileTextures() {
+  const [unpainted, painted] = await Promise.all([
+    Assets.load<Texture>(tileUnpaintedUrl),
+    Assets.load<Texture>(tilePaintedUrl),
+  ]);
+  _texUnpainted = unpainted;
+  _texPainted = painted;
+}
+
 function getTextures() {
   if (!_texUnpainted) _texUnpainted = Texture.from(tileUnpaintedUrl);
   if (!_texPainted) _texPainted = Texture.from(tilePaintedUrl);

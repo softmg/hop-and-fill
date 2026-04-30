@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { TILE_H, TILE_W, gridToScreen, isoZ } from "./iso";
 import type { Palette } from "./theme";
 import playerUrl from "@/assets/player.png";
@@ -7,6 +7,11 @@ const HOP_DURATION = 280; // ms
 const HOP_HEIGHT = 80;
 
 let _texPlayer: Texture | null = null;
+
+export async function preloadPlayerTexture() {
+  _texPlayer = await Assets.load<Texture>(playerUrl);
+}
+
 function getPlayerTexture() {
   if (!_texPlayer) _texPlayer = Texture.from(playerUrl);
   return _texPlayer;
