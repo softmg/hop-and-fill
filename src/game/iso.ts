@@ -30,7 +30,7 @@ export function isoZ(gx: number, gy: number, layer = 0) {
   return (gx + gy) * 100 + layer;
 }
 
-export type Dir = "NE" | "SE" | "SW" | "NW";
+export type Dir = "NE" | "SE" | "SW" | "NW" | "N" | "E" | "S" | "W";
 
 // Маппинг кнопок на изо-направления.
 // На экране: ↑ кажется "вверх-назад" — это NW (к камере = SE).
@@ -41,9 +41,14 @@ export type Dir = "NE" | "SE" | "SW" | "NW";
 //  → / D -> NE (вправо по экрану)
 export function dirToDelta(dir: Dir): { dx: number; dy: number } {
   switch (dir) {
-    case "NW": return { dx: -1, dy: -1 }; // обе grid-координаты уменьшаются => вверх по экрану
-    case "SE": return { dx: 1, dy: 1 };
-    case "NE": return { dx: 1, dy: -1 };
-    case "SW": return { dx: -1, dy: 1 };
+    case "NW": return { dx: -1, dy: -1 }; // вверх по экрану
+    case "SE": return { dx: 1, dy: 1 };   // вниз по экрану
+    case "NE": return { dx: 1, dy: -1 };  // вправо по экрану
+    case "SW": return { dx: -1, dy: 1 };  // влево по экрану
+    // grid-ортогональные шаги (на экране выглядят как диагонали ромба)
+    case "N":  return { dx: 0, dy: -1 };
+    case "E":  return { dx: 1, dy: 0 };
+    case "S":  return { dx: 0, dy: 1 };
+    case "W":  return { dx: -1, dy: 0 };
   }
 }
