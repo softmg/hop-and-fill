@@ -33,7 +33,7 @@ export class Player {
   private drawShadow() {
     this.shadow.clear();
     this.shadow.beginFill(this.palette.playerShadow, 0.35);
-    this.shadow.drawEllipse(0, TILE_H / 2 - 2, TILE_W * 0.28, TILE_H * 0.28);
+    this.shadow.drawEllipse(0, 0, TILE_W * 0.28, TILE_H * 0.28);
     this.shadow.endFill();
   }
 
@@ -67,8 +67,8 @@ export class Player {
     this.gx = gx;
     this.gy = gy;
     const { x, y } = gridToScreen(gx, gy);
-    // ставим в центр верхней грани плитки
-    this.container.position.set(x, y + TILE_H / 2);
+    // ставим в центр верхней грани плитки (gridToScreen уже даёт центр верха)
+    this.container.position.set(x, y);
     this.container.zIndex = isoZ(gx, gy, 50);
   }
 
@@ -80,8 +80,8 @@ export class Player {
 
     const startScreen = gridToScreen(this.gx, this.gy);
     const endScreen = gridToScreen(targetGx, targetGy);
-    const startY = startScreen.y + TILE_H / 2;
-    const endY = endScreen.y + TILE_H / 2;
+    const startY = startScreen.y;
+    const endY = endScreen.y;
     const startX = startScreen.x;
     const endX = endScreen.x;
 
@@ -146,7 +146,7 @@ export class Player {
     this.animating = true;
     const startScreen = gridToScreen(this.gx, this.gy);
     const endScreen = gridToScreen(targetGx, targetGy);
-    const startY = startScreen.y + TILE_H / 2;
+    const startY = startScreen.y;
     const startX = startScreen.x;
     const endX = endScreen.x;
     const t0 = performance.now();
