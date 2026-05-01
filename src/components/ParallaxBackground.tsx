@@ -110,7 +110,7 @@ export const ParallaxBackground = ({ children, theme = "default" }: ParallaxBack
         className="absolute inset-0 -m-[6%] bg-cover bg-center transition-transform duration-100 ease-out will-change-transform"
         style={{
           backgroundImage: `url(${bgImage})`,
-          filter: theme === "paper" ? "blur(6px)" : undefined,
+          filter: theme === "paper" || theme === "wood" ? "blur(6px)" : undefined,
         }}
         aria-hidden
       />
