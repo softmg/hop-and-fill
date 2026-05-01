@@ -1,13 +1,15 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import bgDefault from "@/assets/parallax-bg.png";
 import bgNeon from "@/assets/parallax-bg-neon.png";
+import bgWood from "@/assets/parallax-bg-wood.png";
 
-export type BgTheme = "default" | "slime" | "neon";
+export type BgTheme = "default" | "slime" | "neon" | "wood";
 
 const BG_BY_THEME: Record<BgTheme, string> = {
   default: bgDefault,
   slime: bgDefault,
   neon: bgNeon,
+  wood: bgWood,
 };
 
 interface ParallaxBackgroundProps {
