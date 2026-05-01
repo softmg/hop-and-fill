@@ -67,7 +67,7 @@ function buildLevel5(): LevelData {
     setCell(rows, 3 + i, 3, "X"); // вправо
   }
   setCell(rows, 3, 3, "S");
-  return { name: "Звезда", rows };
+  return { name: "Звезда", rows, theme: "neon" };
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
