@@ -18,7 +18,7 @@ interface ParallaxBackgroundProps {
 export const ParallaxBackground = ({ children }: ParallaxBackgroundProps) => {
   const bgRef = useRef<HTMLDivElement>(null);
   const midRef = useRef<HTMLDivElement>(null);
-  const fgRef = useRef<HTMLDivElement>(null);
+  
 
   // Текущая нормализованная позиция курсора/импульса (-1..1)
   const targetRef = useRef({ x: 0, y: 0 });
