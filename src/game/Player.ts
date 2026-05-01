@@ -5,17 +5,19 @@ import playerDefaultUrl from "@/assets/player.png";
 import playerSlimeUrl from "@/assets/player-slime.png";
 import playerNeonUrl from "@/assets/player-neon.png";
 import playerWoodUrl from "@/assets/player-wood.png";
+import playerPaperUrl from "@/assets/player-paper.png";
 
 const HOP_DURATION = 280; // ms
 const HOP_HEIGHT = 80;
 
-export type PlayerTheme = "default" | "slime" | "neon" | "wood";
+export type PlayerTheme = "default" | "slime" | "neon" | "wood" | "paper";
 
 const PLAYER_URLS: Record<PlayerTheme, string> = {
   default: playerDefaultUrl,
   slime: playerSlimeUrl,
   neon: playerNeonUrl,
   wood: playerWoodUrl,
+  paper: playerPaperUrl,
 };
 
 const _texPlayer: Record<PlayerTheme, Texture | null> = {
@@ -23,10 +25,11 @@ const _texPlayer: Record<PlayerTheme, Texture | null> = {
   slime: null,
   neon: null,
   wood: null,
+  paper: null,
 };
 
 export async function preloadPlayerTexture() {
-  const themes: PlayerTheme[] = ["default", "slime", "neon", "wood"];
+  const themes: PlayerTheme[] = ["default", "slime", "neon", "wood", "paper"];
   await Promise.all(
     themes.map((th) =>
       Assets.load<Texture>(PLAYER_URLS[th]).then((t) => (_texPlayer[th] = t)),
