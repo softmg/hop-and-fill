@@ -87,19 +87,19 @@ export const GameCanvas = () => {
       <header className="absolute top-0 left-0 right-0 px-2 sm:px-4 py-2 sm:py-3 pointer-events-none">
         <div className="flex items-center justify-between gap-2">
           <div className="pointer-events-auto flex items-baseline gap-1.5 min-w-0">
-            <h1 className="text-foreground text-base sm:text-lg font-bold drop-shadow truncate">
+            <h1 className="text-white text-base sm:text-lg font-bold truncate [text-shadow:0_2px_6px_rgba(0,0,0,0.85)]">
               Hop &amp; Fill
             </h1>
-            <span className="hidden sm:inline text-muted-foreground text-sm truncate">
+            <span className="hidden sm:inline text-white/85 text-sm truncate [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">
               · {currentLevel.name}
             </span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3 pointer-events-auto shrink-0">
-            <div className="bg-background/60 backdrop-blur px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-foreground text-xs sm:text-sm font-medium tabular-nums whitespace-nowrap">
+            <div className="bg-black/60 backdrop-blur px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-white text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ring-1 ring-white/10">
               {hops}/{limit}
             </div>
             <div
-              className="bg-background/60 backdrop-blur px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-foreground text-xs sm:text-sm font-medium tabular-nums whitespace-nowrap"
+              className="bg-black/60 backdrop-blur px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-white text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ring-1 ring-white/10"
               title="Идеальное число ходов"
             >
               ★ {optimal}
@@ -112,10 +112,10 @@ export const GameCanvas = () => {
 
         {/* Навигация по уровням — отдельной строкой под HUD */}
         <div className="mt-1.5 sm:mt-2 flex items-center justify-center gap-2 pointer-events-auto">
-          <Button size="sm" variant="ghost" onClick={prevLevel} disabled={levelIdx === 0} className="h-7 w-7 sm:h-9 sm:w-9 p-0 bg-background/40 backdrop-blur">
+          <Button size="sm" variant="ghost" onClick={prevLevel} disabled={levelIdx === 0} className="h-7 w-7 sm:h-9 sm:w-9 p-0 bg-black/55 backdrop-blur text-white hover:bg-black/70 hover:text-white ring-1 ring-white/10">
             ←
           </Button>
-          <span className="text-foreground text-xs sm:text-sm bg-background/60 backdrop-blur px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-md whitespace-nowrap">
+          <span className="text-white text-xs sm:text-sm font-medium bg-black/60 backdrop-blur px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-md whitespace-nowrap ring-1 ring-white/10">
             Уровень {levelIdx + 1} / {levels.length}
           </span>
           <Button
@@ -123,7 +123,7 @@ export const GameCanvas = () => {
             variant="ghost"
             onClick={() => levelIdx < levels.length - 1 && setLevelIdx((i) => i + 1)}
             disabled={levelIdx === levels.length - 1}
-            className="h-7 w-7 sm:h-9 sm:w-9 p-0 bg-background/40 backdrop-blur"
+            className="h-7 w-7 sm:h-9 sm:w-9 p-0 bg-black/55 backdrop-blur text-white hover:bg-black/70 hover:text-white ring-1 ring-white/10"
           >
             →
           </Button>
@@ -132,7 +132,7 @@ export const GameCanvas = () => {
 
       {/* Подсказка управления (только для десктопа на первой загрузке) */}
       {status === "playing" && hops === 0 && levelIdx === 0 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-background/60 backdrop-blur px-4 py-2 rounded-md text-foreground text-sm text-center pointer-events-none">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/65 backdrop-blur px-4 py-2 rounded-md text-white text-sm text-center pointer-events-none ring-1 ring-white/10">
           Мышь / стрелки / WASD на ПК · свайп на телефоне
         </div>
       )}
