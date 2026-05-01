@@ -1,12 +1,25 @@
 import { useEffect, useRef, useState } from "react";
+import { Map, RotateCcw } from "lucide-react";
 import { PixiGame } from "@/game/PixiGame";
 import { levels } from "@/game/levels";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
 import { ysdkReady } from "@/sdk/yandex";
 import { Button } from "@/components/ui/button";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { LevelSelect } from "@/components/LevelSelect";
 import { ParallaxBackground, type BgTheme } from "@/components/ParallaxBackground";
 import type { Dir } from "@/game/iso";
+import {
+  completeLevel,
+  completeTutorial,
+  createDefaultProgress,
+  getBestStars,
+  getTotalStars,
+  isLevelUnlocked,
+  loadPlayerProgress,
+  savePlayerProgress,
+  type PlayerProgress,
+} from "@/game/progress";
 
 const Star = ({ filled }: { filled: boolean }) => (
   <svg
@@ -22,19 +35,71 @@ const Star = ({ filled }: { filled: boolean }) => (
 export const GameCanvas = () => {
   const hostRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<PixiGame | null>(null);
+  const levelIdxRef = useRef(0);
+  const progressRef = useRef<PlayerProgress | null>(null);
   const [hops, setHops] = useState(0);
   const [status, setStatus] = useState<"playing" | "won" | "lost">("playing");
   const [levelIdx, setLevelIdx] = useState(0);
+  const [progress, setProgress] = useState<PlayerProgress | null>(null);
+  const [isLevelSelectOpen, setLevelSelectOpen] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
 
   const currentLevel = levels[levelIdx];
   const optimal = computeOptimalMoves(currentLevel);
   const limit = moveLimit(optimal);
+  const progressReady = progress !== null;
+
+  const persistProgress = (nextProgress: PlayerProgress) => {
+    progressRef.current = nextProgress;
+    setProgress(nextProgress);
+    setSaveState("saving");
+    savePlayerProgress(nextProgress)
+      .then(() => setSaveState("idle"))
+      .catch((error) => {
+        console.warn("[progress] failed to save player progress", error);
+        setSaveState("error");
+      });
+  };
 
   useEffect(() => {
+    levelIdxRef.current = levelIdx;
+  }, [levelIdx]);
+
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadPlayerProgress(levels.length).then((loadedProgress) => {
+      if (cancelled) return;
+      const initialLevelIdx = Math.min(levels.length - 1, Math.max(0, loadedProgress.unlockedLevel - 1));
+      levelIdxRef.current = initialLevelIdx;
+      progressRef.current = loadedProgress;
+      setLevelIdx(initialLevelIdx);
+      setProgress(loadedProgress);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!progressReady) return;
     if (!hostRef.current) return;
     const game = new PixiGame(hostRef.current, currentLevel, {
       onHopCount: setHops,
-      onWin: () => setStatus("won"),
+      onWin: (winningHops) => {
+        const wonLevelIdx = levelIdxRef.current;
+        const wonLevel = levels[wonLevelIdx];
+        const wonStars = computeStars(winningHops, computeOptimalMoves(wonLevel));
+        const baseProgress = progressRef.current ?? createDefaultProgress();
+        const nextProgress = completeLevel(baseProgress, wonLevelIdx, wonStars, levels.length);
+        persistProgress(nextProgress);
+        setStatus("won");
+      },
       onLose: () => setStatus("lost"),
     });
     game.setMoveLimit(limit);
@@ -45,16 +110,17 @@ export const GameCanvas = () => {
       gameRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [progressReady]);
 
   // При смене уровня — обновляем игру
   useEffect(() => {
+    if (!progressReady) return;
     if (!gameRef.current) return;
     gameRef.current.setLevel(currentLevel);
     gameRef.current.setMoveLimit(limit);
     setStatus("playing");
     setHops(0);
-  }, [levelIdx, currentLevel, limit]);
+  }, [levelIdx, currentLevel, limit, progressReady]);
 
   const restart = () => {
     gameRef.current?.reset();
@@ -63,20 +129,47 @@ export const GameCanvas = () => {
   };
 
   const nextLevel = () => {
-    if (levelIdx < levels.length - 1) setLevelIdx((i) => i + 1);
-    else restart();
+    if (!progress) return;
+    const nextIdx = levelIdx + 1;
+    if (nextIdx < levels.length && isLevelUnlocked(progress, nextIdx)) {
+      setLevelIdx(nextIdx);
+    }
   };
 
-  const prevLevel = () => {
-    if (levelIdx > 0) setLevelIdx((i) => i - 1);
+  const selectLevel = (nextLevelIdx: number) => {
+    if (!progress || !isLevelUnlocked(progress, nextLevelIdx)) return;
+    setLevelIdx(nextLevelIdx);
+    setLevelSelectOpen(false);
+  };
+
+  const markTutorialComplete = () => {
+    const baseProgress = progressRef.current;
+    if (!baseProgress) return;
+    persistProgress(completeTutorial(baseProgress, levels.length));
   };
 
   const tap = (dir: Dir) => gameRef.current?.triggerDir(dir);
   void tap;
 
   const stars = status === "won" ? computeStars(hops, optimal) : 0;
+  const bestStars = progress ? getBestStars(progress, levelIdx) : 0;
+  const totalStars = progress ? getTotalStars(progress) : 0;
+  const canPlayNext = Boolean(progress && levelIdx < levels.length - 1 && isLevelUnlocked(progress, levelIdx + 1));
 
   const bgTheme: BgTheme = (currentLevel.theme as BgTheme) ?? "default";
+
+  if (!progress) {
+    return (
+      <div className="relative h-full w-full overflow-hidden">
+        <ParallaxBackground theme="default" />
+        <div className="absolute inset-0 flex items-center justify-center px-4">
+          <div className="rounded-lg border border-white/[0.15] bg-black/[0.65] px-5 py-4 text-center text-white shadow-xl backdrop-blur">
+            <div className="text-sm font-semibold">Загрузка прогресса...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-full overflow-hidden touch-none select-none">
@@ -84,7 +177,12 @@ export const GameCanvas = () => {
       <div ref={hostRef} className="absolute inset-0" />
 
       {/* Интерактивный туториал — только для первого уровня и пока игрок не пройдёт его */}
-      <TutorialOverlay levelIdx={levelIdx} hops={hops} />
+      <TutorialOverlay
+        levelIdx={levelIdx}
+        hops={hops}
+        tutorialComplete={progress.tutorialComplete}
+        onComplete={markTutorialComplete}
+      />
 
 
       {/* HUD */}
@@ -109,28 +207,31 @@ export const GameCanvas = () => {
               ★ {optimal}
             </div>
             <Button size="sm" variant="secondary" onClick={restart} className="h-7 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm">
-              Заново
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+              <span className="hidden sm:inline">Заново</span>
             </Button>
           </div>
         </div>
 
-        {/* Навигация по уровням — отдельной строкой под HUD */}
+        {/* Выбор уровня — отдельной строкой под HUD */}
         <div className="mt-1.5 sm:mt-2 flex items-center justify-center gap-2 pointer-events-auto">
-          <Button size="sm" variant="ghost" onClick={prevLevel} disabled={levelIdx === 0} className="h-7 w-7 sm:h-9 sm:w-9 p-0 bg-black/55 backdrop-blur text-white hover:bg-black/70 hover:text-white ring-1 ring-white/10">
-            ←
-          </Button>
-          <span className="text-white text-xs sm:text-sm font-medium bg-black/60 backdrop-blur px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-md whitespace-nowrap ring-1 ring-white/10">
-            Уровень {levelIdx + 1} / {levels.length}
-          </span>
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => levelIdx < levels.length - 1 && setLevelIdx((i) => i + 1)}
-            disabled={levelIdx === levels.length - 1}
-            className="h-7 w-7 sm:h-9 sm:w-9 p-0 bg-black/55 backdrop-blur text-white hover:bg-black/70 hover:text-white ring-1 ring-white/10"
+            onClick={() => setLevelSelectOpen(true)}
+            className="h-7 bg-black/60 px-2.5 text-xs text-white ring-1 ring-white/10 backdrop-blur hover:bg-black/75 hover:text-white sm:h-9 sm:px-3 sm:text-sm"
           >
-            →
+            <Map className="h-3.5 w-3.5" aria-hidden />
+            Уровень {levelIdx + 1} / {levels.length}
           </Button>
+          <div className="bg-black/60 backdrop-blur px-2.5 py-1 rounded-md text-white text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ring-1 ring-white/10">
+            ★ {totalStars}/{levels.length * 3}
+          </div>
+          {saveState !== "idle" && (
+            <div className="hidden sm:block bg-black/50 backdrop-blur px-2.5 py-1 rounded-md text-white/80 text-xs whitespace-nowrap ring-1 ring-white/10">
+              {saveState === "saving" ? "Сохранение..." : "Не сохранено"}
+            </div>
+          )}
         </div>
       </header>
 
@@ -144,16 +245,23 @@ export const GameCanvas = () => {
       {/* Оверлеи */}
       {status !== "playing" && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm">
-          <div className="bg-card text-card-foreground rounded-xl p-6 shadow-xl text-center max-w-xs mx-4">
+          <div className="bg-card text-card-foreground rounded-lg p-6 shadow-xl text-center max-w-xs mx-4">
             <h2 className="text-2xl font-bold mb-2">
               {status === "won" ? "Уровень пройден!" : "Упс, мимо!"}
             </h2>
 
             {status === "won" && (
-              <div className="flex justify-center gap-1 mb-3">
-                <Star filled={stars >= 1} />
-                <Star filled={stars >= 2} />
-                <Star filled={stars >= 3} />
+              <div className="flex flex-col items-center gap-2 mb-3">
+                <div className="flex justify-center gap-1">
+                  <Star filled={stars >= 1} />
+                  <Star filled={stars >= 2} />
+                  <Star filled={stars >= 3} />
+                </div>
+                {bestStars > stars && (
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Лучший результат: {bestStars} ★
+                  </div>
+                )}
               </div>
             )}
 
@@ -164,9 +272,14 @@ export const GameCanvas = () => {
             </p>
 
             <div className="flex flex-col gap-2">
-              {status === "won" && levelIdx < levels.length - 1 && (
+              {status === "won" && canPlayNext && (
                 <Button onClick={nextLevel} className="w-full">
                   Следующий уровень
+                </Button>
+              )}
+              {status === "won" && !canPlayNext && (
+                <Button onClick={() => setLevelSelectOpen(true)} className="w-full">
+                  Выбрать уровень
                 </Button>
               )}
               <Button onClick={restart} variant={status === "won" ? "secondary" : "default"} className="w-full">
@@ -176,6 +289,15 @@ export const GameCanvas = () => {
           </div>
         </div>
       )}
+
+      <LevelSelect
+        open={isLevelSelectOpen}
+        levels={levels}
+        progress={progress}
+        currentLevelIndex={levelIdx}
+        onClose={() => setLevelSelectOpen(false)}
+        onSelectLevel={selectLevel}
+      />
     </div>
   );
 };

@@ -15,7 +15,7 @@ interface Ysdk {
   adv: {
     showFullscreenAdv: (opts?: { callbacks?: Record<string, () => void> }) => void;
   };
-  getPlayer: () => Promise<YsdkPlayer>;
+  getPlayer: (opts?: { scopes?: boolean }) => Promise<YsdkPlayer>;
 }
 
 declare global {
@@ -26,13 +26,21 @@ declare global {
 
 const STORAGE_KEY = "pogo-paint:player-data";
 
+function readMockData(): Record<string, unknown> {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
 const mockPlayer: YsdkPlayer = {
   async setData(data) {
-    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    const existing = readMockData();
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, ...data }));
   },
   async getData(keys) {
-    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    const data = readMockData();
     if (!keys) return data;
     return Object.fromEntries(keys.map((k) => [k, data[k]]));
   },
@@ -96,12 +104,12 @@ export async function ysdkShowAd() {
 
 export async function ysdkSave(data: Record<string, unknown>) {
   const sdk = await initYsdk();
-  const player = await sdk.getPlayer();
+  const player = await sdk.getPlayer({ scopes: false });
   await player.setData(data, true);
 }
 
 export async function ysdkLoad(keys?: string[]) {
   const sdk = await initYsdk();
-  const player = await sdk.getPlayer();
+  const player = await sdk.getPlayer({ scopes: false });
   return player.getData(keys);
 }

@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
-const STORAGE_KEY = "hasSeenTutorial";
-
 interface TutorialOverlayProps {
   /** Текущий индекс уровня (туториал только для levelIdx === 0) */
   levelIdx: number;
   /** Сколько ходов сделал игрок (передаётся из GameCanvas) */
   hops: number;
+  tutorialComplete: boolean;
+  onComplete: () => void;
 }
 
 type Step = "move" | "limit" | "done";
@@ -16,28 +16,19 @@ type Step = "move" | "limit" | "done";
  * Интерактивный онбординг для первого уровня.
  * - Шаг 1: подсказка про управление + пульсирующая стрелка над персонажем.
  * - Шаг 2: подсветка верхнего HUD (ходы / звёзды).
- * Прогресс сохраняется в localStorage, повторно не показывается.
+ * Прогресс сохраняется вместе с основным Yandex player data.
  */
-export const TutorialOverlay = ({ levelIdx, hops }: TutorialOverlayProps) => {
+export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }: TutorialOverlayProps) => {
   const [step, setStep] = useState<Step>("done");
 
   // Инициализация — только для первого уровня и если туториал ещё не пройден.
   useEffect(() => {
-    if (levelIdx !== 0) {
+    if (levelIdx !== 0 || tutorialComplete) {
       setStep("done");
       return;
     }
-    try {
-      const seen = localStorage.getItem(STORAGE_KEY) === "true";
-      if (seen) {
-        setStep("done");
-        return;
-      }
-    } catch {
-      // localStorage может быть недоступен — просто продолжаем
-    }
     setStep("move");
-  }, [levelIdx]);
+  }, [levelIdx, tutorialComplete]);
 
   // Переход между шагами по действиям игрока.
   useEffect(() => {
@@ -52,11 +43,7 @@ export const TutorialOverlay = ({ levelIdx, hops }: TutorialOverlayProps) => {
   }, [hops, step]);
 
   const finish = () => {
-    try {
-      localStorage.setItem(STORAGE_KEY, "true");
-    } catch {
-      /* noop */
-    }
+    onComplete();
     setStep("done");
   };
 
