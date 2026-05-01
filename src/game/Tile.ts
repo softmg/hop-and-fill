@@ -65,11 +65,12 @@ export class Tile {
     public gy: number,
     isStart: boolean,
     private palette: Palette,
+    private theme: TileTheme = "default",
   ) {
     this.isStart = isStart;
     this.container = new Container();
 
-    const { unpainted } = getTextures();
+    const { unpainted } = getTextures(this.theme);
     this.sprite = new Sprite(unpainted);
     // Центр верхнего ромба плитки на исходной картинке (1262x1262) находится
     // примерно в (0.5, 0.424). Используем это как anchor — тогда позиция
@@ -117,12 +118,12 @@ export class Tile {
   paint() {
     if (this.state === "painted") return false;
     this.state = "painted";
-    this.sprite.texture = getTextures().painted;
+    this.sprite.texture = getTextures(this.theme).painted;
     return true;
   }
 
   reset() {
     this.state = "unpainted";
-    this.sprite.texture = getTextures().unpainted;
+    this.sprite.texture = getTextures(this.theme).unpainted;
   }
 }
