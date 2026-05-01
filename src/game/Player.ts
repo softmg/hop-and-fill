@@ -44,7 +44,7 @@ export class Player {
   gy: number;
   private animating = false;
 
-  constructor(gx: number, gy: number, private palette: Palette) {
+  constructor(gx: number, gy: number, private palette: Palette, private theme: PlayerTheme = "default") {
     this.gx = gx;
     this.gy = gy;
     this.container = new Container();
@@ -52,7 +52,7 @@ export class Player {
     this.shadow = new Graphics();
     this.drawShadow();
 
-    this.body = new Sprite(getPlayerTexture());
+    this.body = new Sprite(getPlayerTexture(this.theme));
     this.body.anchor.set(0.5, 0.92);
     const targetW = TILE_W * 0.92;
     const applySize = () => {
