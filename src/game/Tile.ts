@@ -33,16 +33,18 @@ const _tex: Record<TileTheme, { unpainted: Texture | null; painted: Texture | nu
   default: { unpainted: null, painted: null },
   slime: { unpainted: null, painted: null },
   neon: { unpainted: null, painted: null },
+  wood: { unpainted: null, painted: null },
 };
 
 const URLS: Record<TileTheme, { unpainted: string; painted: string }> = {
   default: { unpainted: tileUnpaintedUrl, painted: tilePaintedUrl },
   slime: { unpainted: tileUnpaintedSlimeUrl, painted: tilePaintedSlimeUrl },
   neon: { unpainted: tileUnpaintedNeonUrl, painted: tilePaintedNeonUrl },
+  wood: { unpainted: tileUnpaintedWoodUrl, painted: tilePaintedWoodUrl },
 };
 
 export async function preloadTileTextures() {
-  const themes: TileTheme[] = ["default", "slime", "neon"];
+  const themes: TileTheme[] = ["default", "slime", "neon", "wood"];
   await Promise.all(
     themes.flatMap((th) => [
       Assets.load<Texture>(URLS[th].unpainted).then((t) => (_tex[th].unpainted = t)),
