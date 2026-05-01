@@ -2,6 +2,7 @@ import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { TILE_H, TILE_W, gridToScreen, isoZ } from "./iso";
 import type { Palette } from "./theme";
 import playerDefaultUrl from "@/assets/player.png";
+import playerSlimeUrl from "@/assets/player-slime.png";
 import playerNeonUrl from "@/assets/player-neon.png";
 
 const HOP_DURATION = 280; // ms
@@ -11,7 +12,7 @@ export type PlayerTheme = "default" | "slime" | "neon";
 
 const PLAYER_URLS: Record<PlayerTheme, string> = {
   default: playerDefaultUrl,
-  slime: playerDefaultUrl,
+  slime: playerSlimeUrl,
   neon: playerNeonUrl,
 };
 
@@ -22,13 +23,12 @@ const _texPlayer: Record<PlayerTheme, Texture | null> = {
 };
 
 export async function preloadPlayerTexture() {
-  const themes: PlayerTheme[] = ["default", "neon"];
+  const themes: PlayerTheme[] = ["default", "slime", "neon"];
   await Promise.all(
     themes.map((th) =>
       Assets.load<Texture>(PLAYER_URLS[th]).then((t) => (_texPlayer[th] = t)),
     ),
   );
-  _texPlayer.slime = _texPlayer.default;
 }
 
 function getPlayerTexture(theme: PlayerTheme = "default") {
