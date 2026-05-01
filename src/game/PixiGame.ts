@@ -255,14 +255,8 @@ export class PixiGame {
     const w = this.app.renderer.width / this.app.renderer.resolution;
     const h = this.app.renderer.height / this.app.renderer.resolution;
 
-    // Фон-градиент
+    // Фон рисуется параллакс-слоем (ParallaxBackground), сцена прозрачная
     this.bg.clear();
-    this.bg.beginFill(this.palette.skyTop);
-    this.bg.drawRect(0, 0, w, h * 0.55);
-    this.bg.endFill();
-    this.bg.beginFill(this.palette.skyBottom);
-    this.bg.drawRect(0, h * 0.55, w, h * 0.45);
-    this.bg.endFill();
 
     // Подгоняем масштаб мира, чтобы level помещался с отступом.
     // На узких экранах (мобильные) уменьшаем горизонтальный отступ
