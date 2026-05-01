@@ -1,21 +1,8 @@
 ---
 name: archon
 description: |
-  Use when: User wants to run Archon workflows, CREATE workflows or commands,
-  set up Archon, or manage Archon configuration.
-  Triggers (run): "use archon to", "run archon", "archon workflow", "use archon for",
-            "have archon", "let archon", "ask archon to".
-  Triggers (create): "create a workflow", "write a workflow", "make a command",
-            "author a workflow", "new workflow", "new command", "archon workflow yaml".
-  Triggers (setup): "set up archon", "install archon", "how to use archon",
-            "configure archon", "archon setup", "get started with archon".
-  Triggers (config): "change my archon config", "modify archon config", "archon config",
-            "change archon settings", "update my config", "help me change my config",
-            "edit archon config", "archon configuration".
-  Triggers (init): "initialize archon", "set up .archon", "archon init", "add archon to repo".
-  Capability: Runs AI workflows in isolated git worktrees for parallel development.
-  Also: Creates and manages workflow YAML files, command files, and configuration.
-  NOT for: Direct Claude Code work - only for delegating to Archon CLI.
+  Use this skill to run Archon workflows, create workflow or command
+  definitions, set up Archon, and update Archon configuration.
 argument-hint: "[workflow] [message or issue number]"
 ---
 
