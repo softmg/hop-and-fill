@@ -1,11 +1,12 @@
 import { Container } from "pixi.js";
-import { Tile } from "./Tile";
+import { Tile, type TileTheme } from "./Tile";
 import type { Palette } from "./theme";
 
 export interface LevelData {
   name: string;
   // Каждая строка — ряд по gy. Символы: 'X' плитка, 'S' старт-плитка, '.' пусто.
   rows: string[];
+  theme?: TileTheme;
 }
 
 export class Level {
@@ -17,12 +18,13 @@ export class Level {
   constructor(public data: LevelData, palette: Palette) {
     this.container = new Container();
     this.container.sortableChildren = true;
+    const theme: TileTheme = data.theme ?? "default";
 
     data.rows.forEach((row, gy) => {
       [...row].forEach((ch, gx) => {
         if (ch === "." || ch === " ") return;
         const isStart = ch === "S";
-        const tile = new Tile(gx, gy, isStart, palette);
+        const tile = new Tile(gx, gy, isStart, palette, theme);
         this.tiles.set(key(gx, gy), tile);
         this.container.addChild(tile.container);
         if (isStart) {

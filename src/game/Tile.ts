@@ -3,8 +3,11 @@ import { TILE_W, TILE_H, gridToScreen, isoZ } from "./iso";
 import type { Palette } from "./theme";
 import tileUnpaintedUrl from "@/assets/tile-unpainted.png";
 import tilePaintedUrl from "@/assets/tile-painted.png";
+import tileUnpaintedSlimeUrl from "@/assets/tile-unpainted-slime.png";
+import tilePaintedSlimeUrl from "@/assets/tile-painted-slime.png";
 
 export type TileState = "unpainted" | "painted";
+export type TileTheme = "default" | "slime";
 
 // Подгоняет ширину спрайта, сохраняя пропорции, даже если текстура
 // ещё не загружена (Texture.from асинхронный).
@@ -22,22 +25,31 @@ function fitSpriteWidth(sprite: Sprite, targetW: number) {
 }
 
 // Кэш текстур, чтобы не грузить на каждую плитку
-let _texUnpainted: Texture | null = null;
-let _texPainted: Texture | null = null;
+const _tex: Record<TileTheme, { unpainted: Texture | null; painted: Texture | null }> = {
+  default: { unpainted: null, painted: null },
+  slime: { unpainted: null, painted: null },
+};
+
+const URLS: Record<TileTheme, { unpainted: string; painted: string }> = {
+  default: { unpainted: tileUnpaintedUrl, painted: tilePaintedUrl },
+  slime: { unpainted: tileUnpaintedSlimeUrl, painted: tilePaintedSlimeUrl },
+};
 
 export async function preloadTileTextures() {
-  const [unpainted, painted] = await Promise.all([
-    Assets.load<Texture>(tileUnpaintedUrl),
-    Assets.load<Texture>(tilePaintedUrl),
-  ]);
-  _texUnpainted = unpainted;
-  _texPainted = painted;
+  const themes: TileTheme[] = ["default", "slime"];
+  await Promise.all(
+    themes.flatMap((th) => [
+      Assets.load<Texture>(URLS[th].unpainted).then((t) => (_tex[th].unpainted = t)),
+      Assets.load<Texture>(URLS[th].painted).then((t) => (_tex[th].painted = t)),
+    ]),
+  );
 }
 
-function getTextures() {
-  if (!_texUnpainted) _texUnpainted = Texture.from(tileUnpaintedUrl);
-  if (!_texPainted) _texPainted = Texture.from(tilePaintedUrl);
-  return { unpainted: _texUnpainted, painted: _texPainted };
+function getTextures(theme: TileTheme = "default") {
+  const slot = _tex[theme];
+  if (!slot.unpainted) slot.unpainted = Texture.from(URLS[theme].unpainted);
+  if (!slot.painted) slot.painted = Texture.from(URLS[theme].painted);
+  return { unpainted: slot.unpainted, painted: slot.painted };
 }
 
 export class Tile {
@@ -53,11 +65,12 @@ export class Tile {
     public gy: number,
     isStart: boolean,
     private palette: Palette,
+    private theme: TileTheme = "default",
   ) {
     this.isStart = isStart;
     this.container = new Container();
 
-    const { unpainted } = getTextures();
+    const { unpainted } = getTextures(this.theme);
     this.sprite = new Sprite(unpainted);
     // Центр верхнего ромба плитки на исходной картинке (1262x1262) находится
     // примерно в (0.5, 0.424). Используем это как anchor — тогда позиция
@@ -105,12 +118,12 @@ export class Tile {
   paint() {
     if (this.state === "painted") return false;
     this.state = "painted";
-    this.sprite.texture = getTextures().painted;
+    this.sprite.texture = getTextures(this.theme).painted;
     return true;
   }
 
   reset() {
     this.state = "unpainted";
-    this.sprite.texture = getTextures().unpainted;
+    this.sprite.texture = getTextures(this.theme).unpainted;
   }
 }

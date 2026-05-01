@@ -40,7 +40,7 @@ function buildLevel3(): LevelData {
   // ножка T (центральная вертикаль)
   for (let y = 1; y < 4; y++) setCell(rows, 2, y, "X");
   setCell(rows, 2, 3, "S"); // старт у основания
-  return { name: "Развилка", rows };
+  return { name: "Развилка", rows, theme: "slime" };
 }
 
 // 4. Кольцо 4x4 с пустотой 2x2 в центре
@@ -53,7 +53,7 @@ function buildLevel4(): LevelData {
     }
   }
   setCell(rows, 0, 0, "S");
-  return { name: "Кольцо", rows };
+  return { name: "Кольцо", rows, theme: "slime" };
 }
 
 // 5. Крест: центральный квадрат + 4 луча
