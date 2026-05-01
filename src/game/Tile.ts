@@ -5,9 +5,11 @@ import tileUnpaintedUrl from "@/assets/tile-unpainted.png";
 import tilePaintedUrl from "@/assets/tile-painted.png";
 import tileUnpaintedSlimeUrl from "@/assets/tile-unpainted-slime.png";
 import tilePaintedSlimeUrl from "@/assets/tile-painted-slime.png";
+import tileUnpaintedNeonUrl from "@/assets/tile-unpainted-neon.png";
+import tilePaintedNeonUrl from "@/assets/tile-painted-neon.png";
 
 export type TileState = "unpainted" | "painted";
-export type TileTheme = "default" | "slime";
+export type TileTheme = "default" | "slime" | "neon";
 
 // Подгоняет ширину спрайта, сохраняя пропорции, даже если текстура
 // ещё не загружена (Texture.from асинхронный).
