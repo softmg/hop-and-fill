@@ -44,9 +44,7 @@ export const ParallaxBackground = ({ children }: ParallaxBackgroundProps) => {
       if (midRef.current) {
         midRef.current.style.transform = `translate3d(${x * 5}%, ${y * 5}%, 0)`;
       }
-      if (fgRef.current) {
-        fgRef.current.style.transform = `translate3d(${x * -1}%, ${y * -1}%, 0)`;
-      }
+      // Передний план (игровое поле, UI) не двигается — параллакс только на фоне
 
       // На мобильных импульс плавно затухает к 0 (пружинящий возврат)
       if (isTouch) {
@@ -164,11 +162,8 @@ export const ParallaxBackground = ({ children }: ParallaxBackgroundProps) => {
         />
       </div>
 
-      {/* Слой 3 — передний план (игра) */}
-      <div
-        ref={fgRef}
-        className="relative w-full h-full transition-transform duration-100 ease-out will-change-transform"
-      >
+      {/* Слой 3 — передний план (игра, UI) — статичный, без параллакса */}
+      <div className="relative w-full h-full">
         {children}
       </div>
     </div>
