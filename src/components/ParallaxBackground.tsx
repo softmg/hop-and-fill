@@ -110,12 +110,12 @@ export const ParallaxBackground = ({ children }: ParallaxBackgroundProps) => {
         aria-hidden
       />
 
-      {/* Затемняющий градиент поверх дальнего фона для контраста с UI */}
+      {/* Лёгкая виньетка поверх фона для контраста с UI (не перекрывает картинку) */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse at center, hsl(var(--game-sky-bottom) / 0.15) 0%, hsl(var(--background) / 0.55) 70%, hsl(var(--background) / 0.85) 100%)",
+            "radial-gradient(ellipse at center, transparent 0%, transparent 55%, hsl(var(--background) / 0.25) 100%)",
         }}
         aria-hidden
       />
