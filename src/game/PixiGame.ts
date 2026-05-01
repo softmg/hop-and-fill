@@ -261,14 +261,14 @@ export class PixiGame {
     // Подгоняем масштаб мира, чтобы level помещался с отступом.
     // На узких экранах (мобильные) уменьшаем горизонтальный отступ
     // и резервируем больше места сверху под HUD/навигацию.
-    const bounds = this.computeLevelBounds();
     const isMobile = w < 640;
-    const padX = isMobile ? 12 : 80;
-    const padTop = isMobile ? 140 : 100;
-    const padBottom = isMobile ? 80 : 80;
+    const bounds = this.computeLevelBounds(isMobile);
+    const padX = isMobile ? 4 : 80;
+    const padTop = isMobile ? 120 : 100;
+    const padBottom = isMobile ? 40 : 80;
     const scaleX = (w - padX * 2) / bounds.width;
     const scaleY = (h - padTop - padBottom) / bounds.height;
-    const maxScale = isMobile ? 1.6 : 1.1;
+    const maxScale = isMobile ? 2.2 : 1.1;
     const scale = Math.min(maxScale, Math.min(scaleX, scaleY));
     this.world.scale.set(scale);
 
@@ -281,15 +281,19 @@ export class PixiGame {
     );
   };
 
-  private computeLevelBounds() {
+  private computeLevelBounds(tight = false) {
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    const halfW = TILE_H; // запас по ширине под выпуклые края спрайта
+    // Запас по краям спрайта вокруг логических плиток.
+    // На мобиле уменьшаем, чтобы сложные уровни не сжимались отступами.
+    const padXFactor = tight ? 0.85 : 1.2;
+    const padTopFactor = tight ? 0.25 : 0.4;
+    const padBottomFactor = tight ? 1.15 : 1.6;
     for (const t of this.level.tiles.values()) {
       const { x, y } = gridToScreen(t.gx, t.gy);
-      if (x - TILE_H * 1.2 < minX) minX = x - TILE_H * 1.2;
-      if (x + TILE_H * 1.2 > maxX) maxX = x + TILE_H * 1.2;
-      if (y - TILE_H * 0.4 < minY) minY = y - TILE_H * 0.4;
-      if (y + TILE_H * 1.6 > maxY) maxY = y + TILE_H * 1.6;
+      if (x - TILE_H * padXFactor < minX) minX = x - TILE_H * padXFactor;
+      if (x + TILE_H * padXFactor > maxX) maxX = x + TILE_H * padXFactor;
+      if (y - TILE_H * padTopFactor < minY) minY = y - TILE_H * padTopFactor;
+      if (y + TILE_H * padBottomFactor > maxY) maxY = y + TILE_H * padBottomFactor;
     }
     return {
       width: maxX - minX,
