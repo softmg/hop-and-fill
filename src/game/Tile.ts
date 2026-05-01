@@ -84,14 +84,14 @@ export class Tile {
 
     const { unpainted } = getTextures(this.theme);
     this.sprite = new Sprite(unpainted);
-    // Центр верхнего ромба плитки на исходной картинке (1262x1262) находится
-    // примерно в (0.5, 0.424). Используем это как anchor — тогда позиция
-    // спрайта совпадает с центром верхней грани в мировых координатах.
-    this.sprite.anchor.set(0.5, 0.424);
-    // Видимая ширина ромба спрайта ≈ 1090/1262 от полной ширины.
+    // Метрики верхнего ромба различаются у разных тем. Для каждой темы
+    // храним: anchor (положение центра верхней грани в долях текстуры) и
+    // отношение видимой ширины ромба к полной ширине картинки.
+    const metrics = TILE_METRICS[this.theme] ?? TILE_METRICS.default;
+    this.sprite.anchor.set(metrics.anchorX, metrics.anchorY);
     // Чтобы шаг сетки TILE_W соответствовал ромбу с небольшим зазором,
-    // делаем спрайт чуть уже сетки.
-    const SPRITE_W = TILE_W * (1262 / 1090) * 0.92; // ~0.92 → воздух между плитками
+    // делаем спрайт чуть уже сетки (множитель 0.92 = воздух между плитками).
+    const SPRITE_W = (TILE_W / metrics.faceWRatio) * 0.92;
     fitSpriteWidth(this.sprite, SPRITE_W);
 
     this.highlight = new Graphics();
