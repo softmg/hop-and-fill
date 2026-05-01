@@ -57,6 +57,17 @@ export async function preloadTileTextures() {
   );
 }
 
+// Метрики верхней грани каждой темы относительно полной картинки.
+// anchorX/anchorY — координаты центра верхнего ромба в долях [0..1].
+// faceWRatio — ширина видимого ромба / ширина картинки.
+const TILE_METRICS: Record<TileTheme, { anchorX: number; anchorY: number; faceWRatio: number }> = {
+  default: { anchorX: 0.5,    anchorY: 0.424, faceWRatio: 1090 / 1262 },
+  slime:   { anchorX: 0.5,    anchorY: 0.424, faceWRatio: 1090 / 1262 },
+  neon:    { anchorX: 0.5,    anchorY: 0.424, faceWRatio: 1090 / 1262 },
+  wood:    { anchorX: 0.506,  anchorY: 0.484, faceWRatio: 1115 / 1254 },
+  paper:   { anchorX: 0.5,    anchorY: 0.424, faceWRatio: 1090 / 1262 },
+};
+
 function getTextures(theme: TileTheme = "default") {
   const slot = _tex[theme];
   if (!slot.unpainted) slot.unpainted = Texture.from(URLS[theme].unpainted);
