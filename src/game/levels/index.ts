@@ -198,7 +198,7 @@ function buildLevel10(): LevelData {
     [1, 0, 1, 0, 0, 0, 0, 1],
     [1, 0, 1, 1, 1, 1, 1, 1],
     [1, 0, 0, 0, 0, 0, 0, 0],
-  ]);
+  ], "paper");
 }
 
 export const levels: LevelData[] = [

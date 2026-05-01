@@ -9,9 +9,11 @@ import tileUnpaintedNeonUrl from "@/assets/tile-unpainted-neon.png";
 import tilePaintedNeonUrl from "@/assets/tile-painted-neon.png";
 import tileUnpaintedWoodUrl from "@/assets/tile-unpainted-wood.png";
 import tilePaintedWoodUrl from "@/assets/tile-painted-wood.png";
+import tileUnpaintedPaperUrl from "@/assets/tile-unpainted-paper.png";
+import tilePaintedPaperUrl from "@/assets/tile-painted-paper.png";
 
 export type TileState = "unpainted" | "painted";
-export type TileTheme = "default" | "slime" | "neon" | "wood";
+export type TileTheme = "default" | "slime" | "neon" | "wood" | "paper";
 
 // Подгоняет ширину спрайта, сохраняя пропорции, даже если текстура
 // ещё не загружена (Texture.from асинхронный).
@@ -34,6 +36,7 @@ const _tex: Record<TileTheme, { unpainted: Texture | null; painted: Texture | nu
   slime: { unpainted: null, painted: null },
   neon: { unpainted: null, painted: null },
   wood: { unpainted: null, painted: null },
+  paper: { unpainted: null, painted: null },
 };
 
 const URLS: Record<TileTheme, { unpainted: string; painted: string }> = {
@@ -41,10 +44,11 @@ const URLS: Record<TileTheme, { unpainted: string; painted: string }> = {
   slime: { unpainted: tileUnpaintedSlimeUrl, painted: tilePaintedSlimeUrl },
   neon: { unpainted: tileUnpaintedNeonUrl, painted: tilePaintedNeonUrl },
   wood: { unpainted: tileUnpaintedWoodUrl, painted: tilePaintedWoodUrl },
+  paper: { unpainted: tileUnpaintedPaperUrl, painted: tilePaintedPaperUrl },
 };
 
 export async function preloadTileTextures() {
-  const themes: TileTheme[] = ["default", "slime", "neon", "wood"];
+  const themes: TileTheme[] = ["default", "slime", "neon", "wood", "paper"];
   await Promise.all(
     themes.flatMap((th) => [
       Assets.load<Texture>(URLS[th].unpainted).then((t) => (_tex[th].unpainted = t)),
