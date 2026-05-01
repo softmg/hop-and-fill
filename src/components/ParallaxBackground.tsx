@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import bgDefault from "@/assets/parallax-bg.png";
+import bgSlime from "@/assets/parallax-bg-slime.png";
 import bgNeon from "@/assets/parallax-bg-neon.png";
 import bgWood from "@/assets/parallax-bg-wood.png";
 import bgPaper from "@/assets/parallax-bg-paper.png";
@@ -8,7 +9,7 @@ export type BgTheme = "default" | "slime" | "neon" | "wood" | "paper";
 
 const BG_BY_THEME: Record<BgTheme, string> = {
   default: bgDefault,
-  slime: bgDefault,
+  slime: bgSlime,
   neon: bgNeon,
   wood: bgWood,
   paper: bgPaper,
