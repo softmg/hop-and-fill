@@ -5,6 +5,7 @@ import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty"
 import { ysdkReady } from "@/sdk/yandex";
 import { Button } from "@/components/ui/button";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { ParallaxBackground, type BgTheme } from "@/components/ParallaxBackground";
 import type { Dir } from "@/game/iso";
 
 const Star = ({ filled }: { filled: boolean }) => (
@@ -75,8 +76,11 @@ export const GameCanvas = () => {
 
   const stars = status === "won" ? computeStars(hops, optimal) : 0;
 
+  const bgTheme: BgTheme = (currentLevel.theme as BgTheme) ?? "default";
+
   return (
     <div className="relative w-full h-full overflow-hidden touch-none select-none">
+      <ParallaxBackground theme={bgTheme} />
       <div ref={hostRef} className="absolute inset-0" />
 
       {/* Интерактивный туториал — только для первого уровня и пока игрок не пройдёт его */}
