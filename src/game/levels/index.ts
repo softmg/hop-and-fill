@@ -67,7 +67,7 @@ function buildLevel5(): LevelData {
     setCell(rows, 3 + i, 3, "X"); // вправо
   }
   setCell(rows, 3, 3, "S");
-  return { name: "Звезда", rows };
+  return { name: "Звезда", rows, theme: "neon" };
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ function buildLevel5(): LevelData {
 // "spec"-формой { grid, startX, startY } из ТЗ — старт обозначен как 2.
 // ──────────────────────────────────────────────────────────────────────────────
 
-function fromGrid(name: string, grid: number[][]): LevelData {
+function fromGrid(name: string, grid: number[][], theme?: LevelData["theme"]): LevelData {
   const h = grid.length;
   const w = Math.max(...grid.map((r) => r.length));
   const rows = empty(w, h);
@@ -94,7 +94,7 @@ function fromGrid(name: string, grid: number[][]): LevelData {
     }
   }
   if (!hasStart) throw new Error(`Level "${name}" has no start (cell with value 2).`);
-  return { name, rows };
+  return { name, rows, theme };
 }
 
 /**
@@ -117,7 +117,7 @@ function buildLevel6(): LevelData {
     [1, 1, 2, 1, 1, 1, 1],
     [1, 0, 1, 0, 1, 0, 1],
     [0, 0, 1, 0, 0, 0, 1],
-  ]);
+  ], "neon");
 }
 
 /**

@@ -5,9 +5,11 @@ import tileUnpaintedUrl from "@/assets/tile-unpainted.png";
 import tilePaintedUrl from "@/assets/tile-painted.png";
 import tileUnpaintedSlimeUrl from "@/assets/tile-unpainted-slime.png";
 import tilePaintedSlimeUrl from "@/assets/tile-painted-slime.png";
+import tileUnpaintedNeonUrl from "@/assets/tile-unpainted-neon.png";
+import tilePaintedNeonUrl from "@/assets/tile-painted-neon.png";
 
 export type TileState = "unpainted" | "painted";
-export type TileTheme = "default" | "slime";
+export type TileTheme = "default" | "slime" | "neon";
 
 // Подгоняет ширину спрайта, сохраняя пропорции, даже если текстура
 // ещё не загружена (Texture.from асинхронный).
@@ -28,15 +30,17 @@ function fitSpriteWidth(sprite: Sprite, targetW: number) {
 const _tex: Record<TileTheme, { unpainted: Texture | null; painted: Texture | null }> = {
   default: { unpainted: null, painted: null },
   slime: { unpainted: null, painted: null },
+  neon: { unpainted: null, painted: null },
 };
 
 const URLS: Record<TileTheme, { unpainted: string; painted: string }> = {
   default: { unpainted: tileUnpaintedUrl, painted: tilePaintedUrl },
   slime: { unpainted: tileUnpaintedSlimeUrl, painted: tilePaintedSlimeUrl },
+  neon: { unpainted: tileUnpaintedNeonUrl, painted: tilePaintedNeonUrl },
 };
 
 export async function preloadTileTextures() {
-  const themes: TileTheme[] = ["default", "slime"];
+  const themes: TileTheme[] = ["default", "slime", "neon"];
   await Promise.all(
     themes.flatMap((th) => [
       Assets.load<Texture>(URLS[th].unpainted).then((t) => (_tex[th].unpainted = t)),

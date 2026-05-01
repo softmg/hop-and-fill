@@ -1,20 +1,39 @@
 import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { TILE_H, TILE_W, gridToScreen, isoZ } from "./iso";
 import type { Palette } from "./theme";
-import playerUrl from "@/assets/player.png";
+import playerDefaultUrl from "@/assets/player.png";
+import playerNeonUrl from "@/assets/player-neon.png";
 
 const HOP_DURATION = 280; // ms
 const HOP_HEIGHT = 80;
 
-let _texPlayer: Texture | null = null;
+export type PlayerTheme = "default" | "slime" | "neon";
+
+const PLAYER_URLS: Record<PlayerTheme, string> = {
+  default: playerDefaultUrl,
+  slime: playerDefaultUrl,
+  neon: playerNeonUrl,
+};
+
+const _texPlayer: Record<PlayerTheme, Texture | null> = {
+  default: null,
+  slime: null,
+  neon: null,
+};
 
 export async function preloadPlayerTexture() {
-  _texPlayer = await Assets.load<Texture>(playerUrl);
+  const themes: PlayerTheme[] = ["default", "neon"];
+  await Promise.all(
+    themes.map((th) =>
+      Assets.load<Texture>(PLAYER_URLS[th]).then((t) => (_texPlayer[th] = t)),
+    ),
+  );
+  _texPlayer.slime = _texPlayer.default;
 }
 
-function getPlayerTexture() {
-  if (!_texPlayer) _texPlayer = Texture.from(playerUrl);
-  return _texPlayer;
+function getPlayerTexture(theme: PlayerTheme = "default") {
+  if (!_texPlayer[theme]) _texPlayer[theme] = Texture.from(PLAYER_URLS[theme]);
+  return _texPlayer[theme]!;
 }
 
 export class Player {
@@ -25,7 +44,7 @@ export class Player {
   gy: number;
   private animating = false;
 
-  constructor(gx: number, gy: number, private palette: Palette) {
+  constructor(gx: number, gy: number, private palette: Palette, private theme: PlayerTheme = "default") {
     this.gx = gx;
     this.gy = gy;
     this.container = new Container();
@@ -33,7 +52,7 @@ export class Player {
     this.shadow = new Graphics();
     this.drawShadow();
 
-    this.body = new Sprite(getPlayerTexture());
+    this.body = new Sprite(getPlayerTexture(this.theme));
     this.body.anchor.set(0.5, 0.92);
     const targetW = TILE_W * 0.92;
     const applySize = () => {

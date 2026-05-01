@@ -189,7 +189,7 @@ export class PixiGame {
     this.level = new Level(data, this.palette);
     this.world.addChild(this.level.container);
 
-    this.player = new Player(this.level.startGx, this.level.startGy, this.palette);
+    this.player = new Player(this.level.startGx, this.level.startGy, this.palette, (data.theme as any) ?? "default");
     this.world.addChild(this.player.container);
 
     // Закрашиваем стартовую плитку сразу

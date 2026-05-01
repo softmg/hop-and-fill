@@ -1,21 +1,22 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import bgImage from "@/assets/parallax-bg.png";
+import bgDefault from "@/assets/parallax-bg.png";
+import bgNeon from "@/assets/parallax-bg-neon.png";
+
+export type BgTheme = "default" | "slime" | "neon";
+
+const BG_BY_THEME: Record<BgTheme, string> = {
+  default: bgDefault,
+  slime: bgDefault,
+  neon: bgNeon,
+};
 
 interface ParallaxBackgroundProps {
-  children: ReactNode;
+  children?: ReactNode;
+  theme?: BgTheme;
 }
 
-/**
- * Многослойный параллакс-фон.
- * - Десктоп: реагирует на движение мыши.
- * - Мобильные: реагирует на свайпы (touch) с пружинящим возвратом.
- *
- * Слои:
- *  1) Background  — дальний (картинка), сдвиг ~2%
- *  2) Midground   — размытые оранжевые сферы, сдвиг ~5%
- *  3) Foreground  — игровое поле (children), сдвиг ~ -1% (контр-параллакс)
- */
-export const ParallaxBackground = ({ children }: ParallaxBackgroundProps) => {
+export const ParallaxBackground = ({ children, theme = "default" }: ParallaxBackgroundProps) => {
+  const bgImage = BG_BY_THEME[theme] ?? bgDefault;
   const bgRef = useRef<HTMLDivElement>(null);
   const midRef = useRef<HTMLDivElement>(null);
   
