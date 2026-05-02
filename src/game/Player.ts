@@ -77,6 +77,10 @@ export class Player {
     return this.animating;
   }
 
+  private isDestroyed() {
+    return this.body.destroyed;
+  }
+
   private drawShadow() {
     this.shadow.clear();
     this.shadow.beginFill(0x000000, 0.22);
@@ -113,7 +117,7 @@ export class Player {
     this.gy = targetGy;
 
     const tick = () => {
-      if (!this.body || (this.body as any).destroyed) return;
+      if (this.isDestroyed()) return;
       const elapsed = performance.now() - t0;
       const t = Math.min(1, elapsed / HOP_DURATION);
       const x = startX + (endX - startX) * t;
@@ -138,7 +142,7 @@ export class Player {
         onLand();
         const t1 = performance.now();
         const settle = () => {
-          if (!this.body || (this.body as any).destroyed) return;
+          if (this.isDestroyed()) return;
           const e = (performance.now() - t1) / 140;
           if (e >= 1) {
             this.body.scale.set(baseScaleX, baseScaleY);
@@ -167,7 +171,7 @@ export class Player {
     const t0 = performance.now();
     const DURATION = 600;
     const tick = () => {
-      if (!this.body || (this.body as any).destroyed) return;
+      if (this.isDestroyed()) return;
       const elapsed = performance.now() - t0;
       const t = Math.min(1, elapsed / DURATION);
       const x = startX + (endX - startX) * t;

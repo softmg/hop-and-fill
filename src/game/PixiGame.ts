@@ -1,6 +1,6 @@
 import { Application, Container, Graphics, FederatedPointerEvent } from "pixi.js";
 import { Level, type LevelData } from "./Level";
-import { Player, preloadPlayerTexture } from "./Player";
+import { Player, preloadPlayerTexture, type PlayerTheme } from "./Player";
 import { preloadTileTextures } from "./Tile";
 import { Input } from "./Input";
 import { dirToDelta, gridToScreen, screenToGrid, TILE_H, type Dir } from "./iso";
@@ -189,7 +189,8 @@ export class PixiGame {
     this.level = new Level(data, this.palette);
     this.world.addChild(this.level.container);
 
-    this.player = new Player(this.level.startGx, this.level.startGy, this.palette, (data.theme as any) ?? "default");
+    const playerTheme: PlayerTheme = data.theme ?? "default";
+    this.player = new Player(this.level.startGx, this.level.startGy, this.palette, playerTheme);
     this.world.addChild(this.player.container);
 
     // Закрашиваем стартовую плитку сразу
