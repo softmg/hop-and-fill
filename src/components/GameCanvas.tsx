@@ -4,7 +4,7 @@ import { PixiGame } from "@/game/PixiGame";
 import { levels } from "@/game/levels";
 import { deriveChapters, getChapterForLevel, getChapterTransition, type ChapterTransition } from "@/game/levels/chapters";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
-import { ysdkGameplayStart, ysdkGameplayStop, ysdkReady } from "@/sdk/yandex";
+import { ysdkGameplayStart, ysdkGameplayStop, ysdkReady, ysdkShowRewardedAd } from "@/sdk/yandex";
 import { Button } from "@/components/ui/button";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { LevelSelect } from "@/components/LevelSelect";
@@ -48,6 +48,7 @@ export const GameCanvas = () => {
   const [progress, setProgress] = useState<PlayerProgress | null>(null);
   const [isLevelSelectOpen, setLevelSelectOpen] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
+  const [rewardedUndoState, setRewardedUndoState] = useState<"idle" | "loading" | "error">("idle");
   const [isDocumentVisible, setDocumentVisible] = useState(() => document.visibilityState !== "hidden");
   const [isFirstSceneRenderable, setFirstSceneRenderable] = useState(false);
   const lastGameplayActiveRef = useRef<boolean | null>(null);
@@ -122,6 +123,7 @@ export const GameCanvas = () => {
       },
       onLose: () => {
         setPendingChapterTransition(null);
+        setRewardedUndoState("idle");
         setOverlayMode("lost");
       },
     }, {
@@ -145,6 +147,7 @@ export const GameCanvas = () => {
     if (!gameRef.current) return;
     gameRef.current.setLevel(currentLevel);
     gameRef.current.setMoveLimit(limit);
+    setRewardedUndoState("idle");
     setHops(0);
   }, [levelIdx, currentLevel, limit, progressReady]);
 
@@ -177,6 +180,7 @@ export const GameCanvas = () => {
   const restart = () => {
     gameRef.current?.reset();
     setPendingChapterTransition(null);
+    setRewardedUndoState("idle");
     resumeGameplay();
     setHops(0);
   };
@@ -192,6 +196,7 @@ export const GameCanvas = () => {
   const selectLevel = (nextLevelIdx: number) => {
     if (!progress || !isLevelUnlocked(progress, nextLevelIdx)) return;
     setPendingChapterTransition(null);
+    setRewardedUndoState("idle");
     resumeGameplay();
     loadLevel(nextLevelIdx);
   };
@@ -206,6 +211,22 @@ export const GameCanvas = () => {
     if (overlayMode === "playing") {
       setOverlayMode("paused");
     }
+  };
+
+  const triggerRewardedUndo = async () => {
+    const game = gameRef.current;
+    if (!game || rewardedUndoState === "loading" || !game.canUndoLastMove()) return;
+
+    setRewardedUndoState("loading");
+
+    const result = await ysdkShowRewardedAd();
+    if (result.status === "rewarded" && game.undoLastMove()) {
+      setRewardedUndoState("idle");
+      setOverlayMode("playing");
+      return;
+    }
+
+    setRewardedUndoState("error");
   };
 
   const continueAfterWin = () => {
@@ -237,6 +258,7 @@ export const GameCanvas = () => {
   const bestStars = progress ? getBestStars(progress, levelIdx) : 0;
   const totalStars = progress ? getTotalStars(progress) : 0;
   const canPlayNext = Boolean(progress && levelIdx < levels.length - 1 && isLevelUnlocked(progress, levelIdx + 1));
+  const canShowRewardedUndo = overlayMode === "lost" && Boolean(gameRef.current?.canUndoLastMove());
   const isTutorialBlocking = levelIdx === 0 && progress !== null && !progress.tutorialComplete;
   const isGameplayActive = progressReady
     && isFirstSceneRenderable
@@ -406,6 +428,11 @@ export const GameCanvas = () => {
                   Ты исчерпал лимит ходов. Попробуй другой маршрут и уложись в {limit}.
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
+                  {canShowRewardedUndo && (
+                    <Button onClick={triggerRewardedUndo} disabled={rewardedUndoState === "loading"} className="w-full">
+                      {rewardedUndoState === "loading" ? "Загрузка награды..." : "Посмотреть рекламу и отменить ход"}
+                    </Button>
+                  )}
                   <Button onClick={restart} className="w-full">
                     Перезапустить
                   </Button>
@@ -413,6 +440,11 @@ export const GameCanvas = () => {
                     К выбору уровней
                   </Button>
                 </div>
+                {rewardedUndoState === "error" && (
+                  <p className="mt-3 text-xs text-white/65">
+                    Награду не удалось получить. Попробуй снова или начни уровень заново.
+                  </p>
+                )}
               </>
             )}
 

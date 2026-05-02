@@ -14,10 +14,21 @@ interface YsdkFeatures {
   };
 }
 
+interface YsdkAdCallbacks {
+  onClose?: () => void;
+  onError?: (error: unknown) => void;
+}
+
+interface YsdkRewardedCallbacks extends YsdkAdCallbacks {
+  onOpen?: () => void;
+  onRewarded?: () => void;
+}
+
 interface Ysdk {
   features: YsdkFeatures;
   adv: {
-    showFullscreenAdv: (opts?: { callbacks?: Record<string, () => void> }) => void;
+    showFullscreenAdv: (opts?: { callbacks?: YsdkAdCallbacks }) => void;
+    showRewardedVideo?: (opts?: { callbacks?: YsdkRewardedCallbacks }) => void;
   };
   getPlayer: (opts?: { scopes?: boolean }) => Promise<YsdkPlayer>;
 }
@@ -62,6 +73,14 @@ const mockSdk: Ysdk = {
     showFullscreenAdv: (opts) => {
       console.info("[ysdk-mock] showFullscreenAdv");
       opts?.callbacks?.onClose?.();
+    },
+    showRewardedVideo: (opts) => {
+      console.info("[ysdk-mock] showRewardedVideo");
+      queueMicrotask(() => {
+        opts?.callbacks?.onOpen?.();
+        opts?.callbacks?.onRewarded?.();
+        opts?.callbacks?.onClose?.();
+      });
     },
   },
   getPlayer: async () => mockPlayer,
@@ -161,6 +180,48 @@ export function ysdkGameplayStop() {
 export async function ysdkShowAd() {
   const sdk = await initYsdk();
   sdk.adv.showFullscreenAdv();
+}
+
+export type RewardedAdResult =
+  | { status: "rewarded" }
+  | { status: "closed" }
+  | { status: "error"; error: unknown };
+
+export async function ysdkShowRewardedAd(): Promise<RewardedAdResult> {
+  const sdk = await initYsdk();
+
+  if (!sdk.adv.showRewardedVideo) {
+    return { status: "error", error: new Error("Rewarded video API is unavailable") };
+  }
+
+  return new Promise((resolve) => {
+    let rewarded = false;
+    let settled = false;
+
+    const settle = (result: RewardedAdResult) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    try {
+      sdk.adv.showRewardedVideo({
+        callbacks: {
+          onRewarded: () => {
+            rewarded = true;
+          },
+          onClose: () => {
+            settle(rewarded ? { status: "rewarded" } : { status: "closed" });
+          },
+          onError: (error) => {
+            settle({ status: "error", error });
+          },
+        },
+      });
+    } catch (error) {
+      settle({ status: "error", error });
+    }
+  });
 }
 
 export async function ysdkSave(data: Record<string, unknown>) {

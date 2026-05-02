@@ -16,6 +16,15 @@ interface PixiGameOptions {
   onFirstSceneRenderable?: () => void;
 }
 
+interface MoveSnapshot {
+  fromGx: number;
+  fromGy: number;
+  toGx: number;
+  toGy: number;
+  previousHops: number;
+  destinationWasPainted: boolean;
+}
+
 export class PixiGame {
   app: Application;
   private world: Container;
@@ -37,6 +46,7 @@ export class PixiGame {
   private ready = false;
   private destroyed = false;
   private firstSceneRenderableReported = false;
+  private lastMove: MoveSnapshot | null = null;
 
   constructor(
     private host: HTMLDivElement,
@@ -215,6 +225,7 @@ export class PixiGame {
 
     this.hops = 0;
     this.state = "playing";
+    this.lastMove = null;
     this.cb.onHopCount(0);
   }
 
@@ -233,6 +244,26 @@ export class PixiGame {
 
   setMoveLimit(limit: number | null) {
     this.moveLimit = limit;
+  }
+
+  canUndoLastMove() {
+    return this.ready && !this.isPaused && !this.player.isAnimating && this.lastMove !== null;
+  }
+
+  undoLastMove() {
+    if (!this.canUndoLastMove()) return false;
+
+    const move = this.lastMove;
+    if (!move) return false;
+
+    this.setHover(null);
+    this.player.snapTo(move.fromGx, move.fromGy);
+    this.level.setTileState(move.toGx, move.toGy, move.destinationWasPainted ? "painted" : "unpainted");
+    this.hops = move.previousHops;
+    this.state = "playing";
+    this.lastMove = null;
+    this.cb.onHopCount(this.hops);
+    return true;
   }
 
   pause() {
@@ -259,6 +290,14 @@ export class PixiGame {
       // За пределы поля ходить нельзя — игнорируем ход без штрафа
       return;
     }
+    this.lastMove = {
+      fromGx: this.player.gx,
+      fromGy: this.player.gy,
+      toGx: tx,
+      toGy: ty,
+      previousHops: this.hops,
+      destinationWasPainted: target.state === "painted",
+    };
     this.hops++;
     this.cb.onHopCount(this.hops);
     this.player.hop(

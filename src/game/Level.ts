@@ -1,5 +1,5 @@
 import { Container } from "pixi.js";
-import { Tile, type TileTheme } from "./Tile";
+import { Tile, type TileState, type TileTheme } from "./Tile";
 import type { Palette } from "./theme";
 
 export type LevelDifficulty = 1 | 2 | 3 | 4 | 5;
@@ -52,6 +52,21 @@ export class Level {
 
   get(gx: number, gy: number) {
     return this.tiles.get(key(gx, gy));
+  }
+
+  getTileState(gx: number, gy: number): TileState | null {
+    return this.get(gx, gy)?.state ?? null;
+  }
+
+  setTileState(gx: number, gy: number, state: TileState) {
+    const tile = this.get(gx, gy);
+    if (!tile) return false;
+    if (state === "painted") {
+      tile.paint();
+      return true;
+    }
+    tile.reset();
+    return true;
   }
 
   isComplete() {
