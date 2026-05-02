@@ -1,4 +1,4 @@
-import type { LevelData } from "../Level";
+import type { LevelData, LevelDifficulty } from "../Level.ts";
 
 // Уровни головоломки. Используем 4 направления (диагонали grid: NW/NE/SE/SW),
 // которые на экране выглядят как стрелки вверх/вправо/вниз/влево.
@@ -13,12 +13,34 @@ const setCell = (rows: string[], x: number, y: number, ch: string) => {
   rows[y] = r.slice(0, x) + ch + r.slice(x + 1);
 };
 
+interface LevelDefinitionOptions {
+  theme?: LevelData["theme"];
+  chapter: number;
+  difficulty: LevelDifficulty;
+  intendedTrick?: string;
+}
+
+function defineLevel(name: string, rows: string[], options: LevelDefinitionOptions): LevelData {
+  return {
+    name,
+    rows,
+    theme: options.theme,
+    chapter: options.chapter,
+    difficulty: options.difficulty,
+    intendedTrick: options.intendedTrick,
+  };
+}
+
 // 1. Квадрат 3x3, старт в углу
 function buildLevel1(): LevelData {
   const rows = empty(3, 3);
   for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) setCell(rows, x, y, "X");
   setCell(rows, 0, 2, "S");
-  return { name: "Разминка", rows };
+  return defineLevel("Разминка", rows, {
+    chapter: 1,
+    difficulty: 1,
+    intendedTrick: "basic coverage from a corner start",
+  });
 }
 
 // 2. L-образная фигура (ширина 2)
@@ -29,7 +51,11 @@ function buildLevel2(): LevelData {
   // горизонтальная часть снизу
   for (let x = 0; x < 4; x++) for (let y = 2; y < 4; y++) setCell(rows, x, y, "X");
   setCell(rows, 0, 0, "S");
-  return { name: "Уголок", rows };
+  return defineLevel("Уголок", rows, {
+    chapter: 1,
+    difficulty: 1,
+    intendedTrick: "clear the short branch before the long bend traps you",
+  });
 }
 
 // 3. T-образная фигура с настоящими тупиками
@@ -40,7 +66,12 @@ function buildLevel3(): LevelData {
   // ножка T (центральная вертикаль)
   for (let y = 1; y < 4; y++) setCell(rows, 2, y, "X");
   setCell(rows, 2, 3, "S"); // старт у основания
-  return { name: "Развилка", rows, theme: "slime" };
+  return defineLevel("Развилка", rows, {
+    theme: "slime",
+    chapter: 1,
+    difficulty: 2,
+    intendedTrick: "tree dead ends force a deliberate branch order",
+  });
 }
 
 // 4. Кольцо 4x4 с пустотой 2x2 в центре
@@ -53,7 +84,12 @@ function buildLevel4(): LevelData {
     }
   }
   setCell(rows, 0, 0, "S");
-  return { name: "Кольцо", rows, theme: "slime" };
+  return defineLevel("Кольцо", rows, {
+    theme: "slime",
+    chapter: 1,
+    difficulty: 2,
+    intendedTrick: "loop levels remove dead-end guidance and test route planning",
+  });
 }
 
 // 5. Крест: центральный квадрат + 4 луча
@@ -67,7 +103,12 @@ function buildLevel5(): LevelData {
     setCell(rows, 3 + i, 3, "X"); // вправо
   }
   setCell(rows, 3, 3, "S");
-  return { name: "Звезда", rows, theme: "neon" };
+  return defineLevel("Звезда", rows, {
+    theme: "neon",
+    chapter: 1,
+    difficulty: 3,
+    intendedTrick: "leave the home ray for last to reduce backtracking",
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -78,7 +119,7 @@ function buildLevel5(): LevelData {
 // "spec"-формой { grid, startX, startY } из ТЗ — старт обозначен как 2.
 // ──────────────────────────────────────────────────────────────────────────────
 
-function fromGrid(name: string, grid: number[][], theme?: LevelData["theme"]): LevelData {
+function fromGrid(name: string, grid: number[][], options: LevelDefinitionOptions): LevelData {
   const h = grid.length;
   const w = Math.max(...grid.map((r) => r.length));
   const rows = empty(w, h);
@@ -94,7 +135,7 @@ function fromGrid(name: string, grid: number[][], theme?: LevelData["theme"]): L
     }
   }
   if (!hasStart) throw new Error(`Level "${name}" has no start (cell with value 2).`);
-  return { name, rows, theme };
+  return defineLevel(name, rows, options);
 }
 
 /**
@@ -117,7 +158,12 @@ function buildLevel6(): LevelData {
     [1, 1, 2, 1, 1, 1, 1],
     [1, 0, 1, 0, 1, 0, 1],
     [0, 0, 1, 0, 0, 0, 1],
-  ], "neon");
+  ], {
+    theme: "neon",
+    chapter: 1,
+    difficulty: 3,
+    intendedTrick: "commit to each comb tooth fully and save the home side for the end",
+  });
 }
 
 /**
@@ -136,7 +182,12 @@ function buildLevel7(): LevelData {
     [1, 1, 2, 1, 1, 1],
     [0, 0, 0, 0, 0, 1],
     [0, 0, 0, 0, 0, 0],
-  ], "wood");
+  ], {
+    theme: "wood",
+    chapter: 1,
+    difficulty: 3,
+    intendedTrick: "take the longest spoke first and keep the nearest tail for last",
+  });
 }
 
 /**
@@ -155,7 +206,12 @@ function buildLevel8(): LevelData {
     [1, 1, 0, 0, 1, 0],
     [0, 1, 1, 1, 1, 0],
     [0, 0, 2, 0, 0, 0],
-  ], "wood");
+  ], {
+    theme: "wood",
+    chapter: 1,
+    difficulty: 4,
+    intendedTrick: "step into the spike before committing to the surrounding loop",
+  });
 }
 
 /**
@@ -176,7 +232,12 @@ function buildLevel9(): LevelData {
     [1, 1, 1, 0, 0, 0, 0],
     [1, 0, 0, 0, 0, 0, 0],
     [1, 1, 0, 0, 0, 0, 0],
-  ], "paper");
+  ], {
+    theme: "paper",
+    chapter: 1,
+    difficulty: 4,
+    intendedTrick: "resolve the larger loop with the hidden spike before overusing the bridge",
+  });
 }
 
 /**
@@ -198,7 +259,12 @@ function buildLevel10(): LevelData {
     [1, 0, 1, 0, 0, 0, 0, 1],
     [1, 0, 1, 1, 1, 1, 1, 1],
     [1, 0, 0, 0, 0, 0, 0, 0],
-  ], "paper");
+  ], {
+    theme: "paper",
+    chapter: 1,
+    difficulty: 5,
+    intendedTrick: "close side pockets the moment you pass them or pay for the full spiral again",
+  });
 }
 
 export const levels: LevelData[] = [

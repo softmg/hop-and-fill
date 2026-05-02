@@ -2,11 +2,22 @@ import { Container } from "pixi.js";
 import { Tile, type TileTheme } from "./Tile";
 import type { Palette } from "./theme";
 
+export type LevelDifficulty = 1 | 2 | 3 | 4 | 5;
+
+export interface LevelMetadata {
+  chapter: number;
+  difficulty: LevelDifficulty;
+  intendedTrick?: string;
+}
+
 export interface LevelData {
   name: string;
   // Каждая строка — ряд по gy. Символы: 'X' плитка, 'S' старт-плитка, '.' пусто.
   rows: string[];
   theme?: TileTheme;
+  chapter: number;
+  difficulty: LevelDifficulty;
+  intendedTrick?: string;
 }
 
 export class Level {

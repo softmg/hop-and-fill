@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "validate:levels": "node --experimental-strip-types --experimental-transform-types src/game/levels/validate.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
