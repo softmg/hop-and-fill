@@ -12,6 +12,10 @@ export interface GameCallbacks {
   onLose: () => void;
 }
 
+interface PixiGameOptions {
+  onFirstSceneRenderable?: () => void;
+}
+
 export class PixiGame {
   app: Application;
   private world: Container;
@@ -31,11 +35,13 @@ export class PixiGame {
   private resizeRafId: number | null = null;
   private ready = false;
   private destroyed = false;
+  private firstSceneRenderableReported = false;
 
   constructor(
     private host: HTMLDivElement,
     levelData: LevelData,
     private cb: GameCallbacks,
+    private options: PixiGameOptions = {},
   ) {
     this.currentLevelData = levelData;
     this.palette = colors();
@@ -118,6 +124,12 @@ export class PixiGame {
     });
   }
 
+  private reportFirstSceneRenderable() {
+    if (this.firstSceneRenderableReported || this.destroyed) return;
+    this.firstSceneRenderableReported = true;
+    this.options.onFirstSceneRenderable?.();
+  }
+
   private screenPointToGrid(globalX: number, globalY: number) {
     // Переводим из stage-координат в world-координаты
     const local = this.world.toLocal({ x: globalX, y: globalY });
@@ -189,8 +201,12 @@ export class PixiGame {
     this.level = new Level(data, this.palette);
     this.world.addChild(this.level.container);
 
-    const playerTheme: PlayerTheme = data.theme ?? "default";
-    this.player = new Player(this.level.startGx, this.level.startGy, this.palette, playerTheme);
+    this.player = new Player(
+      this.level.startGx,
+      this.level.startGy,
+      this.palette,
+      (data.theme as PlayerTheme | undefined) ?? "default",
+    );
     this.world.addChild(this.player.container);
 
     // Закрашиваем стартовую плитку сразу
@@ -280,6 +296,8 @@ export class PixiGame {
       w / 2 - bounds.cx * scale,
       availY - bounds.cy * scale,
     );
+
+    if (w > 0 && h > 0) this.reportFirstSceneRenderable();
   };
 
   private computeLevelBounds(tight = false) {

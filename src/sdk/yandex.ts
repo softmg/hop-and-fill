@@ -8,6 +8,10 @@ interface YsdkPlayer {
 
 interface YsdkFeatures {
   LoadingAPI?: { ready: () => void };
+  GameplayAPI?: {
+    start?: () => Promise<void> | void;
+    stop?: () => Promise<void> | void;
+  };
 }
 
 interface Ysdk {
@@ -47,7 +51,13 @@ const mockPlayer: YsdkPlayer = {
 };
 
 const mockSdk: Ysdk = {
-  features: { LoadingAPI: { ready: () => console.info("[ysdk-mock] LoadingAPI.ready()") } },
+  features: {
+    LoadingAPI: { ready: () => console.info("[ysdk-mock] LoadingAPI.ready()") },
+    GameplayAPI: {
+      start: () => console.info("[ysdk-mock] GameplayAPI.start()"),
+      stop: () => console.info("[ysdk-mock] GameplayAPI.stop()"),
+    },
+  },
   adv: {
     showFullscreenAdv: (opts) => {
       console.info("[ysdk-mock] showFullscreenAdv");
@@ -58,6 +68,10 @@ const mockSdk: Ysdk = {
 };
 
 let sdkPromise: Promise<Ysdk> | null = null;
+let gameplayTargetActive = false;
+let gameplayCurrentActive: boolean | null = null;
+let gameplaySyncPromise: Promise<void> | null = null;
+let gameplaySyncQueued = false;
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -95,6 +109,53 @@ export function initYsdk(): Promise<Ysdk> {
 export async function ysdkReady() {
   const sdk = await initYsdk();
   sdk.features.LoadingAPI?.ready();
+}
+
+async function runGameplaySync(targetActive: boolean) {
+  try {
+    const sdk = await initYsdk();
+    const gameplayApi = sdk.features.GameplayAPI;
+    if (targetActive) {
+      await gameplayApi?.start?.();
+    } else {
+      await gameplayApi?.stop?.();
+    }
+    gameplayCurrentActive = targetActive;
+  } catch (error) {
+    console.warn(`[ysdk] GameplayAPI.${targetActive ? "start" : "stop"} failed`, error);
+  }
+}
+
+function queueGameplaySync() {
+  gameplaySyncQueued = true;
+  if (gameplaySyncPromise) return gameplaySyncPromise;
+
+  gameplaySyncPromise = (async () => {
+    try {
+      while (gameplaySyncQueued) {
+        gameplaySyncQueued = false;
+        if (gameplayCurrentActive === gameplayTargetActive) continue;
+        await runGameplaySync(gameplayTargetActive);
+      }
+    } catch (error) {
+      console.warn("[ysdk] gameplay sync loop failed", error);
+    }
+  })().finally(() => {
+    gameplaySyncQueued = false;
+    gameplaySyncPromise = null;
+  });
+
+  return gameplaySyncPromise;
+}
+
+export function ysdkGameplayStart() {
+  gameplayTargetActive = true;
+  return queueGameplaySync();
+}
+
+export function ysdkGameplayStop() {
+  gameplayTargetActive = false;
+  return queueGameplaySync();
 }
 
 export async function ysdkShowAd() {

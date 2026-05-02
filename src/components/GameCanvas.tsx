@@ -3,7 +3,7 @@ import { Map, RotateCcw } from "lucide-react";
 import { PixiGame } from "@/game/PixiGame";
 import { levels } from "@/game/levels";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
-import { ysdkReady } from "@/sdk/yandex";
+import { ysdkGameplayStart, ysdkGameplayStop, ysdkReady } from "@/sdk/yandex";
 import { Button } from "@/components/ui/button";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { LevelSelect } from "@/components/LevelSelect";
@@ -43,6 +43,9 @@ export const GameCanvas = () => {
   const [progress, setProgress] = useState<PlayerProgress | null>(null);
   const [isLevelSelectOpen, setLevelSelectOpen] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
+  const [isDocumentVisible, setDocumentVisible] = useState(() => document.visibilityState !== "hidden");
+  const [isFirstSceneRenderable, setFirstSceneRenderable] = useState(false);
+  const lastGameplayActiveRef = useRef<boolean | null>(null);
 
   const currentLevel = levels[levelIdx];
   const optimal = computeOptimalMoves(currentLevel);
@@ -87,6 +90,17 @@ export const GameCanvas = () => {
   }, []);
 
   useEffect(() => {
+    const handleVisibilityChange = () => {
+      setDocumentVisible(document.visibilityState !== "hidden");
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!progressReady) return;
     if (!hostRef.current) return;
     const game = new PixiGame(hostRef.current, currentLevel, {
@@ -101,10 +115,14 @@ export const GameCanvas = () => {
         setStatus("won");
       },
       onLose: () => setStatus("lost"),
+    }, {
+      onFirstSceneRenderable: () => {
+        setFirstSceneRenderable(true);
+        ysdkReady().catch(() => {});
+      },
     });
     game.setMoveLimit(limit);
     gameRef.current = game;
-    ysdkReady().catch(() => {});
     return () => {
       game.destroy();
       gameRef.current = null;
@@ -155,8 +173,28 @@ export const GameCanvas = () => {
   const bestStars = progress ? getBestStars(progress, levelIdx) : 0;
   const totalStars = progress ? getTotalStars(progress) : 0;
   const canPlayNext = Boolean(progress && levelIdx < levels.length - 1 && isLevelUnlocked(progress, levelIdx + 1));
+  const isTutorialBlocking = levelIdx === 0 && progress !== null && !progress.tutorialComplete;
+  const isGameplayActive = progressReady
+    && isFirstSceneRenderable
+    && status === "playing"
+    && !isLevelSelectOpen
+    && !isTutorialBlocking
+    && isDocumentVisible;
 
   const bgTheme: BgTheme = (currentLevel.theme as BgTheme) ?? "default";
+
+  useEffect(() => {
+    if (lastGameplayActiveRef.current === isGameplayActive) return;
+    lastGameplayActiveRef.current = isGameplayActive;
+    const syncPromise = isGameplayActive ? ysdkGameplayStart() : ysdkGameplayStop();
+    syncPromise.catch(() => {});
+  }, [isGameplayActive]);
+
+  useEffect(() => {
+    return () => {
+      ysdkGameplayStop().catch(() => {});
+    };
+  }, []);
 
   if (!progress) {
     return (
