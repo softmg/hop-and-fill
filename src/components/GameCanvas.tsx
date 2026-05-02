@@ -374,7 +374,7 @@ export const GameCanvas = () => {
       completedLevelsCount: progress.completedLevels.length,
       didCompleteNewLevel: finishedAttempt?.didCompleteNewLevel ?? true,
       currentLevelIndex: levelIdx,
-      nextLevelIndex,
+      nextLevelIndex: nextLevelIdx,
       currentTheme: currentLevel.theme,
       nextTheme: levels[nextLevelIdx]?.theme,
     });

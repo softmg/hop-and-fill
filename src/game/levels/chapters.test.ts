@@ -3,11 +3,11 @@ import type { LevelData } from "../Level";
 import { deriveChapters, getChapterTransition, getLevelTheme } from "./chapters";
 
 const fixtureLevels: LevelData[] = [
-  { name: "One", rows: ["S"], theme: "default" },
-  { name: "Two", rows: ["S"] },
-  { name: "Three", rows: ["S"], theme: "slime" },
-  { name: "Four", rows: ["S"], theme: "slime" },
-  { name: "Five", rows: ["S"], theme: "wood" },
+  { name: "One", rows: ["S"], theme: "default", chapter: 1, difficulty: 1 },
+  { name: "Two", rows: ["S"], chapter: 1, difficulty: 1 },
+  { name: "Three", rows: ["S"], theme: "slime", chapter: 2, difficulty: 1 },
+  { name: "Four", rows: ["S"], theme: "slime", chapter: 2, difficulty: 1 },
+  { name: "Five", rows: ["S"], theme: "wood", chapter: 3, difficulty: 1 },
 ];
 
 describe("chapter helpers", () => {
