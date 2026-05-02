@@ -27,6 +27,7 @@ export class PixiGame {
   private hops = 0;
   private moveLimit: number | null = null;
   private state: "playing" | "won" | "lost" = "playing";
+  private isPaused = false;
   private currentLevelData: LevelData;
   private hoveredTile: { gx: number; gy: number } | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -171,7 +172,7 @@ export class PixiGame {
   }
 
   private onPointerMove = (e: FederatedPointerEvent) => {
-    if (!this.ready || this.state !== "playing" || this.player.isAnimating) {
+    if (!this.ready || this.isPaused || this.state !== "playing" || this.player.isAnimating) {
       this.setHover(null);
       return;
     }
@@ -184,7 +185,7 @@ export class PixiGame {
   };
 
   private onPointerDown = (e: FederatedPointerEvent) => {
-    if (!this.ready || this.state !== "playing" || this.player.isAnimating) return;
+    if (!this.ready || this.isPaused || this.state !== "playing" || this.player.isAnimating) return;
     const { gx, gy } = this.screenPointToGrid(e.global.x, e.global.y);
     const dir = this.dirToNeighbor(gx, gy);
     if (dir) this.handleDir(dir);
@@ -234,8 +235,18 @@ export class PixiGame {
     this.moveLimit = limit;
   }
 
+  pause() {
+    this.isPaused = true;
+    this.setHover(null);
+  }
+
+  resume() {
+    this.isPaused = false;
+  }
+
   private handleDir = (dir: Parameters<Input["emit"]>[0]) => {
     if (!this.ready) return;
+    if (this.isPaused) return;
     if (this.state !== "playing") return;
     if (this.player.isAnimating) return;
     // Сбрасываем hover, чтобы курсор не "прилипал" к старой плитке

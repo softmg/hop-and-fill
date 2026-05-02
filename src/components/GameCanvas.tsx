@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Map, RotateCcw } from "lucide-react";
+import { Map, Pause, Play, RotateCcw, Trophy } from "lucide-react";
 import { PixiGame } from "@/game/PixiGame";
 import { levels } from "@/game/levels";
+import { deriveChapters, getChapterForLevel, getChapterTransition, type ChapterTransition } from "@/game/levels/chapters";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
 import { ysdkGameplayStart, ysdkGameplayStop, ysdkReady } from "@/sdk/yandex";
 import { Button } from "@/components/ui/button";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { LevelSelect } from "@/components/LevelSelect";
 import { ParallaxBackground, type BgTheme } from "@/components/ParallaxBackground";
-import type { Dir } from "@/game/iso";
 import {
   completeLevel,
   completeTutorial,
@@ -20,6 +20,10 @@ import {
   savePlayerProgress,
   type PlayerProgress,
 } from "@/game/progress";
+
+type OverlayMode = "playing" | "paused" | "won" | "lost" | "chapter" | "final";
+
+const chapters = deriveChapters(levels);
 
 const Star = ({ filled }: { filled: boolean }) => (
   <svg
@@ -38,7 +42,8 @@ export const GameCanvas = () => {
   const levelIdxRef = useRef(0);
   const progressRef = useRef<PlayerProgress | null>(null);
   const [hops, setHops] = useState(0);
-  const [status, setStatus] = useState<"playing" | "won" | "lost">("playing");
+  const [overlayMode, setOverlayMode] = useState<OverlayMode>("playing");
+  const [pendingChapterTransition, setPendingChapterTransition] = useState<ChapterTransition | null>(null);
   const [levelIdx, setLevelIdx] = useState(0);
   const [progress, setProgress] = useState<PlayerProgress | null>(null);
   const [isLevelSelectOpen, setLevelSelectOpen] = useState(false);
@@ -112,9 +117,13 @@ export const GameCanvas = () => {
         const baseProgress = progressRef.current ?? createDefaultProgress();
         const nextProgress = completeLevel(baseProgress, wonLevelIdx, wonStars, levels.length);
         persistProgress(nextProgress);
-        setStatus("won");
+        setPendingChapterTransition(getChapterTransition(levels, wonLevelIdx));
+        setOverlayMode("won");
       },
-      onLose: () => setStatus("lost"),
+      onLose: () => {
+        setPendingChapterTransition(null);
+        setOverlayMode("lost");
+      },
     }, {
       onFirstSceneRenderable: () => {
         setFirstSceneRenderable(true);
@@ -136,28 +145,55 @@ export const GameCanvas = () => {
     if (!gameRef.current) return;
     gameRef.current.setLevel(currentLevel);
     gameRef.current.setMoveLimit(limit);
-    setStatus("playing");
     setHops(0);
   }, [levelIdx, currentLevel, limit, progressReady]);
 
+  useEffect(() => {
+    const game = gameRef.current;
+    if (!game) return;
+
+    if (overlayMode !== "playing" || isLevelSelectOpen) {
+      game.pause();
+      return;
+    }
+
+    game.resume();
+  }, [overlayMode, isLevelSelectOpen]);
+
+  const loadLevel = (nextLevelIdx: number) => {
+    if (nextLevelIdx === levelIdx) {
+      gameRef.current?.setLevel(levels[nextLevelIdx]);
+      gameRef.current?.setMoveLimit(moveLimit(computeOptimalMoves(levels[nextLevelIdx])));
+      setHops(0);
+    }
+    setLevelIdx(nextLevelIdx);
+  };
+
+  const resumeGameplay = () => {
+    setLevelSelectOpen(false);
+    setOverlayMode("playing");
+  };
+
   const restart = () => {
     gameRef.current?.reset();
-    setStatus("playing");
+    setPendingChapterTransition(null);
+    resumeGameplay();
     setHops(0);
   };
 
-  const nextLevel = () => {
-    if (!progress) return;
-    const nextIdx = levelIdx + 1;
-    if (nextIdx < levels.length && isLevelUnlocked(progress, nextIdx)) {
-      setLevelIdx(nextIdx);
-    }
+  const openLevelSelect = () => {
+    setLevelSelectOpen(true);
+  };
+
+  const closeLevelSelect = () => {
+    setLevelSelectOpen(false);
   };
 
   const selectLevel = (nextLevelIdx: number) => {
     if (!progress || !isLevelUnlocked(progress, nextLevelIdx)) return;
-    setLevelIdx(nextLevelIdx);
-    setLevelSelectOpen(false);
+    setPendingChapterTransition(null);
+    resumeGameplay();
+    loadLevel(nextLevelIdx);
   };
 
   const markTutorialComplete = () => {
@@ -166,22 +202,52 @@ export const GameCanvas = () => {
     persistProgress(completeTutorial(baseProgress, levels.length));
   };
 
-  const tap = (dir: Dir) => gameRef.current?.triggerDir(dir);
-  void tap;
+  const openPauseMenu = () => {
+    if (overlayMode === "playing") {
+      setOverlayMode("paused");
+    }
+  };
 
-  const stars = status === "won" ? computeStars(hops, optimal) : 0;
+  const continueAfterWin = () => {
+    const nextLevelIdx = levelIdx + 1;
+    if (nextLevelIdx >= levels.length) {
+      setPendingChapterTransition(null);
+      setOverlayMode("final");
+      return;
+    }
+
+    if (pendingChapterTransition) {
+      loadLevel(pendingChapterTransition.nextLevelIndex);
+      setOverlayMode("chapter");
+      return;
+    }
+
+    if (progress && isLevelUnlocked(progress, nextLevelIdx)) {
+      resumeGameplay();
+      loadLevel(nextLevelIdx);
+    }
+  };
+
+  const startChapterLevel = () => {
+    setPendingChapterTransition(null);
+    resumeGameplay();
+  };
+
+  const stars = overlayMode === "won" ? computeStars(hops, optimal) : 0;
   const bestStars = progress ? getBestStars(progress, levelIdx) : 0;
   const totalStars = progress ? getTotalStars(progress) : 0;
   const canPlayNext = Boolean(progress && levelIdx < levels.length - 1 && isLevelUnlocked(progress, levelIdx + 1));
   const isTutorialBlocking = levelIdx === 0 && progress !== null && !progress.tutorialComplete;
   const isGameplayActive = progressReady
     && isFirstSceneRenderable
-    && status === "playing"
+    && overlayMode === "playing"
     && !isLevelSelectOpen
     && !isTutorialBlocking
     && isDocumentVisible;
-
   const bgTheme: BgTheme = (currentLevel.theme as BgTheme) ?? "default";
+  const currentChapter = getChapterForLevel(chapters, levelIdx);
+  const shouldShowGameplayHint = overlayMode === "playing" && !isLevelSelectOpen && hops === 0 && levelIdx === 0;
+  const pauseButtonLabel = overlayMode === "paused" ? "Продолжить" : "Пауза";
 
   useEffect(() => {
     if (lastGameplayActiveRef.current === isGameplayActive) return;
@@ -215,12 +281,14 @@ export const GameCanvas = () => {
       <div ref={hostRef} className="absolute inset-0" />
 
       {/* Интерактивный туториал — только для первого уровня и пока игрок не пройдёт его */}
-      <TutorialOverlay
-        levelIdx={levelIdx}
-        hops={hops}
-        tutorialComplete={progress.tutorialComplete}
-        onComplete={markTutorialComplete}
-      />
+      {overlayMode === "playing" && !isLevelSelectOpen && (
+        <TutorialOverlay
+          levelIdx={levelIdx}
+          hops={hops}
+          tutorialComplete={progress.tutorialComplete}
+          onComplete={markTutorialComplete}
+        />
+      )}
 
 
       {/* HUD */}
@@ -248,6 +316,15 @@ export const GameCanvas = () => {
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
               <span className="hidden sm:inline">Заново</span>
             </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={overlayMode === "paused" ? resumeGameplay : openPauseMenu}
+              className="h-7 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
+            >
+              {overlayMode === "paused" ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}
+              <span className="hidden sm:inline">{pauseButtonLabel}</span>
+            </Button>
           </div>
         </div>
 
@@ -256,12 +333,17 @@ export const GameCanvas = () => {
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => setLevelSelectOpen(true)}
+            onClick={openLevelSelect}
             className="h-7 bg-black/60 px-2.5 text-xs text-white ring-1 ring-white/10 backdrop-blur hover:bg-black/75 hover:text-white sm:h-9 sm:px-3 sm:text-sm"
           >
             <Map className="h-3.5 w-3.5" aria-hidden />
             Уровень {levelIdx + 1} / {levels.length}
           </Button>
+          {currentChapter && (
+            <div className="hidden sm:block bg-black/50 backdrop-blur px-2.5 py-1 rounded-md text-white/80 text-xs whitespace-nowrap ring-1 ring-white/10">
+              Глава {currentChapter.chapterIndex} · {currentChapter.themeLabel}
+            </div>
+          )}
           <div className="bg-black/60 backdrop-blur px-2.5 py-1 rounded-md text-white text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ring-1 ring-white/10">
             ★ {totalStars}/{levels.length * 3}
           </div>
@@ -274,56 +356,166 @@ export const GameCanvas = () => {
       </header>
 
       {/* Подсказка управления (только для десктопа на первой загрузке) */}
-      {status === "playing" && hops === 0 && levelIdx === 0 && (
+      {shouldShowGameplayHint && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/65 backdrop-blur px-4 py-2 rounded-md text-white text-sm text-center pointer-events-none ring-1 ring-white/10">
           Мышь / стрелки / WASD на ПК · свайп на телефоне
         </div>
       )}
 
       {/* Оверлеи */}
-      {status !== "playing" && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm">
-          <div className="bg-card text-card-foreground rounded-lg p-6 shadow-xl text-center max-w-xs mx-4">
-            <h2 className="text-2xl font-bold mb-2">
-              {status === "won" ? "Уровень пройден!" : "Упс, мимо!"}
-            </h2>
-
-            {status === "won" && (
-              <div className="flex flex-col items-center gap-2 mb-3">
-                <div className="flex justify-center gap-1">
-                  <Star filled={stars >= 1} />
-                  <Star filled={stars >= 2} />
-                  <Star filled={stars >= 3} />
-                </div>
-                {bestStars > stars && (
-                  <div className="text-xs font-medium text-muted-foreground">
-                    Лучший результат: {bestStars} ★
+      {overlayMode !== "playing" && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/72 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-white/15 bg-black/75 p-5 text-center text-white shadow-2xl ring-1 ring-white/10 sm:p-6">
+            {overlayMode === "won" && (
+              <>
+                <h2 className="text-2xl font-bold">Уровень пройден!</h2>
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  <div className="flex justify-center gap-1">
+                    <Star filled={stars >= 1} />
+                    <Star filled={stars >= 2} />
+                    <Star filled={stars >= 3} />
                   </div>
-                )}
-              </div>
+                  {bestStars > stars && (
+                    <div className="text-xs font-medium text-white/65">
+                      Лучший результат: {bestStars} ★
+                    </div>
+                  )}
+                </div>
+                <p className="mt-4 text-sm text-white/75">
+                  Ходов: {hops} · идеал: {optimal}
+                </p>
+                <div className="mt-5 flex flex-col gap-2">
+                  <Button onClick={continueAfterWin} className="w-full">
+                    {levelIdx === levels.length - 1
+                      ? "К финальному экрану"
+                      : pendingChapterTransition
+                        ? `Открыть главу ${pendingChapterTransition.toChapter.chapterIndex}`
+                        : "Следующий уровень"}
+                  </Button>
+                  <Button onClick={restart} variant="secondary" className="w-full">
+                    Сыграть снова
+                  </Button>
+                </div>
+              </>
             )}
 
-            <p className="text-muted-foreground mb-5">
-              {status === "won"
-                ? `Ходов: ${hops} · идеал: ${optimal}`
-                : "Закончились ходы или прыжок в пустоту."}
-            </p>
+            {overlayMode === "lost" && (
+              <>
+                <h2 className="text-2xl font-bold">Ходы закончились</h2>
+                <p className="mt-3 text-sm text-white/75">
+                  Ты исчерпал лимит ходов. Попробуй другой маршрут и уложись в {limit}.
+                </p>
+                <div className="mt-5 flex flex-col gap-2">
+                  <Button onClick={restart} className="w-full">
+                    Перезапустить
+                  </Button>
+                  <Button onClick={openLevelSelect} variant="secondary" className="w-full">
+                    К выбору уровней
+                  </Button>
+                </div>
+              </>
+            )}
 
-            <div className="flex flex-col gap-2">
-              {status === "won" && canPlayNext && (
-                <Button onClick={nextLevel} className="w-full">
-                  Следующий уровень
-                </Button>
-              )}
-              {status === "won" && !canPlayNext && (
-                <Button onClick={() => setLevelSelectOpen(true)} className="w-full">
-                  Выбрать уровень
-                </Button>
-              )}
-              <Button onClick={restart} variant={status === "won" ? "secondary" : "default"} className="w-full">
-                {status === "won" ? "Сыграть снова" : "Перезапустить"}
-              </Button>
-            </div>
+            {overlayMode === "paused" && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/55">
+                  Меню
+                </p>
+                <h2 className="mt-2 text-2xl font-bold">Пауза</h2>
+                <p className="mt-3 text-sm text-white/75">
+                  Игра остановлена. Продолжай сейчас или открой другой уровень.
+                </p>
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
+                  <div className="flex items-center justify-between gap-2 text-xs text-white/70">
+                    <span>Сейчас</span>
+                    <span>
+                      Уровень {levelIdx + 1}
+                      {currentChapter ? ` · глава ${currentChapter.chapterIndex}` : ""}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-xs text-white/75 sm:grid-cols-2">
+                    <div className="rounded-lg bg-black/25 px-3 py-2">
+                      <div className="font-semibold text-white">ПК</div>
+                      <div className="mt-1">Мышь, стрелки или WASD</div>
+                    </div>
+                    <div className="rounded-lg bg-black/25 px-3 py-2">
+                      <div className="font-semibold text-white">Телефон</div>
+                      <div className="mt-1">Свайпай в сторону соседней плитки</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/70">
+                    <span className="rounded-md bg-black/30 px-2 py-1">Ходы: {hops}/{limit}</span>
+                    <span className="rounded-md bg-black/30 px-2 py-1">Лучший результат: {bestStars || "—"} ★</span>
+                  </div>
+                </div>
+                <div className="mt-5 flex flex-col gap-2">
+                  <Button onClick={resumeGameplay} className="w-full">
+                    <Play className="mr-2 h-4 w-4" aria-hidden />
+                    Продолжить
+                  </Button>
+                  <Button onClick={restart} variant="secondary" className="w-full">
+                    <RotateCcw className="mr-2 h-4 w-4" aria-hidden />
+                    Начать заново
+                  </Button>
+                  <Button onClick={openLevelSelect} variant="secondary" className="w-full">
+                    <Map className="mr-2 h-4 w-4" aria-hidden />
+                    К выбору уровней
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {overlayMode === "chapter" && pendingChapterTransition && (
+              <>
+                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/10">
+                  <Trophy className="h-5 w-5 text-yellow-300" aria-hidden />
+                </div>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-white/55">
+                  Новая глава
+                </p>
+                <h2 className="mt-2 text-2xl font-bold">
+                  Глава {pendingChapterTransition.toChapter.chapterIndex}
+                </h2>
+                <p className="mt-2 text-sm text-white/75">
+                  {pendingChapterTransition.toChapter.themeLabel} · уровни {pendingChapterTransition.toChapter.startLevelIndex + 1}
+                  -{pendingChapterTransition.toChapter.endLevelIndex + 1}
+                </p>
+                <p className="mt-3 text-sm text-white/65">
+                  Палитра меняется после главы {pendingChapterTransition.fromChapter.chapterIndex}. Первый уровень уже готов.
+                </p>
+                <div className="mt-5 flex flex-col gap-2">
+                  <Button onClick={startChapterLevel} className="w-full">
+                    Начать главу
+                  </Button>
+                  <Button onClick={openLevelSelect} variant="secondary" className="w-full">
+                    К выбору уровней
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {overlayMode === "final" && (
+              <>
+                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-yellow-300/20 ring-1 ring-yellow-300/30">
+                  <Trophy className="h-5 w-5 text-yellow-300" aria-hidden />
+                </div>
+                <h2 className="mt-4 text-2xl font-bold">Все главы пройдены</h2>
+                <p className="mt-3 text-sm text-white/75">
+                  Ты закрыл все {levels.length} уровней и собрал {totalStars} из {levels.length * 3} звёзд.
+                </p>
+                <p className="mt-2 text-sm text-white/65">
+                  Финал открыт для перепрохождения, а любые уровни доступны через меню выбора.
+                </p>
+                <div className="mt-5 flex flex-col gap-2">
+                  <Button onClick={restart} className="w-full">
+                    Переиграть финальный уровень
+                  </Button>
+                  <Button onClick={openLevelSelect} variant="secondary" className="w-full">
+                    К выбору уровней
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -333,7 +525,7 @@ export const GameCanvas = () => {
         levels={levels}
         progress={progress}
         currentLevelIndex={levelIdx}
-        onClose={() => setLevelSelectOpen(false)}
+        onClose={closeLevelSelect}
         onSelectLevel={selectLevel}
       />
     </div>
