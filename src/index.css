@@ -131,13 +131,15 @@ All colors MUST be HSL.
     filter: drop-shadow(0 0 6px hsl(var(--tile-start-top) / 0.6));
   }
   50% {
-    transform: translate(12px, 12px) scale(1.15);
+    transform: translate(var(--tutorial-arrow-pulse-x, 0px), var(--tutorial-arrow-pulse-y, 12px)) scale(1.15);
     opacity: 1;
     filter: drop-shadow(0 0 14px hsl(var(--tile-start-top) / 0.9));
   }
 }
 
 .tutorial-arrow-pulse {
+  --tutorial-arrow-pulse-x: 0px;
+  --tutorial-arrow-pulse-y: 12px;
   animation: tutorial-arrow-pulse 1.4s ease-in-out infinite;
 }
 

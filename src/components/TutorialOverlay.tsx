@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
+import { FIRST_TUTORIAL_ARROW } from "@/components/tutorialArrow";
 
 interface TutorialOverlayProps {
   /** Текущий индекс уровня (туториал только для levelIdx === 0) */
@@ -11,6 +12,11 @@ interface TutorialOverlayProps {
 }
 
 type Step = "move" | "limit" | "done";
+
+type TutorialArrowStyle = CSSProperties & {
+  "--tutorial-arrow-pulse-x"?: string;
+  "--tutorial-arrow-pulse-y"?: string;
+};
 
 /**
  * Интерактивный онбординг для первого уровня.
@@ -47,6 +53,12 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
     setStep("done");
   };
 
+  const tutorialArrowStyle: TutorialArrowStyle = {
+    transform: `translate(-50%, -50%) translate(${FIRST_TUTORIAL_ARROW.offset.x}px, ${FIRST_TUTORIAL_ARROW.offset.y}px)`,
+    "--tutorial-arrow-pulse-x": `${FIRST_TUTORIAL_ARROW.pulseOffset.x}px`,
+    "--tutorial-arrow-pulse-y": `${FIRST_TUTORIAL_ARROW.pulseOffset.y}px`,
+  };
+
   if (step === "done") return null;
 
   return (
@@ -62,11 +74,11 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
 
       {step === "move" && (
         <>
-          {/* Пульсирующая стрелка-подсказка над центром поля,
-              указывает примерно "вниз-вправо" (ось S по изометрии). */}
+          {/* Пульсирующая стрелка использует screen-facing направление из Input/iso,
+              чтобы подсказка совпадала с фактическим управлением игрока. */}
           <div
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-            style={{ transform: "translate(-50%, -50%) translate(40px, -40px)" }}
+            style={tutorialArrowStyle}
             aria-hidden
           >
             <div className="tutorial-arrow-pulse">
@@ -76,7 +88,7 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
                 viewBox="0 0 72 72"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                style={{ transform: "rotate(135deg)" }}
+                style={{ transform: `rotate(${FIRST_TUTORIAL_ARROW.rotationDeg}deg)` }}
               >
                 <path
                   d="M36 8 L36 56 M36 56 L20 40 M36 56 L52 40"
