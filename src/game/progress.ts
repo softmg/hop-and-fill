@@ -9,6 +9,7 @@ export interface PlayerProgress {
   completedLevels: number[];
   bestStarsByLevel: Record<number, 1 | 2 | 3>;
   tutorialComplete: boolean;
+  audioMuted: boolean;
 }
 
 export function createDefaultProgress(): PlayerProgress {
@@ -18,6 +19,7 @@ export function createDefaultProgress(): PlayerProgress {
     completedLevels: [],
     bestStarsByLevel: {},
     tutorialComplete: false,
+    audioMuted: false,
   };
 }
 
@@ -56,6 +58,10 @@ function hasLegacyTutorialCompletion() {
   }
 }
 
+function sanitizeAudioMuted(value: unknown) {
+  return typeof value === "boolean" ? value : false;
+}
+
 export function normalizeProgress(raw: unknown, levelCount: number): PlayerProgress {
   const fallback = createDefaultProgress();
   if (levelCount <= 0) return fallback;
@@ -81,6 +87,7 @@ export function normalizeProgress(raw: unknown, levelCount: number): PlayerProgr
     completedLevels,
     bestStarsByLevel,
     tutorialComplete: Boolean(data.tutorialComplete) || hasLegacyTutorialCompletion(),
+    audioMuted: sanitizeAudioMuted(data.audioMuted),
   };
 }
 
@@ -126,6 +133,16 @@ export function completeTutorial(progress: PlayerProgress, levelCount: number): 
     {
       ...progress,
       tutorialComplete: true,
+    },
+    levelCount,
+  );
+}
+
+export function setAudioMuted(progress: PlayerProgress, muted: boolean, levelCount: number): PlayerProgress {
+  return normalizeProgress(
+    {
+      ...progress,
+      audioMuted: muted,
     },
     levelCount,
   );

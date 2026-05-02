@@ -8,6 +8,8 @@ import { colors, type Palette } from "./theme";
 
 export interface GameCallbacks {
   onHopCount: (n: number) => void;
+  onHop: () => void;
+  onPaint: () => void;
   onWin: (hops: number) => void;
   onLose: () => void;
 }
@@ -300,9 +302,14 @@ export class PixiGame {
     };
     this.hops++;
     this.cb.onHopCount(this.hops);
+    this.cb.onHop();
     this.player.hop(
       tx, ty,
-      () => { target.paint(); },
+      () => {
+        if (target.paint()) {
+          this.cb.onPaint();
+        }
+      },
       () => {
         if (this.level.isComplete()) {
           this.state = "won";

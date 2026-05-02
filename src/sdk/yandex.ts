@@ -24,6 +24,12 @@ interface YsdkRewardedCallbacks extends YsdkAdCallbacks {
   onRewarded?: () => void;
 }
 
+export interface YsdkFullscreenAdCallbacks {
+  onOpen?: () => void;
+  onClose?: () => void;
+  onError?: () => void;
+}
+
 interface Ysdk {
   features: YsdkFeatures;
   adv: {
@@ -42,6 +48,7 @@ declare global {
 }
 
 const STORAGE_KEY = "pogo-paint:player-data";
+const fullscreenAdListeners = new Set<(active: boolean) => void>();
 
 function readMockData(): Record<string, unknown> {
   try {
@@ -74,7 +81,10 @@ const mockSdk: Ysdk = {
   adv: {
     showFullscreenAdv: (opts) => {
       console.info("[ysdk-mock] showFullscreenAdv");
-      opts?.callbacks?.onClose?.();
+      opts?.callbacks?.onOpen?.();
+      queueMicrotask(() => {
+        opts?.callbacks?.onClose?.();
+      });
     },
     showRewardedVideo: (opts) => {
       console.info("[ysdk-mock] showRewardedVideo");
@@ -179,14 +189,33 @@ export function ysdkGameplayStop() {
   return queueGameplaySync();
 }
 
-export async function ysdkShowAd() {
+function notifyFullscreenAdState(active: boolean) {
+  for (const listener of fullscreenAdListeners) {
+    listener(active);
+  }
+}
+
+export function subscribeToFullscreenAds(listener: (active: boolean) => void) {
+  fullscreenAdListeners.add(listener);
+  return () => {
+    fullscreenAdListeners.delete(listener);
+  };
+}
+
+export async function ysdkShowAd(callbacks?: YsdkFullscreenAdCallbacks) {
   const sdk = await initYsdk();
   await new Promise<void>((resolve) => {
+    let active = false;
     let settled = false;
-    const settle = () => {
+    const settle = (cb?: () => void) => {
       if (settled) return;
       settled = true;
+      if (active) {
+        active = false;
+        notifyFullscreenAdState(false);
+      }
       clearTimeout(fallbackTimer);
+      cb?.();
       resolve();
     };
 
@@ -195,14 +224,21 @@ export async function ysdkShowAd() {
     try {
       sdk.adv.showFullscreenAdv({
         callbacks: {
-          onClose: settle,
-          onError: settle,
-          onOffline: settle,
+          onOpen: () => {
+            if (!active) {
+              active = true;
+              notifyFullscreenAdState(true);
+            }
+            callbacks?.onOpen?.();
+          },
+          onClose: () => settle(callbacks?.onClose),
+          onError: () => settle(callbacks?.onError),
+          onOffline: () => settle(callbacks?.onError),
         },
       });
     } catch (error) {
       console.warn("[ysdk] fullscreen ad failed", error);
-      settle();
+      settle(callbacks?.onError);
     }
   });
 }

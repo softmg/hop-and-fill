@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Map, Pause, Play, RotateCcw, Trophy } from "lucide-react";
+import { Map, Pause, Play, RotateCcw, Trophy, Volume2, VolumeX } from "lucide-react";
 import { PixiGame } from "@/game/PixiGame";
+import { createGameAudio } from "@/game/audio";
 import { decideInterstitialTrigger, type InterstitialTrigger } from "@/game/interstitials";
 import { levels } from "@/game/levels";
 import { deriveChapters, getChapterForLevel, getChapterTransition, type ChapterTransition } from "@/game/levels/chapters";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
-import { ysdkGameplayStart, ysdkGameplayStop, ysdkReady, ysdkShowAd, ysdkShowRewardedAd } from "@/sdk/yandex";
+import { subscribeToFullscreenAds, ysdkGameplayStart, ysdkGameplayStop, ysdkReady, ysdkShowAd, ysdkShowRewardedAd } from "@/sdk/yandex";
 import { Button } from "@/components/ui/button";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { LevelSelect } from "@/components/LevelSelect";
@@ -19,6 +20,7 @@ import {
   isLevelUnlocked,
   loadPlayerProgress,
   savePlayerProgress,
+  setAudioMuted,
   type PlayerProgress,
 } from "@/game/progress";
 
@@ -57,6 +59,7 @@ interface FinishedAttempt {
 export const GameCanvas = () => {
   const hostRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<PixiGame | null>(null);
+  const audioRef = useRef<ReturnType<typeof createGameAudio> | null>(null);
   const levelIdxRef = useRef(0);
   const progressRef = useRef<PlayerProgress | null>(null);
   const attemptIdRef = useRef(0);
@@ -80,6 +83,10 @@ export const GameCanvas = () => {
   const optimal = computeOptimalMoves(currentLevel);
   const limit = moveLimit(optimal);
   const progressReady = progress !== null;
+
+  if (!audioRef.current) {
+    audioRef.current = createGameAudio();
+  }
 
   const persistProgress = (nextProgress: PlayerProgress) => {
     progressRef.current = nextProgress;
@@ -146,11 +153,39 @@ export const GameCanvas = () => {
   }, []);
 
   useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.setEnvironmentHold("hidden", document.visibilityState !== "visible");
+
+    const handleVisibilityChange = () => {
+      audio.setEnvironmentHold("hidden", document.visibilityState !== "visible");
+    };
+    const unsubscribeFullscreenAds = subscribeToFullscreenAds((active) => {
+      audio.setEnvironmentHold("ad", active);
+    });
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      unsubscribeFullscreenAds();
+      void audio.destroy();
+    };
+  }, []);
+
+  useEffect(() => {
+    audioRef.current?.setMuted(progress?.audioMuted ?? false);
+  }, [progress?.audioMuted]);
+
+  useEffect(() => {
     if (!progressReady) return;
     if (!hostRef.current) return;
     const game = new PixiGame(hostRef.current, currentLevel, {
       onHopCount: setHops,
+      onHop: () => audioRef.current?.playHop(),
+      onPaint: () => audioRef.current?.playPaint(),
       onWin: (winningHops) => {
+        audioRef.current?.playWin();
         const wonLevelIdx = levelIdxRef.current;
         const wonLevel = levels[wonLevelIdx];
         const wonStars = computeStars(winningHops, computeOptimalMoves(wonLevel));
@@ -170,6 +205,7 @@ export const GameCanvas = () => {
         setOverlayMode("won");
       },
       onLose: () => {
+        audioRef.current?.playLoss();
         const lostLevelIdx = levelIdxRef.current;
         const baseProgress = progressRef.current ?? createDefaultProgress();
         setPendingChapterTransition(null);
@@ -294,6 +330,12 @@ export const GameCanvas = () => {
     const baseProgress = progressRef.current;
     if (!baseProgress) return;
     persistProgress(completeTutorial(baseProgress, levels.length));
+  };
+
+  const toggleMute = () => {
+    const baseProgress = progressRef.current;
+    if (!baseProgress) return;
+    persistProgress(setAudioMuted(baseProgress, !baseProgress.audioMuted, levels.length));
   };
 
   const openPauseMenu = () => {
@@ -458,6 +500,17 @@ export const GameCanvas = () => {
             >
               ★ {optimal}
             </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={toggleMute}
+              className="h-7 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
+              title={progress.audioMuted ? "Включить звук" : "Выключить звук"}
+              aria-pressed={progress.audioMuted}
+            >
+              {progress.audioMuted ? <VolumeX className="h-3.5 w-3.5" aria-hidden /> : <Volume2 className="h-3.5 w-3.5" aria-hidden />}
+              <span className="hidden sm:inline">{progress.audioMuted ? "Звук выкл" : "Звук вкл"}</span>
+            </Button>
             <Button size="sm" variant="secondary" onClick={restart} disabled={isInteractionLocked} className="h-7 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm">
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
               <span className="hidden sm:inline">Заново</span>

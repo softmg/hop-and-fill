@@ -10,11 +10,16 @@ const mockSavePlayerProgress = vi.fn().mockResolvedValue(undefined);
 const mockYsdkReady = vi.fn().mockResolvedValue(undefined);
 const mockYsdkGameplayStart = vi.fn().mockResolvedValue(undefined);
 const mockYsdkGameplayStop = vi.fn().mockResolvedValue(undefined);
+const mockYsdkShowAd = vi.fn().mockResolvedValue(undefined);
+const mockYsdkShowRewardedAd = vi.fn().mockResolvedValue({ status: "closed" });
+const mockSubscribeToFullscreenAds = vi.fn(() => () => {});
 const mockDestroy = vi.fn();
 const mockReset = vi.fn();
 const mockSetLevel = vi.fn();
 const mockSetMoveLimit = vi.fn();
 const mockTriggerDir = vi.fn();
+const mockPause = vi.fn();
+const mockResume = vi.fn();
 
 vi.mock("@/game/PixiGame", () => ({
   PixiGame: class {
@@ -47,6 +52,14 @@ vi.mock("@/game/PixiGame", () => ({
     triggerDir(dir: unknown) {
       mockTriggerDir(dir);
     }
+
+    pause() {
+      mockPause();
+    }
+
+    resume() {
+      mockResume();
+    }
   },
 }));
 
@@ -54,6 +67,9 @@ vi.mock("@/sdk/yandex", () => ({
   ysdkReady: mockYsdkReady,
   ysdkGameplayStart: mockYsdkGameplayStart,
   ysdkGameplayStop: mockYsdkGameplayStop,
+  ysdkShowAd: mockYsdkShowAd,
+  ysdkShowRewardedAd: mockYsdkShowRewardedAd,
+  subscribeToFullscreenAds: mockSubscribeToFullscreenAds,
 }));
 
 vi.mock("@/game/progress", async () => {
@@ -76,6 +92,7 @@ describe("GameCanvas yandex lifecycle", () => {
       completedLevels: [],
       bestStarsByLevel: {},
       tutorialComplete: true,
+      audioMuted: false,
     });
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
@@ -150,6 +167,7 @@ describe("GameCanvas yandex lifecycle", () => {
       completedLevels: [],
       bestStarsByLevel: {},
       tutorialComplete: false,
+      audioMuted: false,
     });
 
     const { GameCanvas } = await import("./GameCanvas");

@@ -7,6 +7,7 @@ import {
   getTotalStars,
   isLevelUnlocked,
   normalizeProgress,
+  setAudioMuted,
 } from "./progress";
 
 describe("player progress", () => {
@@ -16,6 +17,7 @@ describe("player progress", () => {
     expect(isLevelUnlocked(progress, 0)).toBe(true);
     expect(isLevelUnlocked(progress, 1)).toBe(false);
     expect(getTotalStars(progress)).toBe(0);
+    expect(progress.audioMuted).toBe(false);
   });
 
   it("unlocks only the next level after a win", () => {
@@ -48,6 +50,7 @@ describe("player progress", () => {
           3: 2,
           99: 1,
         },
+        audioMuted: "nope",
       },
       5,
     );
@@ -55,11 +58,18 @@ describe("player progress", () => {
     expect(progress.unlockedLevel).toBe(5);
     expect(progress.completedLevels).toEqual([2, 3]);
     expect(progress.bestStarsByLevel).toEqual({ 1: 3, 3: 2 });
+    expect(progress.audioMuted).toBe(false);
   });
 
   it("stores tutorial completion in the shared progress object", () => {
     const progress = completeTutorial(createDefaultProgress(), 10);
 
     expect(progress.tutorialComplete).toBe(true);
+  });
+
+  it("stores the mute preference in player progress", () => {
+    const progress = setAudioMuted(createDefaultProgress(), true, 10);
+
+    expect(progress.audioMuted).toBe(true);
   });
 });
