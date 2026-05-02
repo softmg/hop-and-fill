@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Map, Pause, Play, RotateCcw, Trophy } from "lucide-react";
 import { PixiGame } from "@/game/PixiGame";
+import { decideInterstitialTrigger, type InterstitialTrigger } from "@/game/interstitials";
 import { levels } from "@/game/levels";
 import { deriveChapters, getChapterForLevel, getChapterTransition, type ChapterTransition } from "@/game/levels/chapters";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
-import { ysdkGameplayStart, ysdkGameplayStop, ysdkReady, ysdkShowRewardedAd } from "@/sdk/yandex";
+import { ysdkGameplayStart, ysdkGameplayStop, ysdkReady, ysdkShowAd, ysdkShowRewardedAd } from "@/sdk/yandex";
 import { Button } from "@/components/ui/button";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { LevelSelect } from "@/components/LevelSelect";
@@ -36,17 +37,39 @@ const Star = ({ filled }: { filled: boolean }) => (
   </svg>
 );
 
+const getNextLevelContext = (fromLevelIdx: number) => {
+  const nextLevelIdx = fromLevelIdx + 1;
+  if (nextLevelIdx >= levels.length) {
+    return { nextLevelIdx: null, nextLevel: null };
+  }
+
+  return { nextLevelIdx, nextLevel: levels[nextLevelIdx] };
+};
+
+interface FinishedAttempt {
+  id: number;
+  outcome: "win" | "loss";
+  levelIdx: number;
+  completedLevelsCount: number;
+  didCompleteNewLevel: boolean;
+}
+
 export const GameCanvas = () => {
   const hostRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<PixiGame | null>(null);
   const levelIdxRef = useRef(0);
   const progressRef = useRef<PlayerProgress | null>(null);
+  const attemptIdRef = useRef(0);
+  const isInterstitialActiveRef = useRef(false);
+  const handledInterstitialAttemptRef = useRef<number | null>(null);
   const [hops, setHops] = useState(0);
   const [overlayMode, setOverlayMode] = useState<OverlayMode>("playing");
   const [pendingChapterTransition, setPendingChapterTransition] = useState<ChapterTransition | null>(null);
   const [levelIdx, setLevelIdx] = useState(0);
   const [progress, setProgress] = useState<PlayerProgress | null>(null);
+  const [finishedAttempt, setFinishedAttempt] = useState<FinishedAttempt | null>(null);
   const [isLevelSelectOpen, setLevelSelectOpen] = useState(false);
+  const [isInterstitialActive, setInterstitialActive] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
   const [rewardedUndoState, setRewardedUndoState] = useState<"idle" | "loading" | "error">("idle");
   const [isDocumentVisible, setDocumentVisible] = useState(() => document.visibilityState !== "hidden");
@@ -77,6 +100,22 @@ export const GameCanvas = () => {
   useEffect(() => {
     progressRef.current = progress;
   }, [progress]);
+
+  const showInterstitial = useCallback(async (reason: InterstitialTrigger) => {
+    if (reason === "none" || isInterstitialActiveRef.current) return;
+
+    isInterstitialActiveRef.current = true;
+    setInterstitialActive(true);
+
+    try {
+      await ysdkShowAd();
+    } catch (error) {
+      console.warn("[ads] failed to show interstitial", error);
+    } finally {
+      isInterstitialActiveRef.current = false;
+      setInterstitialActive(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,14 +155,32 @@ export const GameCanvas = () => {
         const wonLevel = levels[wonLevelIdx];
         const wonStars = computeStars(winningHops, computeOptimalMoves(wonLevel));
         const baseProgress = progressRef.current ?? createDefaultProgress();
+        const wonLevelNumber = wonLevelIdx + 1;
+        const didCompleteNewLevel = !baseProgress.completedLevels.includes(wonLevelNumber);
         const nextProgress = completeLevel(baseProgress, wonLevelIdx, wonStars, levels.length);
         persistProgress(nextProgress);
+        setFinishedAttempt({
+          id: ++attemptIdRef.current,
+          outcome: "win",
+          levelIdx: wonLevelIdx,
+          completedLevelsCount: nextProgress.completedLevels.length,
+          didCompleteNewLevel,
+        });
         setPendingChapterTransition(getChapterTransition(levels, wonLevelIdx));
         setOverlayMode("won");
       },
       onLose: () => {
+        const lostLevelIdx = levelIdxRef.current;
+        const baseProgress = progressRef.current ?? createDefaultProgress();
         setPendingChapterTransition(null);
         setRewardedUndoState("idle");
+        setFinishedAttempt({
+          id: ++attemptIdRef.current,
+          outcome: "loss",
+          levelIdx: lostLevelIdx,
+          completedLevelsCount: baseProgress.completedLevels.length,
+          didCompleteNewLevel: false,
+        });
         setOverlayMode("lost");
       },
     }, {
@@ -147,9 +204,37 @@ export const GameCanvas = () => {
     if (!gameRef.current) return;
     gameRef.current.setLevel(currentLevel);
     gameRef.current.setMoveLimit(limit);
+    handledInterstitialAttemptRef.current = null;
+    setFinishedAttempt(null);
     setRewardedUndoState("idle");
     setHops(0);
   }, [levelIdx, currentLevel, limit, progressReady]);
+
+  useEffect(() => {
+    if (overlayMode === "playing") {
+      handledInterstitialAttemptRef.current = null;
+      return;
+    }
+
+    if (!finishedAttempt) return;
+    if (handledInterstitialAttemptRef.current === finishedAttempt.id) return;
+    handledInterstitialAttemptRef.current = finishedAttempt.id;
+
+    const { nextLevelIdx, nextLevel } = getNextLevelContext(finishedAttempt.levelIdx);
+    const reason = decideInterstitialTrigger({
+      outcome: finishedAttempt.outcome,
+      completedLevelsCount: finishedAttempt.completedLevelsCount,
+      didCompleteNewLevel: finishedAttempt.didCompleteNewLevel,
+      currentLevelIndex: finishedAttempt.levelIdx,
+      nextLevelIndex: nextLevelIdx,
+      currentTheme: levels[finishedAttempt.levelIdx]?.theme,
+      nextTheme: nextLevel?.theme,
+    });
+
+    if (reason === "after-loss" || reason === "periodic-win") {
+      void showInterstitial(reason);
+    }
+  }, [finishedAttempt, overlayMode, showInterstitial]);
 
   useEffect(() => {
     const game = gameRef.current;
@@ -178,6 +263,8 @@ export const GameCanvas = () => {
   };
 
   const restart = () => {
+    if (isInterstitialActiveRef.current) return;
+    setFinishedAttempt(null);
     gameRef.current?.reset();
     setPendingChapterTransition(null);
     setRewardedUndoState("idle");
@@ -194,7 +281,9 @@ export const GameCanvas = () => {
   };
 
   const selectLevel = (nextLevelIdx: number) => {
+    if (isInterstitialActiveRef.current) return;
     if (!progress || !isLevelUnlocked(progress, nextLevelIdx)) return;
+    setFinishedAttempt(null);
     setPendingChapterTransition(null);
     setRewardedUndoState("idle");
     resumeGameplay();
@@ -230,6 +319,7 @@ export const GameCanvas = () => {
   };
 
   const continueAfterWin = () => {
+    if (isInterstitialActiveRef.current || !progress) return;
     const nextLevelIdx = levelIdx + 1;
     if (nextLevelIdx >= levels.length) {
       setPendingChapterTransition(null);
@@ -237,16 +327,34 @@ export const GameCanvas = () => {
       return;
     }
 
-    if (pendingChapterTransition) {
-      loadLevel(pendingChapterTransition.nextLevelIndex);
-      setOverlayMode("chapter");
-      return;
-    }
+    const reason = decideInterstitialTrigger({
+      outcome: "win",
+      completedLevelsCount: progress.completedLevels.length,
+      didCompleteNewLevel: finishedAttempt?.didCompleteNewLevel ?? true,
+      currentLevelIndex: levelIdx,
+      nextLevelIndex,
+      currentTheme: currentLevel.theme,
+      nextTheme: levels[nextLevelIdx]?.theme,
+    });
 
-    if (progress && isLevelUnlocked(progress, nextLevelIdx)) {
-      resumeGameplay();
-      loadLevel(nextLevelIdx);
-    }
+    const continueFlow = async () => {
+      if (reason === "chapter-boundary") {
+        await showInterstitial(reason);
+      }
+
+      if (pendingChapterTransition) {
+        loadLevel(pendingChapterTransition.nextLevelIndex);
+        setOverlayMode("chapter");
+        return;
+      }
+
+      if (isLevelUnlocked(progress, nextLevelIdx)) {
+        resumeGameplay();
+        loadLevel(nextLevelIdx);
+      }
+    };
+
+    void continueFlow();
   };
 
   const startChapterLevel = () => {
@@ -258,6 +366,22 @@ export const GameCanvas = () => {
   const bestStars = progress ? getBestStars(progress, levelIdx) : 0;
   const totalStars = progress ? getTotalStars(progress) : 0;
   const canPlayNext = Boolean(progress && levelIdx < levels.length - 1 && isLevelUnlocked(progress, levelIdx + 1));
+  const finishedAttemptLevelContext = finishedAttempt ? getNextLevelContext(finishedAttempt.levelIdx) : null;
+  const overlayInterstitialTrigger =
+    overlayMode === "playing" || !finishedAttempt
+      ? "none"
+      : decideInterstitialTrigger({
+          outcome: finishedAttempt.outcome,
+          completedLevelsCount: finishedAttempt.completedLevelsCount,
+          didCompleteNewLevel: finishedAttempt.didCompleteNewLevel,
+          currentLevelIndex: finishedAttempt.levelIdx,
+          nextLevelIndex: finishedAttemptLevelContext?.nextLevelIdx ?? null,
+          currentTheme: levels[finishedAttempt.levelIdx]?.theme,
+          nextTheme: finishedAttemptLevelContext?.nextLevel?.theme,
+        });
+  const isAutoInterstitialPending =
+    overlayInterstitialTrigger === "after-loss" || overlayInterstitialTrigger === "periodic-win";
+  const isInteractionLocked = isInterstitialActive || isAutoInterstitialPending;
   const canShowRewardedUndo = overlayMode === "lost" && Boolean(gameRef.current?.canUndoLastMove());
   const isTutorialBlocking = levelIdx === 0 && progress !== null && !progress.tutorialComplete;
   const isGameplayActive = progressReady
@@ -334,7 +458,7 @@ export const GameCanvas = () => {
             >
               ★ {optimal}
             </div>
-            <Button size="sm" variant="secondary" onClick={restart} className="h-7 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm">
+            <Button size="sm" variant="secondary" onClick={restart} disabled={isInteractionLocked} className="h-7 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm">
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
               <span className="hidden sm:inline">Заново</span>
             </Button>
@@ -352,12 +476,13 @@ export const GameCanvas = () => {
 
         {/* Выбор уровня — отдельной строкой под HUD */}
         <div className="mt-1.5 sm:mt-2 flex items-center justify-center gap-2 pointer-events-auto">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={openLevelSelect}
-            className="h-7 bg-black/60 px-2.5 text-xs text-white ring-1 ring-white/10 backdrop-blur hover:bg-black/75 hover:text-white sm:h-9 sm:px-3 sm:text-sm"
-          >
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={openLevelSelect}
+              disabled={isInteractionLocked}
+              className="h-7 bg-black/60 px-2.5 text-xs text-white ring-1 ring-white/10 backdrop-blur hover:bg-black/75 hover:text-white sm:h-9 sm:px-3 sm:text-sm"
+            >
             <Map className="h-3.5 w-3.5" aria-hidden />
             Уровень {levelIdx + 1} / {levels.length}
           </Button>
@@ -407,14 +532,14 @@ export const GameCanvas = () => {
                   Ходов: {hops} · идеал: {optimal}
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
-                  <Button onClick={continueAfterWin} className="w-full">
+                  <Button onClick={continueAfterWin} disabled={isInteractionLocked} className="w-full">
                     {levelIdx === levels.length - 1
                       ? "К финальному экрану"
                       : pendingChapterTransition
                         ? `Открыть главу ${pendingChapterTransition.toChapter.chapterIndex}`
                         : "Следующий уровень"}
                   </Button>
-                  <Button onClick={restart} variant="secondary" className="w-full">
+                  <Button onClick={restart} disabled={isInteractionLocked} variant="secondary" className="w-full">
                     Сыграть снова
                   </Button>
                 </div>
@@ -433,10 +558,10 @@ export const GameCanvas = () => {
                       {rewardedUndoState === "loading" ? "Загрузка награды..." : "Посмотреть рекламу и отменить ход"}
                     </Button>
                   )}
-                  <Button onClick={restart} className="w-full">
+                  <Button onClick={restart} disabled={isInteractionLocked} className="w-full">
                     Перезапустить
                   </Button>
-                  <Button onClick={openLevelSelect} variant="secondary" className="w-full">
+                  <Button onClick={openLevelSelect} disabled={isInteractionLocked} variant="secondary" className="w-full">
                     К выбору уровней
                   </Button>
                 </div>
@@ -557,7 +682,10 @@ export const GameCanvas = () => {
         levels={levels}
         progress={progress}
         currentLevelIndex={levelIdx}
-        onClose={closeLevelSelect}
+        onClose={() => {
+          if (isInterstitialActiveRef.current) return;
+          closeLevelSelect();
+        }}
         onSelectLevel={selectLevel}
       />
     </div>

@@ -27,7 +27,9 @@ interface YsdkRewardedCallbacks extends YsdkAdCallbacks {
 interface Ysdk {
   features: YsdkFeatures;
   adv: {
-    showFullscreenAdv: (opts?: { callbacks?: YsdkAdCallbacks }) => void;
+    showFullscreenAdv: (opts?: {
+      callbacks?: Partial<Record<"onClose" | "onError" | "onOffline" | "onOpen", () => void>>;
+    }) => void;
     showRewardedVideo?: (opts?: { callbacks?: YsdkRewardedCallbacks }) => void;
   };
   getPlayer: (opts?: { scopes?: boolean }) => Promise<YsdkPlayer>;
@@ -179,7 +181,30 @@ export function ysdkGameplayStop() {
 
 export async function ysdkShowAd() {
   const sdk = await initYsdk();
-  sdk.adv.showFullscreenAdv();
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(fallbackTimer);
+      resolve();
+    };
+
+    const fallbackTimer = window.setTimeout(settle, 15000);
+
+    try {
+      sdk.adv.showFullscreenAdv({
+        callbacks: {
+          onClose: settle,
+          onError: settle,
+          onOffline: settle,
+        },
+      });
+    } catch (error) {
+      console.warn("[ysdk] fullscreen ad failed", error);
+      settle();
+    }
+  });
 }
 
 export type RewardedAdResult =
