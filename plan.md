@@ -1,196 +1,123 @@
-# Crash Cubes Plan for Yandex Games
+# Hop & Fill Release Plan for Yandex Games
 
-## Goal
+## Decisions
 
-Prepare the isometric puzzle game for a strong Yandex Games release: stable first session, reliable saves, clear progression, fair monetization, and moderation-ready platform integration.
+- Product title: `Hop & Fill`.
+- Repository and Archon workflow names may remain `Crash Cubes` / `crash-cubes-*`.
+- First release content target: `25` levels, `5` chapters, `5` levels per visual theme.
+- Manual playtest result: current level curve is acceptable for release.
+- Mobile orientation target: portrait only. The Yandex Games draft must select `Portrait`.
 
-## Current Context
+## Current Local Baseline
 
-- The game is a Lovable-generated Vite/React/Pixi web game.
-- Code work is done in this GitHub repository through Codex.
-- Level balancing is handled through a separate script.
-- Target content: `50` levels total, `10` levels per visual style.
-- Current code already has a Yandex SDK wrapper and local mock in `src/sdk/yandex.ts`.
+- `npm test`: passes, `55` tests.
+- `npm run lint`: passes with warnings only from shared UI exports.
+- `npm run build`: passes.
+- `npm run validate:levels`: passes, `25` levels analyzed, no warnings.
+- Production build currently warns about one large JS chunk around `877 kB`.
 
-## 1. Progression and Saves
+## P0: Required Before Moderation
 
-Implement persistent player progress through Yandex player data and local mock storage.
+1. Product naming
+   - Keep the game title as `Hop & Fill`.
+   - Keep repo/workflow names as `Crash Cubes` where they are infrastructure names.
+   - Align visible game/store/metadata names before upload.
 
-- Save unlocked level.
-- Save completed levels.
-- Save best stars per level.
-- Save tutorial completion.
-- Save sound/music preferences when audio is added.
-- Load progress on startup before rendering final level state.
-- Replace free previous/next navigation with a proper level select.
-- Allow replaying completed levels.
-- Unlock the next level only after winning the current one.
+2. Yandex SDK connection
+   - Archon task: update the SDK loader to the current Yandex Games path.
+   - For archive upload to Yandex hosting, the SDK path should be relative.
+   - Preserve local mock behavior outside Yandex.
 
-Why this matters:
+3. `LoadingAPI.ready()` timing
+   - Archon task: fire `LoadingAPI.ready()` only once the launch flow is truly playable.
+   - The readiness gate should include progress load, Pixi asset readiness, first scene renderability, and intro completion.
 
-- Yandex requirements allow guest play, but progress must be saved.
-- Progression is the main retention loop for a 50-level puzzle game.
+4. Automatic language detection
+   - Archon task: read `ysdk.environment.i18n.lang` during launch.
+   - RU-only release may still use Russian text, but SDK-based auto-detection must exist and be verifiable in the debug panel.
 
-## 2. Yandex SDK Integration
+5. Yandex debug panel verification
+   - Archon task: add a repo checklist or lightweight verification helper for debug-panel checks.
+   - Final verification still happens manually in the Yandex draft.
 
-Tighten SDK usage so it matches platform expectations.
+## P1: Game Readiness
 
-- Call `LoadingAPI.ready()` only after Pixi assets and the first playable state are ready.
-- Add `GameplayAPI.start()` when the player starts or resumes active gameplay.
-- Add `GameplayAPI.stop()` on win, loss, pause, ads, tab backgrounding, or overlays.
-- Keep local mock behavior for development outside Yandex.
-- Avoid SDK crashes when Yandex APIs are unavailable.
+1. Release scope
+   - Use `25` levels for v1 instead of the old `50`-level target.
+   - Store copy and screenshots must describe `25` levels, not `50`.
 
-Current risk:
+2. Difficulty/playtest
+   - Manual playtest done. No blocking task.
 
-- `ysdkReady()` is called from `GameCanvas` immediately after creating `PixiGame`, while Pixi assets are loaded asynchronously inside `PixiGame`.
+3. Portrait-only mobile release
+   - Archon task: make the game portrait-first and add a landscape blocker or clear unsupported-orientation state if needed.
+   - Yandex draft must select `Portrait`, which lets the platform show its rotate-device placeholder.
 
-## 3. Monetization
+4. Rewarded ad lifecycle
+   - Archon task: apply audio/gameplay pause handling to rewarded ads, not only fullscreen interstitials.
 
-Use ads only during clear pauses.
+5. Player object caching
+   - Archon task: cache the Yandex `Player` object in `src/sdk/yandex.ts` to avoid repeated `getPlayer()` calls.
 
-- Interstitial ad candidates:
-  - after losing;
-  - after every few completed levels;
-  - before starting a new chapter/style;
-  - never during an active jump or puzzle interaction.
-- Rewarded video candidates:
-  - get `+5` moves;
-  - undo one move;
-  - show a hint;
-  - skip a difficult level;
-  - reveal the ideal first move.
-- Mute or pause gameplay/audio during ads.
-- Resume gameplay cleanly after ad callbacks.
+## P2: Build and Packaging
 
-Rules:
+1. Production ZIP
+   - Manual later: build `dist`, zip the contents so `index.html` is at archive root, upload to the draft.
 
-- Ads must be expected by the player.
-- Ads must appear in logical pauses.
-- Rewarded ads can be more frequent than interstitials, but the reward must be explicit.
-
-## 4. Level and Balance Strategy
-
-Use the 50 levels as a difficulty curve, not just a content count.
-
-- Levels `1-5`: teach movement, stars, move limit, and simple traps.
-- Levels `6-10`: first chapter test.
-- Levels `11-20`: introduce stronger branching and longer routes.
-- Levels `21-30`: combine rings, dead ends, and misleading starts.
-- Levels `31-40`: advanced multi-loop puzzles.
-- Levels `41-50`: final exam levels with high readability and controlled difficulty spikes.
-
-Balance script should track:
-
-- tile count;
-- optimal moves;
-- move limit;
-- dead-end count;
-- branching count;
-- graph diameter;
-- start penalty;
-- expected retry difficulty;
-- style/chapter;
-- whether the level has a clear intended trick.
-
-Recommended level metadata:
+2. Relative asset paths with Vite
+   - If Yandex draft preview shows 404s for JS/CSS/assets, set Vite `base: "./"`.
+   - Example:
 
 ```ts
-{
-  name: string;
-  rows: string[];
-  theme: TileTheme;
-  chapter: number;
-  difficulty: 1 | 2 | 3 | 4 | 5;
-  intendedTrick?: string;
-}
+export default defineConfig(({ mode }) => ({
+  base: "./",
+  // existing config...
+}));
 ```
 
-## 5. UX Improvements
+   - Rebuild after the change and recheck `dist/index.html`; asset URLs should be relative, for example `./assets/...`.
 
-Improve first-session clarity and reduce frustration.
+3. Metadata cleanup
+   - Archon task: remove Lovable leftovers and stale external preview images from metadata.
 
-- Add a chapter/level map.
-- Show total stars per chapter, for example `27/30`.
-- Add undo, at least as a rewarded option or limited free action.
-- Add pause/settings menu.
-- Add final screen after the last level.
-- Add clear chapter transition screens when a new visual style opens.
-- Make failure text match real mechanics.
-- Confirm all HUD elements fit on small mobile screens.
-- Keep tutorial short and interactive.
+4. Brand-safe copy
+   - Archon task: remove references to third-party brands from user-facing/store-facing copy.
 
-Current copy issue:
+5. Initial bundle size
+   - Archon task: reduce the first JS chunk or configure sensible manual chunks so startup is friendlier for mobile.
 
-- Loss text mentions a jump into empty space, but invalid moves are currently ignored. Either make invalid moves cause failure or change the text.
+## P3: Yandex Draft Materials
 
-## 6. Retention Features
+1. Store text
+   - Archon task: prepare Title, SEO description, Description, and How to play for `Hop & Fill`.
+   - Text must match the real `25`-level game.
 
-Add lightweight retention loops that fit a puzzle game.
+2. Visual materials
+   - Archon task: prepare a checklist/spec for icon, maskable icon, cover, hero image, and screenshots.
 
-- Daily challenge based on existing level patterns or generated layouts.
-- Chapter completion rewards.
-- Perfect chapter badge for all `30/30` stars in a style.
-- Continue button that resumes the latest unlocked level.
-- Optional hint economy tied to rewarded ads.
+3. Cloud save setting
+   - Archon task: document and verify the Yandex draft setting `The game use cloud save`, because the game uses player data.
 
-Avoid heavy systems before first release:
+4. Gameplay screenshots and media
+   - Interactive Archon task: build an approved shot list and capture workflow for real gameplay screenshots/media.
+   - The user should approve which levels/themes and states are represented.
 
-- No complex currency unless needed.
-- No purchases before the core game loop is proven.
-- No account-gated features.
+5. Asset rights
+   - Interactive Archon task: collect and document asset provenance/licensing notes.
+   - The user should confirm any generated or externally sourced materials before submission.
 
-## 7. Visual and Audio Polish
+## Archon Execution
 
-Make each style feel like a chapter, not just a tile skin.
+The executable queue lives in:
 
-- Ensure each group of 10 levels has matching tiles, player, background, and small UI accent.
-- Add light sound effects:
-  - hop;
-  - tile paint;
-  - win;
-  - loss;
-  - chapter unlock.
-- Add a global mute toggle.
-- Stop or mute all audio when the tab is hidden or ads are shown.
-- Optimize image sizes before upload.
+```text
+.archon/state/plan-status.yaml
+```
 
-## 8. Moderation Checklist
+Run the next autonomous implementation slice with:
 
-Before submitting to Yandex Games:
+```bash
+archon workflow run crash-cubes-plan-iterative
+```
 
-- Run production build.
-- Test with Yandex debug panel.
-- Test desktop and mobile layouts.
-- Test supported browsers.
-- Check there are no console errors.
-- Check loading completes and `LoadingAPI.ready()` fires once at the correct time.
-- Check gameplay start/stop events.
-- Check save/load as guest.
-- Check ads only appear in logical pauses.
-- Check UI is not cropped by game boundaries.
-- Check all visible interface text matches declared game languages.
-- Check game name in the app matches draft materials.
-- Check icon, cover, screenshots, and description match the actual game.
-- Check all assets are owned or licensed.
-
-## 9. Suggested Implementation Order
-
-1. Add save/load progress and lock level navigation.
-2. Add real Yandex gameplay events and correct ready timing.
-3. Add level select and chapter progression.
-4. Add 50-level data structure and balance validation output.
-5. Add rewarded hint/undo mechanic.
-6. Add interstitial ads in safe pauses.
-7. Add audio and mute/background handling.
-8. Run mobile layout and debug panel checks.
-9. Prepare store text and screenshots.
-10. Submit first moderation build.
-
-## 10. Useful References
-
-- Yandex Games requirements: https://yandex.com/dev/games/doc/en/concepts/criteria
-- Moderation checklist: https://yandex.com/dev/games/doc/en/concepts/moderation
-- Loading and gameplay events: https://yandex.com/dev/games/doc/en/sdk/sdk-game-events
-- Ad placement: https://yandex.com/dev/games/doc/en/requirements/4/4
-- Player data: https://yandex.com/dev/games/doc/en/sdk/sdk-player
+For interactive release-material tasks, use the dedicated interactive workflow after the implementation queue is stable.

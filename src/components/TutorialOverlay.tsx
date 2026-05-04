@@ -102,13 +102,16 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
           </div>
 
           {/* Тултип-плашка по центру снизу */}
-          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 pointer-events-auto max-w-sm w-[90%]">
+          <div className="absolute bottom-48 left-1/2 -translate-x-1/2 pointer-events-auto max-w-sm w-[90%] sm:bottom-24">
             <div className="bg-card text-card-foreground rounded-xl shadow-2xl px-5 py-4 text-center animate-in fade-in slide-in-from-bottom-4 duration-300">
               <p className="text-sm font-medium leading-relaxed">
-                Свайпай или используй стрелки, чтобы двигаться и закрашивать плитки!
+                Свайпай, тяни джойстик или используй стрелки, чтобы двигаться и закрашивать плитки!
               </p>
               <p className="text-xs text-muted-foreground mt-2">
-                На ПК — стрелки или WASD · на телефоне — свайп
+                ПК: стрелки — диагонали · WASD — прямые · сочетания WASD — диагонали
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Телефон: свайп или джойстик в сторону соседней плитки
               </p>
             </div>
           </div>

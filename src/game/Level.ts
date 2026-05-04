@@ -10,6 +10,12 @@ export interface LevelMetadata {
   intendedTrick?: string;
 }
 
+export interface StarThresholds {
+  threeStars: number;
+  twoStars: number;
+  oneStar: number;
+}
+
 export interface LevelData {
   name: string;
   // Каждая строка — ряд по gy. Символы: 'X' плитка, 'S' старт-плитка, '.' пусто.
@@ -18,6 +24,9 @@ export interface LevelData {
   chapter: number;
   difficulty: LevelDifficulty;
   intendedTrick?: string;
+  // Optional balancing data from imported level packs.
+  mOpt?: number;
+  starThresholds?: StarThresholds;
 }
 
 export class Level {

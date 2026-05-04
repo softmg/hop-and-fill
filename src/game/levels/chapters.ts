@@ -16,11 +16,11 @@ export interface ChapterTransition {
 }
 
 const THEME_LABELS: Record<TileTheme, string> = {
-  default: "Классика",
-  slime: "Слайм",
-  neon: "Неон",
-  wood: "Дерево",
-  paper: "Бумага",
+  default: "Плюшевая долина",
+  slime: "Желейное болото",
+  neon: "Неоновая матрица",
+  wood: "Столярная мастерская",
+  paper: "Бумажный замок",
 };
 
 export function getLevelTheme(level: LevelData): TileTheme {

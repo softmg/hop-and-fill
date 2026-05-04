@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Local automation/runtime artifacts
+.archon/state/
+.archon-autonomous.pid
+
+# Browser inspection/test artifacts
+.playwright-mcp/
+
+# Local screenshots / smoke captures
+/start-screen-first-run.png
+/crash-cubes-webp-smoke.png
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,4 +1,4 @@
-import type { LevelData } from "./Level.ts";
+import type { LevelData, StarThresholds } from "./Level.ts";
 import {
   countDeadEnds,
   getDistanceToNearestDeadEnd,
@@ -8,7 +8,7 @@ import {
 // ──────────────────────────────────────────────────────────────────────────────
 // Расчёт минимального количества ходов (M_opt) для уровня-головоломки.
 //
-// Соседство — 4 ортогональных направления (N/E/S/W), шаг ±1 по одной из осей.
+// Соседство — 8 направлений, шаг ±1 по одной или обеим осям.
 //
 // Формула:
 //     M_opt = (N - 1) + 2 * max(0, T - 1) + Sp
@@ -26,6 +26,10 @@ import {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function computeOptimalMoves(level: LevelData): number {
+  if (typeof level.mOpt === "number" && Number.isFinite(level.mOpt) && level.mOpt >= 0) {
+    return Math.trunc(level.mOpt);
+  }
+
   const graph = parseLevelGraph(level);
   const N = graph.cells.length;
   if (N <= 1) return 0;
@@ -38,12 +42,29 @@ export function computeOptimalMoves(level: LevelData): number {
   return (N - 1) + 2 * extraDeadEnds + Sp;
 }
 
-export function moveLimit(optimal: number): number {
-  return optimal + 5;
+export function getStarThresholds(levelOrOptimal: LevelData | number): StarThresholds {
+  if (typeof levelOrOptimal === "number") {
+    return {
+      threeStars: levelOrOptimal,
+      twoStars: levelOrOptimal + 3,
+      oneStar: levelOrOptimal + 5,
+    };
+  }
+
+  if (levelOrOptimal.starThresholds) {
+    return levelOrOptimal.starThresholds;
+  }
+
+  return getStarThresholds(computeOptimalMoves(levelOrOptimal));
 }
 
-export function computeStars(hops: number, optimal: number): 1 | 2 | 3 {
-  if (hops <= optimal) return 3;
-  if (hops <= optimal + 3) return 2;
+export function moveLimit(levelOrOptimal: LevelData | number): number {
+  return getStarThresholds(levelOrOptimal).oneStar;
+}
+
+export function computeStars(hops: number, levelOrOptimal: LevelData | number): 1 | 2 | 3 {
+  const thresholds = getStarThresholds(levelOrOptimal);
+  if (hops <= thresholds.threeStars) return 3;
+  if (hops <= thresholds.twoStars) return 2;
   return 1;
 }

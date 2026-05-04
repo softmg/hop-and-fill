@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import type { Dir } from "@/game/iso";
 import { screenVectorToDir } from "@/game/Input";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ interface MobileJoystickProps {
 const DEAD_ZONE = 18;
 const KNOB_MAX_OFFSET = 38;
 const MARKER_RADIUS = 45;
+export const MOBILE_JOYSTICK_REPEAT_MS = 120;
 
 const markerVectors: Array<{ dir: Dir; x: number; y: number; rotate: number }> = [
   { dir: "NW", x: 0, y: -1, rotate: 0 },
@@ -29,11 +30,67 @@ const getPointerId = (event: PointerEvent<HTMLDivElement>) => event.pointerId ||
 export const MobileJoystick = ({ onDirection, disabled = false, className }: MobileJoystickProps) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const activePointerIdRef = useRef<number | null>(null);
-  const hasEmittedRef = useRef(false);
+  const heldDirectionRef = useRef<Dir | null>(null);
+  const repeatTimerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
+  const onDirectionRef = useRef(onDirection);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const [activeDir, setActiveDir] = useState<Dir | null>(null);
 
-  const applyPointer = (event: PointerEvent<HTMLDivElement>, shouldEmit: boolean) => {
+  useEffect(() => {
+    onDirectionRef.current = onDirection;
+  }, [onDirection]);
+
+  const stopRepeat = useCallback(() => {
+    if (repeatTimerRef.current === null) return;
+    window.clearInterval(repeatTimerRef.current);
+    repeatTimerRef.current = null;
+  }, []);
+
+  const startRepeat = useCallback(() => {
+    if (repeatTimerRef.current !== null) return;
+
+    repeatTimerRef.current = window.setInterval(() => {
+      const dir = heldDirectionRef.current;
+      if (!dir) {
+        stopRepeat();
+        return;
+      }
+
+      onDirectionRef.current(dir);
+    }, MOBILE_JOYSTICK_REPEAT_MS);
+  }, [stopRepeat]);
+
+  const setHeldDirection = useCallback((dir: Dir | null) => {
+    const previousDir = heldDirectionRef.current;
+    heldDirectionRef.current = dir;
+    setActiveDir(dir);
+
+    if (!dir) {
+      stopRepeat();
+      return;
+    }
+
+    if (dir !== previousDir) {
+      onDirectionRef.current(dir);
+    }
+    startRepeat();
+  }, [startRepeat, stopRepeat]);
+
+  const reset = useCallback(() => {
+    activePointerIdRef.current = null;
+    heldDirectionRef.current = null;
+    stopRepeat();
+    setKnob({ x: 0, y: 0 });
+    setActiveDir(null);
+  }, [stopRepeat]);
+
+  useEffect(() => {
+    if (disabled) reset();
+  }, [disabled, reset]);
+
+  useEffect(() => () => stopRepeat(), [stopRepeat]);
+
+  const applyPointer = (event: PointerEvent<HTMLDivElement>) => {
     const root = rootRef.current;
     if (!root) return null;
 
@@ -47,21 +104,9 @@ export const MobileJoystick = ({ onDirection, disabled = false, className }: Mob
     const dir = screenVectorToDir(dx, dy, DEAD_ZONE);
 
     setKnob(nextKnob);
-    setActiveDir(dir);
-
-    if (dir && shouldEmit && !hasEmittedRef.current) {
-      hasEmittedRef.current = true;
-      onDirection(dir);
-    }
+    setHeldDirection(dir);
 
     return dir;
-  };
-
-  const reset = () => {
-    activePointerIdRef.current = null;
-    hasEmittedRef.current = false;
-    setKnob({ x: 0, y: 0 });
-    setActiveDir(null);
   };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -69,22 +114,20 @@ export const MobileJoystick = ({ onDirection, disabled = false, className }: Mob
     event.preventDefault();
     const pointerId = getPointerId(event);
     activePointerIdRef.current = pointerId;
-    hasEmittedRef.current = false;
     event.currentTarget.setPointerCapture?.(pointerId);
-    applyPointer(event, true);
+    applyPointer(event);
   };
 
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (disabled || activePointerIdRef.current !== getPointerId(event)) return;
     event.preventDefault();
-    applyPointer(event, true);
+    applyPointer(event);
   };
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const pointerId = getPointerId(event);
     if (activePointerIdRef.current !== pointerId) return;
     event.preventDefault();
-    applyPointer(event, true);
     event.currentTarget.releasePointerCapture?.(pointerId);
     reset();
   };

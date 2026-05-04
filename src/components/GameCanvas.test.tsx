@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let firstSceneRenderableCallback: (() => void) | null = null;
 let onHopCountCallback: ((hops: number) => void) | null = null;
+let onHopCallback: (() => void) | null = null;
+let onWinCallback: ((hops: number) => void) | null = null;
+let onLoseCallback: (() => void) | null = null;
 
 const mockLoadPlayerProgress = vi.fn();
 const mockSavePlayerProgress = vi.fn().mockResolvedValue(undefined);
@@ -13,6 +16,18 @@ const mockYsdkGameplayStop = vi.fn().mockResolvedValue(undefined);
 const mockYsdkShowAd = vi.fn().mockResolvedValue(undefined);
 const mockYsdkShowRewardedAd = vi.fn().mockResolvedValue({ status: "closed" });
 const mockSubscribeToFullscreenAds = vi.fn(() => () => {});
+const mockYsdkSetLeaderboardScore = vi.fn().mockResolvedValue(undefined);
+const mockYsdkGetLeaderboardEntries = vi.fn().mockResolvedValue({ userRank: 0, entries: [] });
+const mockGameAudio = {
+  setMuted: vi.fn(),
+  setEnvironmentHold: vi.fn(),
+  playHop: vi.fn(),
+  playPaint: vi.fn(),
+  playWin: vi.fn(),
+  playPerfectWin: vi.fn(),
+  playLoss: vi.fn(),
+  destroy: vi.fn().mockResolvedValue(undefined),
+};
 const mockDestroy = vi.fn();
 const mockReset = vi.fn();
 const mockSetLevel = vi.fn();
@@ -21,15 +36,36 @@ const mockTriggerDir = vi.fn();
 const mockPause = vi.fn();
 const mockResume = vi.fn();
 
+const renderFirstScene = async () => {
+  await waitFor(() => {
+    expect(firstSceneRenderableCallback).toEqual(expect.any(Function));
+  });
+
+  await act(async () => {
+    firstSceneRenderableCallback?.();
+  });
+};
+
+const startFromStartScreen = async (buttonName = "Продолжить") => {
+  fireEvent.click(await screen.findByRole("button", { name: buttonName }));
+
+  await waitFor(() => {
+    expect(screen.queryByTestId("start-screen")).not.toBeInTheDocument();
+  });
+};
+
 vi.mock("@/game/PixiGame", () => ({
   PixiGame: class {
     constructor(
       _host: HTMLDivElement,
       _level: unknown,
-      callbacks: { onHopCount: (hops: number) => void },
+      callbacks: { onHopCount: (hops: number) => void; onHop: () => void; onWin: (hops: number) => void; onLose: () => void },
       options?: { onFirstSceneRenderable?: () => void },
     ) {
       onHopCountCallback = callbacks.onHopCount;
+      onHopCallback = callbacks.onHop;
+      onWinCallback = callbacks.onWin;
+      onLoseCallback = callbacks.onLose;
       firstSceneRenderableCallback = options?.onFirstSceneRenderable ?? null;
     }
 
@@ -53,6 +89,14 @@ vi.mock("@/game/PixiGame", () => ({
       mockTriggerDir(dir);
     }
 
+    canUndoLastMove() {
+      return false;
+    }
+
+    undoLastMove() {
+      return false;
+    }
+
     pause() {
       mockPause();
     }
@@ -70,6 +114,12 @@ vi.mock("@/sdk/yandex", () => ({
   ysdkShowAd: mockYsdkShowAd,
   ysdkShowRewardedAd: mockYsdkShowRewardedAd,
   subscribeToFullscreenAds: mockSubscribeToFullscreenAds,
+  ysdkSetLeaderboardScore: mockYsdkSetLeaderboardScore,
+  ysdkGetLeaderboardEntries: mockYsdkGetLeaderboardEntries,
+}));
+
+vi.mock("@/game/audio", () => ({
+  createGameAudio: vi.fn(() => mockGameAudio),
 }));
 
 vi.mock("@/game/progress", async () => {
@@ -86,11 +136,16 @@ describe("GameCanvas yandex lifecycle", () => {
     vi.clearAllMocks();
     firstSceneRenderableCallback = null;
     onHopCountCallback = null;
+    onHopCallback = null;
+    onWinCallback = null;
+    onLoseCallback = null;
     mockLoadPlayerProgress.mockResolvedValue({
       version: 1,
       unlockedLevel: 1,
       completedLevels: [],
       bestStarsByLevel: {},
+      bestTimeMsByLevel: {},
+      hasStarted: true,
       tutorialComplete: true,
       audioMuted: false,
     });
@@ -117,12 +172,16 @@ describe("GameCanvas yandex lifecycle", () => {
     expect(mockYsdkGameplayStart).not.toHaveBeenCalled();
     expect(mockYsdkGameplayStop).toHaveBeenCalledTimes(1);
 
-    await act(async () => {
-      firstSceneRenderableCallback?.();
-    });
+    await renderFirstScene();
 
     await waitFor(() => {
       expect(mockYsdkReady).toHaveBeenCalledTimes(1);
+    });
+    expect(mockYsdkGameplayStart).not.toHaveBeenCalled();
+
+    await startFromStartScreen();
+
+    await waitFor(() => {
       expect(mockYsdkGameplayStart).toHaveBeenCalledTimes(1);
     });
 
@@ -160,12 +219,111 @@ describe("GameCanvas yandex lifecycle", () => {
     expect(mockYsdkGameplayStop).toHaveBeenCalledTimes(4);
   });
 
+  it("keeps the mobile joystick hidden until the first scene is renderable", async () => {
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await screen.findByText(/Уровень 1 \/ /);
+
+    expect(screen.queryByTestId("mobile-joystick")).not.toBeInTheDocument();
+
+    await renderFirstScene();
+
+    expect(screen.queryByTestId("mobile-joystick")).not.toBeInTheDocument();
+
+    await startFromStartScreen();
+
+    expect(await screen.findByTestId("mobile-joystick")).toBeInTheDocument();
+  });
+
+  it("shows a first-run start button and saves start before the tutorial plays", async () => {
+    mockLoadPlayerProgress.mockResolvedValue({
+      version: 1,
+      unlockedLevel: 1,
+      completedLevels: [],
+      bestStarsByLevel: {},
+      bestTimeMsByLevel: {},
+      hasStarted: false,
+      tutorialComplete: false,
+      audioMuted: false,
+    });
+
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    expect(await screen.findByRole("button", { name: "Начать" })).toBeInTheDocument();
+
+    await renderFirstScene();
+    await startFromStartScreen("Начать");
+
+    const savedProgress = mockSavePlayerProgress.mock.calls.at(-1)?.[0];
+    expect(savedProgress.hasStarted).toBe(true);
+    expect(savedProgress.tutorialComplete).toBe(false);
+    expect(screen.getByText(/Свайпай, тяни джойстик/)).toBeInTheDocument();
+    expect(mockYsdkGameplayStart).not.toHaveBeenCalled();
+  });
+
+  it("opens the leaderboard and renders loaded leaders", async () => {
+    mockLoadPlayerProgress.mockResolvedValue({
+      version: 1,
+      unlockedLevel: 2,
+      completedLevels: [1],
+      bestStarsByLevel: { 1: 3 },
+      bestTimeMsByLevel: { 1: 1240 },
+      hasStarted: true,
+      tutorialComplete: true,
+      audioMuted: false,
+    });
+    mockYsdkGetLeaderboardEntries.mockResolvedValueOnce({
+      userRank: 2,
+      entries: [
+        {
+          rank: 1,
+          score: 6,
+          extraData: '{"completedLevels":2,"levelCount":25,"totalBestTimeMs":2800}',
+          player: {
+            publicName: "Ada",
+            uniqueID: "ada",
+            getAvatarSrc: () => "",
+          },
+        },
+        {
+          rank: 2,
+          score: 3,
+          extraData: '{"completedLevels":1,"levelCount":25,"totalBestTimeMs":1240}',
+          player: {
+            publicName: "You",
+            uniqueID: "you",
+            getAvatarSrc: () => "",
+          },
+        },
+      ],
+    });
+
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await screen.findByText(/Уровень 2 \/ /);
+    expect(screen.getByText("Уровень 2")).toBeInTheDocument();
+    await startFromStartScreen();
+
+    fireEvent.click(screen.getByRole("button", { name: "Лидеры" }));
+
+    expect(await screen.findByRole("dialog", { name: "Лидеры" })).toBeInTheDocument();
+    expect(await screen.findByText("Ada")).toBeInTheDocument();
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("место 2")).toBeInTheDocument();
+    expect(screen.getByText("1/25 уровней")).toBeInTheDocument();
+  });
+
   it("keeps gameplay paused while the tutorial overlay is blocking", async () => {
     mockLoadPlayerProgress.mockResolvedValue({
       version: 1,
       unlockedLevel: 1,
       completedLevels: [],
       bestStarsByLevel: {},
+      bestTimeMsByLevel: {},
+      hasStarted: true,
       tutorialComplete: false,
       audioMuted: false,
     });
@@ -175,13 +333,14 @@ describe("GameCanvas yandex lifecycle", () => {
 
     await screen.findByText(/Уровень 1 \/ /);
 
-    await act(async () => {
-      firstSceneRenderableCallback?.();
-    });
+    await renderFirstScene();
 
     await waitFor(() => {
       expect(mockYsdkReady).toHaveBeenCalledTimes(1);
     });
+
+    await startFromStartScreen();
+
     expect(mockYsdkGameplayStart).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -193,5 +352,189 @@ describe("GameCanvas yandex lifecycle", () => {
     await waitFor(() => {
       expect(mockYsdkGameplayStart).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("reenables loss overlay actions after the automatic interstitial finishes", async () => {
+    let finishAd!: () => void;
+    mockYsdkShowAd.mockReturnValueOnce(new Promise<void>((resolve) => {
+      finishAd = resolve;
+    }));
+
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await screen.findByText(/Уровень 1 \/ /);
+    await startFromStartScreen();
+
+    await act(async () => {
+      onLoseCallback?.();
+    });
+
+    const restartButton = await screen.findByRole("button", { name: "Перезапустить" });
+    const levelSelectButton = screen.getByRole("button", { name: "К выбору уровней" });
+
+    await waitFor(() => {
+      expect(mockYsdkShowAd).toHaveBeenCalledTimes(1);
+    });
+    expect(restartButton).toBeDisabled();
+    expect(levelSelectButton).toBeDisabled();
+
+    await act(async () => {
+      finishAd();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(restartButton).toBeEnabled();
+      expect(levelSelectButton).toBeEnabled();
+    });
+  });
+
+  it("starts the level timer on the first hop and stores the completion time after a win", async () => {
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await screen.findByText(/Уровень 1 \/ /);
+    await renderFirstScene();
+    await startFromStartScreen();
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        onHopCallback?.();
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(1240);
+      });
+
+      expect(screen.getByTitle("Время попытки")).toHaveTextContent("0:01.2");
+
+      await act(async () => {
+        onWinCallback?.(8);
+      });
+
+      const savedProgress = mockSavePlayerProgress.mock.calls.at(-1)?.[0];
+      expect(savedProgress.bestTimeMsByLevel).toEqual({ 1: 1240 });
+      expect(mockYsdkSetLeaderboardScore).toHaveBeenCalledWith(
+        "crash_cubes_total_stars",
+        3,
+        expect.stringContaining('"totalStars":3'),
+        undefined,
+      );
+      expect(screen.getByText("Уровень пройден!")).toBeInTheDocument();
+      expect(screen.getByText(/Время: 0:01.2/)).toBeInTheDocument();
+      expect(screen.getAllByText("Гонка получена").length).toBeGreaterThan(0);
+      expect(screen.getByTitle("Гонки за быстрое прохождение")).toHaveTextContent("1/25");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("pauses the level timer while the pause menu is open", async () => {
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await screen.findByText(/Уровень 1 \/ /);
+    await renderFirstScene();
+    await startFromStartScreen();
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        onHopCallback?.();
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(screen.getByTitle("Время попытки")).toHaveTextContent("0:01.0");
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Пауза" }));
+      });
+
+      expect(screen.getByRole("heading", { name: "Пауза" })).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(screen.getByTitle("Время попытки")).toHaveTextContent("0:01.0");
+
+      await act(async () => {
+        fireEvent.click(screen.getAllByRole("button", { name: /Продолжить/ })[0]);
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(screen.getByTitle("Время попытки")).toHaveTextContent("0:01.5");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows special feedback for a three-star win", async () => {
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await screen.findByText(/Уровень 1 \/ /);
+    await startFromStartScreen();
+
+    await act(async () => {
+      onHopCountCallback?.(8);
+      onWinCallback?.(8);
+    });
+
+    expect(mockGameAudio.playPerfectWin).toHaveBeenCalledTimes(1);
+    expect(mockGameAudio.playWin).not.toHaveBeenCalled();
+    expect(screen.getByTestId("perfect-celebration")).toBeInTheDocument();
+    expect(screen.getByText("Идеально!")).toBeInTheDocument();
+  });
+
+  it("keeps regular win feedback for a non-perfect win", async () => {
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await screen.findByText(/Уровень 1 \/ /);
+    await startFromStartScreen();
+
+    await act(async () => {
+      onHopCountCallback?.(12);
+      onWinCallback?.(12);
+    });
+
+    expect(mockGameAudio.playWin).toHaveBeenCalledTimes(1);
+    expect(mockGameAudio.playPerfectWin).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("perfect-celebration")).not.toBeInTheDocument();
+  });
+
+  it("plays hop sounds with the current chapter theme", async () => {
+    mockLoadPlayerProgress.mockResolvedValue({
+      version: 1,
+      unlockedLevel: 6,
+      completedLevels: [1, 2, 3, 4, 5],
+      bestStarsByLevel: {},
+      bestTimeMsByLevel: {},
+      hasStarted: true,
+      tutorialComplete: true,
+      audioMuted: false,
+    });
+
+    const { GameCanvas } = await import("./GameCanvas");
+    const view = render(<GameCanvas />);
+
+    await screen.findByText(/Уровень 6 \/ /);
+    await startFromStartScreen();
+
+    await act(async () => {
+      onHopCallback?.();
+    });
+
+    expect(mockGameAudio.playHop).toHaveBeenCalledWith("slime");
+    view.unmount();
   });
 });

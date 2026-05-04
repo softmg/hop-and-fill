@@ -22,21 +22,21 @@ describe("chapter helpers", () => {
         startLevelIndex: 0,
         endLevelIndex: 1,
         theme: "default",
-        themeLabel: "Классика",
+        themeLabel: "Плюшевая долина",
       },
       {
         chapterIndex: 2,
         startLevelIndex: 2,
         endLevelIndex: 3,
         theme: "slime",
-        themeLabel: "Слайм",
+        themeLabel: "Желейное болото",
       },
       {
         chapterIndex: 3,
         startLevelIndex: 4,
         endLevelIndex: 4,
         theme: "wood",
-        themeLabel: "Дерево",
+        themeLabel: "Столярная мастерская",
       },
     ]);
   });

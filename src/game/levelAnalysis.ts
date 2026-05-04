@@ -15,11 +15,15 @@ export interface ParsedLevelGraph {
   startCellCount: number;
 }
 
-const ORTHOGONAL_DIRECTIONS = [
+const NEIGHBOR_DIRECTIONS = [
   [1, 0],
   [-1, 0],
   [0, 1],
   [0, -1],
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
 ] as const;
 
 export function toCellKey(gx: number, gy: number) {
@@ -52,7 +56,7 @@ export function parseLevelGraph(level: Pick<LevelData, "rows">): ParsedLevelGrap
 
   for (const cell of cells) {
     let degree = 0;
-    for (const [dx, dy] of ORTHOGONAL_DIRECTIONS) {
+    for (const [dx, dy] of NEIGHBOR_DIRECTIONS) {
       if (cellKeys.has(toCellKey(cell.gx + dx, cell.gy + dy))) {
         degree += 1;
       }
@@ -102,7 +106,7 @@ export function getDistanceToNearestDeadEnd(graph: ParsedLevelGraph): number {
       return current.dist;
     }
 
-    for (const [dx, dy] of ORTHOGONAL_DIRECTIONS) {
+    for (const [dx, dy] of NEIGHBOR_DIRECTIONS) {
       const nextGx = current.gx + dx;
       const nextGy = current.gy + dy;
       const nextKey = toCellKey(nextGx, nextGy);
@@ -131,7 +135,7 @@ function getShortestPathDistances(graph: ParsedLevelGraph, startKey: string) {
     const current = queue.shift()!;
     const currentDistance = distances.get(current.key) ?? 0;
 
-    for (const [dx, dy] of ORTHOGONAL_DIRECTIONS) {
+    for (const [dx, dy] of NEIGHBOR_DIRECTIONS) {
       const nextGx = current.gx + dx;
       const nextGy = current.gy + dy;
       const nextKey = toCellKey(nextGx, nextGy);

@@ -1,11 +1,11 @@
 import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { TILE_H, TILE_W, gridToScreen, isoZ } from "./iso";
 import type { Palette } from "./theme";
-import playerDefaultUrl from "@/assets/player.png";
-import playerSlimeUrl from "@/assets/player-slime.png";
-import playerNeonUrl from "@/assets/player-neon.png";
-import playerWoodUrl from "@/assets/player-wood.png";
-import playerPaperUrl from "@/assets/player-paper.png";
+import playerDefaultUrl from "@/assets/player.webp";
+import playerSlimeUrl from "@/assets/player-slime.webp";
+import playerNeonUrl from "@/assets/player-neon.webp";
+import playerWoodUrl from "@/assets/player-wood.webp";
+import playerPaperUrl from "@/assets/player-paper.webp";
 
 const HOP_DURATION = 280; // ms
 const HOP_HEIGHT = 80;
