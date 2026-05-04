@@ -103,7 +103,7 @@ export function validateLevels(levels: LevelData[]): LevelsValidationReport {
 }
 
 export function formatLevelsValidationReport(report: LevelsValidationReport) {
-  const lines = ["Crash Cubes level validation", `Levels analyzed: ${report.levels.length}`, ""];
+  const lines = ["Hop and Fill level validation", `Levels analyzed: ${report.levels.length}`, ""];
 
   for (const level of report.levels) {
     lines.push(

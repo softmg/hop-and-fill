@@ -1,9 +1,9 @@
 ---
-description: Review the Crash Cubes implementation after validation passes.
+description: Review the Hop and Fill implementation after validation passes.
 argument-hint: (reads workflow artifacts)
 ---
 
-# Crash Cubes Review Task
+# Hop and Fill Review Task
 
 **Workflow ID**: $WORKFLOW_ID
 **Request**: $ARGUMENTS

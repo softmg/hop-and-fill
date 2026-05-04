@@ -3,7 +3,7 @@
 ## Current State
 
 - Product name for release: `Hop & Fill`.
-- Repository and Archon workflow names remain `Crash Cubes` / `crash-cubes-*`.
+- Repository and Archon workflow names remain `Hop and Fill` / `crash-cubes-*`.
 - Main autonomous workflow: `crash-cubes-plan-iterative`.
 - Focused implementation workflow used by the runner: `crash-cubes-dev`.
 - Interactive release-material workflow: `crash-cubes-release-interactive`.

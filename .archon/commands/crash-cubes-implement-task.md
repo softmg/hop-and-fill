@@ -1,9 +1,9 @@
 ---
-description: Implement the planned Crash Cubes task and record the result.
+description: Implement the planned Hop and Fill task and record the result.
 argument-hint: (reads workflow artifacts)
 ---
 
-# Crash Cubes Implement Task
+# Hop and Fill Implement Task
 
 **Workflow ID**: $WORKFLOW_ID
 **Request**: $ARGUMENTS
