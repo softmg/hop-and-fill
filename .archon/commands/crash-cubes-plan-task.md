@@ -1,14 +1,14 @@
 ---
-description: Create a focused implementation plan for a Crash Cubes task.
+description: Create a focused implementation plan for a Hop and Fill task.
 argument-hint: <feature, bug, plan slice, or Yandex Games release task>
 ---
 
-# Crash Cubes Plan Task
+# Hop and Fill Plan Task
 
 **Workflow ID**: $WORKFLOW_ID
 **Request**: $ARGUMENTS
 
-You are planning a focused code change for Crash Cubes, a Vite + React + Pixi
+You are planning a focused code change for Hop and Fill, a Vite + React + Pixi
 isometric puzzle game being prepared for Yandex Games.
 
 ## Phase 1: Load Context

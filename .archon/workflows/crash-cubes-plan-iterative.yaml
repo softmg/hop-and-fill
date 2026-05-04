@@ -1,12 +1,12 @@
 name: crash-cubes-plan-iterative
 description: |
-  Runs the Crash Cubes Archon roadmap autonomously through crash-cubes-dev.
+  Runs the Hop and Fill Archon roadmap autonomously through crash-cubes-dev.
   One invocation can keep working for hours: it tracks step status in
   .archon/state/plan-status.yaml, waits for active child workflows, retries
   blocked infrastructure cases, and keeps iterating on the same step until it
   reaches passing validation and an acceptable review verdict.
 
-  Use when continuing the Crash Cubes Archon roadmap one focused slice at a
+  Use when continuing the Hop and Fill Archon roadmap one focused slice at a
   time and you need status persisted across sessions with minimal babysitting.
 
 provider: codex

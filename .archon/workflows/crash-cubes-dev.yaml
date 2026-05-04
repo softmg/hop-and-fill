@@ -1,6 +1,6 @@
 name: crash-cubes-dev
 description: |
-  Use when working on Crash Cubes project tasks, especially Yandex Games
+  Use when working on Hop and Fill project tasks, especially Yandex Games
   release work, Pixi gameplay changes, React UI flows, progression/saves,
   level select, mobile layout fixes, and focused bug fixes.
 
@@ -26,7 +26,7 @@ nodes:
       mkdir -p "$ARTIFACTS_DIR"
 
       {
-        echo "# Crash Cubes Repo Snapshot"
+        echo "# Hop and Fill Repo Snapshot"
         echo
         echo "## User request"
         printf '%s\n' "$ARGUMENTS"
@@ -109,7 +109,7 @@ nodes:
     idle_timeout: 900000
     loop:
       prompt: |
-        Validation failed for the Crash Cubes task.
+        Validation failed for the Hop and Fill task.
 
         Read:
         - $ARTIFACTS_DIR/plan.md
@@ -173,7 +173,7 @@ nodes:
 
   - id: report-validation-failed
     prompt: |
-      Final validation failed for the Crash Cubes workflow.
+      Final validation failed for the Hop and Fill workflow.
 
       Read the artifacts under:
       - $ARTIFACTS_DIR/plan.md
@@ -188,7 +188,7 @@ nodes:
 
   - id: summary
     prompt: |
-      Summarize the Crash Cubes workflow result for the user.
+      Summarize the Hop and Fill workflow result for the user.
 
       Include:
       - implemented scope

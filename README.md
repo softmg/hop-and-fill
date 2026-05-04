@@ -1,4 +1,4 @@
-# Crash Cubes
+# Hop and Fill
 
 ## Yandex Games leaderboard
 

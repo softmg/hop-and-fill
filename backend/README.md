@@ -1,4 +1,4 @@
-# Crash Cubes Backend
+# Hop and Fill Backend
 
 Local leaderboard backend for the Vite client.
 

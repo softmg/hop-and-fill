@@ -3,7 +3,7 @@
 ## Decisions
 
 - Product title: `Hop & Fill`.
-- Repository and Archon workflow names may remain `Crash Cubes` / `crash-cubes-*`.
+- Repository and Archon workflow names may remain `Hop and Fill` / `crash-cubes-*`.
 - First release content target: `25` levels, `5` chapters, `5` levels per visual theme.
 - Manual playtest result: current level curve is acceptable for release.
 - Mobile orientation target: portrait only. The Yandex Games draft must select `Portrait`.
@@ -20,7 +20,7 @@
 
 1. Product naming
    - Keep the game title as `Hop & Fill`.
-   - Keep repo/workflow names as `Crash Cubes` where they are infrastructure names.
+   - Keep repo/workflow names as `Hop and Fill` where they are infrastructure names.
    - Align visible game/store/metadata names before upload.
 
 2. Yandex SDK connection

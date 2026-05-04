@@ -122,7 +122,7 @@ describe("level validation", () => {
   it("formats the report as readable line output", () => {
     const output = formatLevelsValidationReport(validateLevels(levels));
 
-    expect(output).toContain("Crash Cubes level validation");
+    expect(output).toContain("Hop and Fill level validation");
     expect(output).toContain("L01 Square");
     expect(output).toContain("Warnings: none");
   });
