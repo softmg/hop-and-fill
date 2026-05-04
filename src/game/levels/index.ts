@@ -1,281 +1,803 @@
-import type { LevelData, LevelDifficulty } from "../Level.ts";
+import type { LevelData, LevelDifficulty, StarThresholds } from "../Level.ts";
 
-// Уровни головоломки. Используем 4 направления (диагонали grid: NW/NE/SE/SW),
-// которые на экране выглядят как стрелки вверх/вправо/вниз/влево.
-// Соседями считаются клетки с шагом ±1 по одной из осей grid.
-
-// Хелпер: построить rows нужного размера, заполнить пустотой
-const empty = (w: number, h: number) =>
-  Array.from({ length: h }, () => ".".repeat(w));
-
-const setCell = (rows: string[], x: number, y: number, ch: string) => {
-  const r = rows[y];
-  rows[y] = r.slice(0, x) + ch + r.slice(x + 1);
-};
-
-interface LevelDefinitionOptions {
+interface ImportedLevelDefinition {
+  id: number;
+  name: string;
+  start: {
+    r: number;
+    c: number;
+  };
+  grid: readonly (readonly number[])[];
+  mOpt: number;
+  starThresholds: StarThresholds;
   theme?: LevelData["theme"];
   chapter: number;
   difficulty: LevelDifficulty;
-  intendedTrick?: string;
 }
 
-function defineLevel(name: string, rows: string[], options: LevelDefinitionOptions): LevelData {
-  return {
-    name,
-    rows,
-    theme: options.theme,
-    chapter: options.chapter,
-    difficulty: options.difficulty,
-    intendedTrick: options.intendedTrick,
-  };
+interface ChapterLevelGroup {
+  chapter: number;
+  theme: NonNullable<LevelData["theme"]>;
+  sourceLevelNumbers: readonly number[];
 }
 
-// 1. Квадрат 3x3, старт в углу
-function buildLevel1(): LevelData {
-  const rows = empty(3, 3);
-  for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) setCell(rows, x, y, "X");
-  setCell(rows, 0, 2, "S");
-  return defineLevel("Разминка", rows, {
+// Sources:
+// - hop_fill_levels_compact.js from hop_fill_level_schemes_export.zip.
+// - hop_fill_levels_11_20_compact.js from hop_fill_levels_11_20_export.zip.
+// - hop_fill_levels_21_30_compact.js from hop_fill_levels_21_30_export.zip.
+// - hop_fill_levels_41_44_46_compact.js from hop_fill_levels_41_44_46_export.zip.
+// - hop_fill_levels_42_43_45_compact.js from hop_fill_levels_42_43_45_export.zip.
+// Coordinates are zero-based: r = row, c = column. 0 = empty, 1 = active tile.
+const importedLevels = [
+  {
+    id: 1,
+    name: "Square",
+    start: { r: 1, c: 1 },
+    grid: [
+      [1, 1, 1],
+      [1, 1, 1],
+      [1, 1, 1],
+    ],
+    mOpt: 8,
+    starThresholds: { threeStars: 8, twoStars: 10, oneStar: 13 },
     chapter: 1,
     difficulty: 1,
-    intendedTrick: "basic coverage from a corner start",
-  });
-}
-
-// 2. L-образная фигура (ширина 2)
-function buildLevel2(): LevelData {
-  const rows = empty(4, 4);
-  // вертикальная часть слева (2 ширина, 4 высота)
-  for (let y = 0; y < 4; y++) for (let x = 0; x < 2; x++) setCell(rows, x, y, "X");
-  // горизонтальная часть снизу
-  for (let x = 0; x < 4; x++) for (let y = 2; y < 4; y++) setCell(rows, x, y, "X");
-  setCell(rows, 0, 0, "S");
-  return defineLevel("Уголок", rows, {
+  },
+  {
+    id: 2,
+    name: "L Shape",
+    start: { r: 0, c: 0 },
+    grid: [
+      [1, 0, 0, 0],
+      [1, 0, 0, 0],
+      [1, 1, 1, 1],
+    ],
+    mOpt: 5,
+    starThresholds: { threeStars: 5, twoStars: 7, oneStar: 10 },
     chapter: 1,
     difficulty: 1,
-    intendedTrick: "clear the short branch before the long bend traps you",
-  });
-}
-
-// 3. T-образная фигура с настоящими тупиками
-function buildLevel3(): LevelData {
-  const rows = empty(5, 4);
-  // верхняя горизонталь (шапка T)
-  for (let x = 0; x < 5; x++) setCell(rows, x, 0, "X");
-  // ножка T (центральная вертикаль)
-  for (let y = 1; y < 4; y++) setCell(rows, 2, y, "X");
-  setCell(rows, 2, 3, "S"); // старт у основания
-  return defineLevel("Развилка", rows, {
+  },
+  {
+    id: 3,
+    name: "T Shape",
+    start: { r: 0, c: 2 },
+    grid: [
+      [1, 1, 1, 1, 1],
+      [0, 0, 1, 0, 0],
+      [0, 0, 1, 0, 0],
+      [0, 0, 1, 0, 0],
+    ],
+    mOpt: 10,
+    starThresholds: { threeStars: 10, twoStars: 12, oneStar: 15 },
     theme: "slime",
     chapter: 1,
     difficulty: 2,
-    intendedTrick: "tree dead ends force a deliberate branch order",
-  });
-}
-
-// 4. Кольцо 4x4 с пустотой 2x2 в центре
-function buildLevel4(): LevelData {
-  const rows = empty(4, 4);
-  for (let y = 0; y < 4; y++) {
-    for (let x = 0; x < 4; x++) {
-      const inHole = x >= 1 && x <= 2 && y >= 1 && y <= 2;
-      if (!inHole) setCell(rows, x, y, "X");
-    }
-  }
-  setCell(rows, 0, 0, "S");
-  return defineLevel("Кольцо", rows, {
+  },
+  {
+    id: 4,
+    name: "Forked Pass",
+    start: { r: 0, c: 0 },
+    grid: [
+      [1, 1, 1, 0, 0],
+      [0, 0, 1, 0, 0],
+      [0, 1, 1, 1, 1],
+      [0, 1, 0, 0, 0],
+      [0, 1, 1, 0, 0],
+    ],
+    mOpt: 11,
+    starThresholds: { threeStars: 11, twoStars: 13, oneStar: 16 },
     theme: "slime",
     chapter: 1,
     difficulty: 2,
-    intendedTrick: "loop levels remove dead-end guidance and test route planning",
-  });
-}
-
-// 5. Крест: центральный квадрат + 4 луча
-function buildLevel5(): LevelData {
-  const rows = empty(7, 7);
-  // центральный 1x1 — клетка (3,3); лучи длиной 3 в каждую сторону
-  for (let i = 0; i <= 3; i++) {
-    setCell(rows, 3, 3 - i, "X"); // вверх
-    setCell(rows, 3, 3 + i, "X"); // вниз
-    setCell(rows, 3 - i, 3, "X"); // влево
-    setCell(rows, 3 + i, 3, "X"); // вправо
-  }
-  setCell(rows, 3, 3, "S");
-  return defineLevel("Звезда", rows, {
+  },
+  {
+    id: 5,
+    name: "Cross",
+    start: { r: 2, c: 2 },
+    grid: [
+      [0, 0, 1, 0, 0],
+      [0, 0, 1, 0, 0],
+      [1, 1, 1, 1, 1],
+      [0, 0, 1, 0, 0],
+      [0, 0, 1, 0, 0],
+    ],
+    mOpt: 11,
+    starThresholds: { threeStars: 11, twoStars: 13, oneStar: 16 },
     theme: "neon",
     chapter: 1,
     difficulty: 3,
-    intendedTrick: "leave the home ray for last to reduce backtracking",
-  });
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// ПРОДВИНУТЫЕ УРОВНИ (6–10)
-// Формат хелпера fromGrid: матрица чисел, где
-//   0 — пусто, 1 — игровая плитка, 2 — стартовая плитка.
-// Координата (x, y) = (столбец, строка). Это полностью совместимо со
-// "spec"-формой { grid, startX, startY } из ТЗ — старт обозначен как 2.
-// ──────────────────────────────────────────────────────────────────────────────
-
-function fromGrid(name: string, grid: number[][], options: LevelDefinitionOptions): LevelData {
-  const h = grid.length;
-  const w = Math.max(...grid.map((r) => r.length));
-  const rows = empty(w, h);
-  let hasStart = false;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < grid[y].length; x++) {
-      const v = grid[y][x];
-      if (v === 1) setCell(rows, x, y, "X");
-      else if (v === 2) {
-        setCell(rows, x, y, "S");
-        hasStart = true;
-      }
-    }
-  }
-  if (!hasStart) throw new Error(`Level "${name}" has no start (cell with value 2).`);
-  return defineLevel(name, rows, options);
-}
-
-/**
- * УРОВЕНЬ 6 — "Кривой гребень" (Comb 7x5)
- * Ловушка: длинный коридор сверху с зубьями вниз разной глубины (1 и 2).
- * Старт — в середине гребня. Интуитивно игрок идёт в ближайший зуб, но
- * оптимально сначала уйти в "короткое плечо" коридора, иначе придётся
- * дважды возвращаться через стартовую зону. Зубья глубины 2 нужно
- * проходить "до дна" сразу — иначе двойной бэктрекинг.
- *   spec: { id: 6, name: "Кривой гребень",
- *           grid: [[1,1,1,1,1,1,1],
- *                  [1,0,1,0,1,0,1],
- *                  [0,0,1,0,0,0,1],
- *                  [0,0,0,0,0,0,0],
- *                  [0,0,0,0,0,0,0]],
- *           startX: 2, startY: 0 (как клетка со значением 2) }
- */
-function buildLevel6(): LevelData {
-  return fromGrid("Кривой гребень", [
-    [1, 1, 2, 1, 1, 1, 1],
-    [1, 0, 1, 0, 1, 0, 1],
-    [0, 0, 1, 0, 0, 0, 1],
-  ], {
+  },
+  {
+    id: 6,
+    name: "Zigzag Spine",
+    start: { r: 0, c: 0 },
+    grid: [
+      [1, 1, 1, 1, 0, 0, 0],
+      [0, 0, 0, 1, 1, 1, 0],
+      [0, 1, 1, 1, 1, 1, 0],
+      [0, 1, 0, 0, 0, 1, 0],
+      [0, 1, 1, 1, 1, 1, 0],
+      [0, 0, 0, 0, 1, 0, 0],
+    ],
+    mOpt: 19,
+    starThresholds: { threeStars: 19, twoStars: 21, oneStar: 24 },
     theme: "neon",
     chapter: 1,
     difficulty: 3,
-    intendedTrick: "commit to each comb tooth fully and save the home side for the end",
-  });
-}
-
-/**
- * УРОВЕНЬ 7 — "Ложный хаб" (Hub 6x6, асимметрия)
- * Ловушка: центральный перекрёсток с 4 ответвлениями РАЗНОЙ длины (1, 2, 3, 4).
- * Старт смещён к самому короткому отростку, поэтому первый интуитивный шаг
- * "доделать ближний хвост" — ошибочный: сначала нужно идти в самый длинный,
- * иначе вернёшься через хаб лишний раз. Классическая задача о порядке обхода
- * листьев дерева: оптимум — оставить "домашний" луч на конец.
- */
-function buildLevel7(): LevelData {
-  return fromGrid("Ложный хаб", [
-    [0, 0, 0, 1, 0, 0],
-    [0, 0, 0, 1, 0, 0],
-    [0, 0, 0, 1, 0, 0],
-    [1, 1, 2, 1, 1, 1],
-    [0, 0, 0, 0, 0, 1],
-    [0, 0, 0, 0, 0, 0],
-  ], {
+  },
+  {
+    id: 7,
+    name: "Offset Rooms",
+    start: { r: 2, c: 0 },
+    grid: [
+      [0, 1, 1, 1, 0, 0, 0],
+      [0, 1, 0, 1, 0, 0, 0],
+      [1, 1, 1, 1, 1, 1, 0],
+      [1, 0, 0, 0, 0, 1, 0],
+      [1, 1, 1, 1, 0, 1, 1],
+      [0, 0, 0, 1, 0, 1, 0],
+      [0, 0, 0, 1, 1, 1, 0],
+    ],
+    mOpt: 23,
+    starThresholds: { threeStars: 23, twoStars: 25, oneStar: 28 },
     theme: "wood",
     chapter: 1,
     difficulty: 3,
-    intendedTrick: "take the longest spoke first and keep the nearest tail for last",
-  });
-}
-
-/**
- * УРОВЕНЬ 8 — "Кольцо с шипами" (вложенный цикл 6x6)
- * Ловушка: основной маршрут — кольцо 4x4 с дыркой 2x2 в центре, плюс три
- * тупиковых "шипа" наружу разной длины. Если пойти по кольцу "не в ту"
- * сторону, придётся пройти его почти целиком и вернуться к шипу через
- * закрашенные клетки. Старт — на кольце прямо НАПРОТИВ самого длинного
- * шипа: глаз тянется идти по кольцу, но правильнее сначала шагнуть в шип.
- */
-function buildLevel8(): LevelData {
-  return fromGrid("Кольцо с шипами", [
-    [0, 1, 1, 1, 1, 0],
-    [0, 1, 0, 0, 1, 1],
-    [1, 1, 0, 0, 1, 0],
-    [1, 1, 0, 0, 1, 0],
-    [0, 1, 1, 1, 1, 0],
-    [0, 0, 2, 0, 0, 0],
-  ], {
+  },
+  {
+    id: 8,
+    name: "Broken Bridge",
+    start: { r: 0, c: 0 },
+    grid: [
+      [1, 1, 1, 0, 0, 0, 0, 0],
+      [0, 0, 1, 1, 1, 1, 1, 0],
+      [0, 0, 1, 0, 0, 0, 1, 0],
+      [1, 1, 1, 0, 1, 1, 1, 0],
+      [1, 0, 0, 0, 1, 0, 1, 0],
+      [1, 1, 1, 1, 1, 0, 1, 1],
+      [0, 0, 0, 0, 1, 0, 0, 1],
+    ],
+    mOpt: 28,
+    starThresholds: { threeStars: 28, twoStars: 30, oneStar: 33 },
     theme: "wood",
     chapter: 1,
     difficulty: 4,
-    intendedTrick: "step into the spike before committing to the surrounding loop",
-  });
-}
-
-/**
- * УРОВЕНЬ 9 — "Двойная петля" (восьмёрка 7x7)
- * Ловушка: две связанные комнаты-петли соединены узким мостиком в одну
- * клетку — эйлеров узел. Через мостик придётся пройти минимум 3 раза:
- * любой "не тот" заход в петлю удваивает количество возвратов. Асимметрия:
- * левая петля больше правой, плюс один скрытый тупик-шип у левой комнаты.
- * Старт — в правой (меньшей) комнате, что заставляет правильно выбрать,
- * какую петлю замыкать первой.
- */
-function buildLevel9(): LevelData {
-  return fromGrid("Двойная петля", [
-    [1, 1, 1, 0, 1, 1, 1],
-    [1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 1, 1, 1, 0, 2],
-    [1, 0, 1, 0, 1, 1, 1],
-    [1, 1, 1, 0, 0, 0, 0],
-    [1, 0, 0, 0, 0, 0, 0],
-    [1, 1, 0, 0, 0, 0, 0],
-  ], {
+  },
+  {
+    id: 9,
+    name: "Branching Labyrinth",
+    start: { r: 6, c: 6 },
+    grid: [
+      [1, 1, 1, 1, 1, 1, 1],
+      [0, 0, 1, 0, 0, 1, 0],
+      [1, 0, 1, 0, 1, 1, 0],
+      [1, 0, 0, 0, 1, 0, 0],
+      [1, 1, 1, 1, 1, 0, 1],
+      [0, 0, 1, 0, 0, 0, 1],
+      [0, 0, 1, 1, 1, 1, 1],
+    ],
+    mOpt: 31,
+    starThresholds: { threeStars: 31, twoStars: 33, oneStar: 36 },
     theme: "paper",
     chapter: 1,
     difficulty: 4,
-    intendedTrick: "resolve the larger loop with the hidden spike before overusing the bridge",
-  });
-}
-
-/**
- * УРОВЕНЬ 10 — "Лабиринт-улитка" (8x8, финал главы)
- * Ловушка: спиральный коридор с двумя "карманами" внутрь и одним внешним
- * аппендиксом. Спираль навязывает один очевидный маршрут, но карманы
- * нужно посещать ровно тогда, когда мимо них проходишь — иначе возврат
- * через всю спираль. Старт — в "горлышке" улитки спиной к входу: первый
- * шаг "вглубь" кажется очевидным, но оптимально сначала закрыть короткий
- * аппендикс наружу, чтобы не делать +2 хода в конце.
- */
-function buildLevel10(): LevelData {
-  return fromGrid("Лабиринт-улитка", [
-    [1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 1, 0, 1],
-    [1, 0, 1, 0, 0, 1, 0, 1],
-    [1, 0, 1, 2, 1, 1, 0, 1],
-    [1, 0, 1, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0],
-  ], {
+  },
+  {
+    id: 10,
+    name: "Asymmetric Gauntlet",
+    start: { r: 0, c: 2 },
+    grid: [
+      [0, 0, 1, 1, 1, 1, 0, 0],
+      [0, 0, 1, 0, 0, 1, 0, 0],
+      [1, 1, 1, 0, 0, 1, 1, 1],
+      [1, 0, 0, 1, 1, 1, 0, 1],
+      [1, 0, 1, 0, 0, 0, 0, 1],
+      [1, 0, 1, 1, 1, 1, 1, 1],
+      [1, 0, 0, 0, 1, 0, 0, 0],
+      [1, 1, 1, 1, 1, 0, 0, 0],
+    ],
+    mOpt: 33,
+    starThresholds: { threeStars: 33, twoStars: 35, oneStar: 38 },
     theme: "paper",
     chapter: 1,
     difficulty: 5,
-    intendedTrick: "close side pockets the moment you pass them or pay for the full spiral again",
-  });
+  },
+  {
+    id: 11,
+    name: "Soft Reboot",
+    start: { r: 2, c: 0 },
+    grid: [
+      [0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+      [0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [0, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+      [0, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+    ],
+    mOpt: 20,
+    starThresholds: { threeStars: 20, twoStars: 22, oneStar: 25 },
+    chapter: 2,
+    difficulty: 3,
+  },
+  {
+    id: 12,
+    name: "Bent Orchard",
+    start: { r: 0, c: 0 },
+    grid: [
+      [1, 0, 0, 0, 0, 0, 0],
+      [1, 0, 0, 0, 0, 0, 0],
+      [1, 0, 0, 0, 0, 1, 1],
+      [1, 1, 1, 0, 0, 1, 1],
+      [0, 1, 1, 1, 1, 0, 1],
+      [1, 0, 0, 0, 1, 1, 1],
+      [0, 1, 1, 1, 1, 1, 0],
+    ],
+    mOpt: 23,
+    starThresholds: { threeStars: 23, twoStars: 25, oneStar: 28 },
+    chapter: 2,
+    difficulty: 3,
+  },
+  {
+    id: 13,
+    name: "Angled Pockets",
+    start: { r: 0, c: 7 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 1],
+      [0, 0, 0, 1, 0, 0, 0, 1],
+      [1, 0, 0, 1, 1, 1, 1, 1],
+      [1, 1, 1, 0, 0, 0, 0, 0],
+      [0, 0, 0, 1, 1, 1, 1, 0],
+      [1, 1, 1, 0, 0, 0, 1, 0],
+      [1, 0, 1, 0, 1, 1, 1, 0],
+    ],
+    mOpt: 29,
+    starThresholds: { threeStars: 29, twoStars: 31, oneStar: 34 },
+    theme: "slime",
+    chapter: 2,
+    difficulty: 4,
+  },
+  {
+    id: 14,
+    name: "Broken Switchbacks",
+    start: { r: 4, c: 0 },
+    grid: [
+      [0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 1, 1, 1, 0, 0],
+      [0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+      [0, 0, 1, 1, 1, 1, 0, 0, 0, 1],
+      [1, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+      [0, 1, 0, 1, 1, 1, 1, 1, 1, 1],
+      [1, 0, 1, 1, 0, 0, 0, 1, 0, 0],
+    ],
+    mOpt: 32,
+    starThresholds: { threeStars: 32, twoStars: 34, oneStar: 37 },
+    theme: "slime",
+    chapter: 2,
+    difficulty: 4,
+  },
+  {
+    id: 15,
+    name: "Hidden Spine",
+    start: { r: 2, c: 5 },
+    grid: [
+      [0, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 0, 1, 0, 0, 1, 0, 1, 0],
+      [0, 0, 0, 0, 0, 1, 0, 1, 0],
+      [0, 1, 1, 1, 1, 0, 0, 1, 0],
+      [0, 0, 0, 1, 0, 0, 0, 1, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 1],
+      [0, 0, 0, 0, 0, 0, 0, 1, 0],
+      [0, 0, 0, 0, 1, 1, 1, 1, 0],
+    ],
+    mOpt: 33,
+    starThresholds: { threeStars: 33, twoStars: 35, oneStar: 38 },
+    theme: "neon",
+    chapter: 2,
+    difficulty: 4,
+  },
+  {
+    id: 16,
+    name: "Cracked Arcade",
+    start: { r: 0, c: 0 },
+    grid: [
+      [1, 1, 1, 0, 0, 0, 0, 0],
+      [1, 1, 0, 0, 0, 0, 0, 0],
+      [1, 0, 1, 1, 0, 0, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1, 0],
+      [1, 1, 1, 1, 0, 0, 1, 0],
+      [1, 0, 1, 1, 0, 0, 1, 0],
+      [0, 1, 1, 1, 0, 0, 1, 1],
+      [0, 0, 0, 0, 1, 1, 1, 1],
+    ],
+    mOpt: 34,
+    starThresholds: { threeStars: 34, twoStars: 36, oneStar: 39 },
+    theme: "neon",
+    chapter: 2,
+    difficulty: 4,
+  },
+  {
+    id: 17,
+    name: "Kite Junction",
+    start: { r: 0, c: 0 },
+    grid: [
+      [1, 1, 1, 1, 0, 0, 0],
+      [1, 1, 1, 1, 0, 1, 0],
+      [1, 1, 1, 0, 1, 1, 1],
+      [1, 1, 0, 1, 1, 1, 0],
+      [0, 1, 1, 0, 1, 1, 1],
+      [1, 1, 1, 1, 0, 1, 1],
+      [1, 1, 0, 1, 1, 1, 0],
+      [0, 1, 1, 0, 0, 0, 0],
+    ],
+    mOpt: 37,
+    starThresholds: { threeStars: 37, twoStars: 39, oneStar: 42 },
+    theme: "wood",
+    chapter: 2,
+    difficulty: 5,
+  },
+  {
+    id: 18,
+    name: "Layered Passage",
+    start: { r: 8, c: 0 },
+    grid: [
+      [0, 0, 1, 1, 1, 1, 0, 0, 0],
+      [0, 0, 0, 0, 1, 1, 0, 0, 0],
+      [0, 0, 0, 0, 1, 0, 0, 0, 0],
+      [0, 1, 1, 0, 1, 1, 0, 0, 0],
+      [1, 0, 1, 1, 1, 1, 1, 0, 0],
+      [0, 1, 1, 1, 1, 0, 1, 0, 1],
+      [1, 1, 1, 0, 1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 0],
+      [1, 0, 0, 0, 1, 0, 0, 0, 0],
+    ],
+    mOpt: 40,
+    starThresholds: { threeStars: 40, twoStars: 42, oneStar: 45 },
+    theme: "wood",
+    chapter: 2,
+    difficulty: 5,
+  },
+  {
+    id: 19,
+    name: "Deep Switchback",
+    start: { r: 0, c: 0 },
+    grid: [
+      [1, 1, 1, 1, 1, 1, 1, 0, 0],
+      [1, 1, 0, 0, 1, 1, 0, 1, 0],
+      [0, 1, 1, 1, 1, 1, 0, 1, 0],
+      [0, 1, 0, 0, 1, 1, 1, 0, 0],
+      [0, 1, 0, 0, 0, 0, 1, 1, 0],
+      [1, 0, 0, 0, 0, 1, 0, 0, 1],
+      [1, 1, 0, 0, 1, 0, 1, 1, 1],
+      [1, 1, 0, 1, 0, 0, 0, 1, 1],
+      [1, 1, 1, 0, 0, 0, 0, 1, 1],
+    ],
+    mOpt: 43,
+    starThresholds: { threeStars: 43, twoStars: 45, oneStar: 48 },
+    theme: "paper",
+    chapter: 2,
+    difficulty: 5,
+  },
+  {
+    id: 20,
+    name: "Sawtooth Gate",
+    start: { r: 8, c: 8 },
+    grid: [
+      [1, 0, 0, 0, 0, 1, 0, 1, 1],
+      [1, 1, 0, 1, 1, 1, 1, 0, 1],
+      [1, 0, 1, 0, 0, 0, 1, 1, 0],
+      [1, 1, 1, 1, 0, 0, 0, 0, 1],
+      [0, 1, 1, 1, 1, 0, 0, 1, 1],
+      [1, 1, 0, 1, 0, 0, 1, 1, 1],
+      [0, 1, 1, 0, 0, 1, 0, 1, 0],
+      [0, 1, 1, 1, 1, 1, 0, 0, 0],
+      [0, 0, 1, 1, 0, 1, 1, 1, 1],
+    ],
+    mOpt: 46,
+    starThresholds: { threeStars: 46, twoStars: 48, oneStar: 51 },
+    theme: "paper",
+    chapter: 2,
+    difficulty: 5,
+  },
+  {
+    id: 21,
+    name: "Soft Drop",
+    start: { r: 4, c: 0 },
+    grid: [
+      [0, 1, 1, 1, 1, 0, 0, 0],
+      [1, 1, 1, 1, 1, 1, 1, 0],
+      [0, 1, 1, 0, 1, 1, 1, 1],
+      [1, 0, 0, 0, 1, 1, 1, 1],
+      [1, 0, 0, 1, 1, 1, 0, 1],
+      [0, 0, 0, 0, 0, 1, 1, 0],
+      [0, 0, 0, 0, 0, 0, 1, 1],
+      [0, 0, 0, 0, 0, 0, 1, 1],
+    ],
+    mOpt: 32,
+    starThresholds: { threeStars: 32, twoStars: 34, oneStar: 37 },
+    chapter: 3,
+    difficulty: 4,
+  },
+  {
+    id: 22,
+    name: "Cutout Lane",
+    start: { r: 0, c: 1 },
+    grid: [
+      [0, 1, 1, 0, 1, 1, 1, 1],
+      [0, 0, 0, 1, 1, 1, 1, 1],
+      [0, 0, 0, 0, 0, 1, 1, 1],
+      [0, 0, 0, 0, 1, 1, 1, 1],
+      [0, 0, 0, 1, 1, 1, 1, 0],
+      [1, 1, 1, 0, 1, 1, 0, 0],
+      [1, 1, 1, 1, 0, 1, 0, 0],
+      [1, 1, 1, 1, 1, 0, 0, 0],
+    ],
+    mOpt: 36,
+    starThresholds: { threeStars: 36, twoStars: 38, oneStar: 41 },
+    chapter: 3,
+    difficulty: 4,
+  },
+  {
+    id: 23,
+    name: "Skewed Garden",
+    start: { r: 7, c: 2 },
+    grid: [
+      [0, 0, 0, 0, 1, 1, 1, 1],
+      [0, 0, 0, 1, 0, 1, 1, 1],
+      [0, 0, 0, 0, 1, 1, 0, 1],
+      [1, 0, 0, 0, 1, 1, 1, 1],
+      [0, 1, 1, 1, 0, 0, 1, 0],
+      [0, 1, 1, 1, 0, 1, 1, 1],
+      [0, 1, 1, 1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1],
+    ],
+    mOpt: 40,
+    starThresholds: { threeStars: 40, twoStars: 42, oneStar: 45 },
+    theme: "slime",
+    chapter: 3,
+    difficulty: 5,
+  },
+  {
+    id: 24,
+    name: "Half-Moon Yard",
+    start: { r: 7, c: 6 },
+    grid: [
+      [0, 0, 1, 0, 1, 1, 1, 1, 0],
+      [0, 1, 0, 1, 1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1, 0, 0],
+      [1, 1, 1, 1, 1, 1, 0, 1, 0],
+      [1, 0, 0, 0, 0, 0, 1, 1, 1],
+      [1, 0, 0, 0, 0, 0, 1, 1, 1],
+      [1, 0, 0, 1, 1, 1, 1, 1, 0],
+      [0, 0, 0, 1, 1, 1, 1, 1, 0],
+    ],
+    mOpt: 44,
+    starThresholds: { threeStars: 44, twoStars: 46, oneStar: 49 },
+    theme: "slime",
+    chapter: 3,
+    difficulty: 5,
+  },
+  {
+    id: 25,
+    name: "Bent Gallery",
+    start: { r: 8, c: 6 },
+    grid: [
+      [1, 0, 1, 1, 0, 1, 0, 0, 0],
+      [1, 1, 1, 0, 1, 1, 0, 1, 0],
+      [0, 1, 1, 0, 1, 0, 0, 1, 1],
+      [0, 0, 0, 1, 1, 1, 1, 1, 1],
+      [0, 0, 1, 1, 1, 1, 1, 1, 0],
+      [1, 1, 1, 1, 1, 0, 1, 0, 0],
+      [1, 1, 1, 1, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 1, 0, 0, 0, 0],
+      [1, 1, 1, 0, 1, 1, 1, 0, 0],
+    ],
+    mOpt: 47,
+    starThresholds: { threeStars: 47, twoStars: 49, oneStar: 52 },
+    theme: "neon",
+    chapter: 3,
+    difficulty: 5,
+  },
+  {
+    id: 26,
+    name: "Crooked Reservoir",
+    start: { r: 1, c: 8 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 1, 1, 1],
+      [0, 1, 0, 0, 0, 0, 1, 1, 1],
+      [1, 0, 0, 0, 0, 0, 1, 1, 1],
+      [1, 1, 0, 0, 0, 0, 1, 1, 1],
+      [1, 1, 0, 0, 0, 0, 1, 1, 1],
+      [1, 1, 1, 0, 1, 1, 0, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 0, 1, 1, 1],
+      [1, 1, 1, 1, 0, 0, 0, 1, 1],
+    ],
+    mOpt: 50,
+    starThresholds: { threeStars: 50, twoStars: 52, oneStar: 55 },
+    theme: "neon",
+    chapter: 3,
+    difficulty: 5,
+  },
+  {
+    id: 27,
+    name: "Branchlock Court",
+    start: { r: 0, c: 7 },
+    grid: [
+      [0, 1, 0, 0, 1, 1, 0, 1, 1, 0],
+      [1, 0, 1, 1, 1, 1, 1, 1, 1, 0],
+      [1, 0, 0, 1, 1, 1, 0, 1, 0, 1],
+      [0, 0, 0, 1, 1, 1, 1, 1, 1, 1],
+      [0, 0, 0, 1, 1, 1, 1, 1, 1, 1],
+      [0, 0, 1, 1, 1, 0, 0, 1, 1, 1],
+      [0, 1, 0, 1, 1, 0, 0, 0, 1, 1],
+      [0, 0, 1, 0, 0, 1, 1, 0, 0, 1],
+      [0, 0, 0, 1, 1, 0, 1, 1, 1, 1],
+    ],
+    mOpt: 53,
+    starThresholds: { threeStars: 53, twoStars: 55, oneStar: 58 },
+    theme: "wood",
+    chapter: 3,
+    difficulty: 5,
+  },
+  {
+    id: 28,
+    name: "Twinned Ridges",
+    start: { r: 0, c: 7 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+      [0, 0, 0, 0, 1, 1, 0, 1, 1, 1],
+      [0, 0, 0, 0, 1, 1, 1, 1, 1, 0],
+      [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+      [0, 0, 1, 0, 0, 1, 1, 1, 1, 1],
+      [1, 1, 0, 0, 0, 1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+      [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    ],
+    mOpt: 56,
+    starThresholds: { threeStars: 56, twoStars: 58, oneStar: 61 },
+    theme: "wood",
+    chapter: 3,
+    difficulty: 5,
+  },
+  {
+    id: 29,
+    name: "Longhook Maze",
+    start: { r: 9, c: 5 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+      [0, 0, 0, 1, 0, 1, 0, 1, 1, 1],
+      [1, 1, 0, 1, 1, 1, 1, 1, 1, 1],
+      [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+      [0, 0, 0, 0, 1, 1, 1, 1, 0, 1],
+      [0, 0, 0, 1, 1, 1, 0, 1, 1, 1],
+      [0, 0, 1, 1, 1, 1, 1, 1, 1, 0],
+      [0, 0, 1, 1, 1, 1, 1, 1, 1, 0],
+      [0, 0, 0, 1, 1, 1, 1, 1, 1, 0],
+      [0, 0, 0, 0, 1, 1, 1, 1, 0, 0],
+    ],
+    mOpt: 59,
+    starThresholds: { threeStars: 59, twoStars: 61, oneStar: 64 },
+    theme: "paper",
+    chapter: 3,
+    difficulty: 5,
+  },
+  {
+    id: 30,
+    name: "Square Route Crown",
+    start: { r: 6, c: 2 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+      [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+      [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+      [0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0],
+      [0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0],
+      [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+      [0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0],
+      [0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0],
+      [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+      [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+      [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+    mOpt: 75,
+    starThresholds: { threeStars: 75, twoStars: 77, oneStar: 80 },
+    theme: "paper",
+    chapter: 3,
+    difficulty: 5,
+  },
+  {
+    id: 41,
+    name: "Gauntlet Return",
+    start: { r: 5, c: 5 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+      [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
+      [0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0],
+      [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0],
+      [0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0],
+      [0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0],
+      [0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0],
+      [0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0],
+      [0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+    mOpt: 57,
+    starThresholds: { threeStars: 57, twoStars: 59, oneStar: 62 },
+    chapter: 5,
+    difficulty: 5,
+  },
+  {
+    id: 42,
+    name: "Bent Stronghold",
+    start: { r: 5, c: 5 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+      [0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+      [0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0],
+      [0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0],
+      [0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0],
+      [0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0],
+      [0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0],
+      [0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0],
+      [0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0],
+      [0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+    mOpt: 65,
+    starThresholds: { threeStars: 65, twoStars: 67, oneStar: 70 },
+    chapter: 5,
+    difficulty: 5,
+  },
+  {
+    id: 43,
+    name: "Asymmetric Bastion",
+    start: { r: 5, c: 6 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+      [0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+      [0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0],
+      [0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0],
+      [0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0],
+      [0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0],
+      [0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0],
+      [0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0],
+      [0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+    mOpt: 62,
+    starThresholds: { threeStars: 62, twoStars: 64, oneStar: 67 },
+    theme: "slime",
+    chapter: 5,
+    difficulty: 5,
+  },
+  {
+    id: 44,
+    name: "Hooked Citadel",
+    start: { r: 6, c: 6 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+      [0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0],
+      [0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0],
+      [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
+      [0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0],
+      [0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0],
+      [0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0],
+      [0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0],
+      [0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0],
+      [0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0],
+      [0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+    mOpt: 82,
+    starThresholds: { threeStars: 82, twoStars: 84, oneStar: 87 },
+    theme: "slime",
+    chapter: 5,
+    difficulty: 5,
+  },
+  {
+    id: 45,
+    name: "Broken Ramparts",
+    start: { r: 6, c: 7 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0],
+      [0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0],
+      [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+      [0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0],
+      [0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0],
+      [0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0],
+      [0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0],
+      [0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0],
+      [0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0],
+      [0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0],
+      [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+    mOpt: 96,
+    starThresholds: { threeStars: 96, twoStars: 98, oneStar: 101 },
+    theme: "neon",
+    chapter: 5,
+    difficulty: 5,
+  },
+  {
+    id: 46,
+    name: "Shifted Fortress",
+    start: { r: 6, c: 7 },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+      [0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0],
+      [0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0],
+      [0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0],
+      [0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0],
+      [0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0],
+      [0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0],
+      [0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0],
+      [0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0],
+      [0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0],
+      [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0],
+      [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+    mOpt: 103,
+    starThresholds: { threeStars: 103, twoStars: 105, oneStar: 108 },
+    theme: "neon",
+    chapter: 5,
+    difficulty: 5,
+  },
+] satisfies readonly ImportedLevelDefinition[];
+
+const chapterLevelGroups = [
+  { chapter: 1, theme: "default", sourceLevelNumbers: [1, 3, 6, 7, 10] },
+  { chapter: 2, theme: "slime", sourceLevelNumbers: [8, 9, 12, 16, 20] },
+  { chapter: 3, theme: "neon", sourceLevelNumbers: [14, 15, 23, 19, 31] },
+  { chapter: 4, theme: "wood", sourceLevelNumbers: [25, 27, 28, 29, 32] },
+  { chapter: 5, theme: "paper", sourceLevelNumbers: [21, 33, 34, 35, 36] },
+] satisfies readonly ChapterLevelGroup[];
+
+function fromImportedLevel(level: ImportedLevelDefinition): LevelData {
+  if (level.grid[level.start.r]?.[level.start.c] !== 1) {
+    throw new Error(`Level ${level.id} "${level.name}" has a start outside active tiles.`);
+  }
+
+  return {
+    name: level.name,
+    rows: level.grid.map((row, r) =>
+      row.map((cell, c) => {
+        if (r === level.start.r && c === level.start.c) return "S";
+        return cell === 1 ? "X" : ".";
+      }).join(""),
+    ),
+    theme: level.theme,
+    chapter: level.chapter,
+    difficulty: level.difficulty,
+    mOpt: level.mOpt,
+    starThresholds: level.starThresholds,
+  };
 }
 
-export const levels: LevelData[] = [
-  buildLevel1(),
-  buildLevel2(),
-  buildLevel3(),
-  buildLevel4(),
-  buildLevel5(),
-  buildLevel6(),
-  buildLevel7(),
-  buildLevel8(),
-  buildLevel9(),
-  buildLevel10(),
-];
+function getImportedLevelByNumber(levelNumber: number) {
+  const level = importedLevels[levelNumber - 1];
+  if (!level) {
+    throw new Error(`Missing source level ${levelNumber}.`);
+  }
+  return level;
+}
+
+export const levels: LevelData[] = chapterLevelGroups.flatMap(({ chapter, theme, sourceLevelNumbers }) =>
+  sourceLevelNumbers.map((sourceLevelNumber) =>
+    fromImportedLevel({
+      ...getImportedLevelByNumber(sourceLevelNumber),
+      chapter,
+      theme,
+    }),
+  ),
+);

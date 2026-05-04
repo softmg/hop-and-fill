@@ -1,9 +1,9 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import bgDefault from "@/assets/parallax-bg.png";
-import bgSlime from "@/assets/parallax-bg-slime.png";
-import bgNeon from "@/assets/parallax-bg-neon.png";
-import bgWood from "@/assets/parallax-bg-wood.png";
-import bgPaper from "@/assets/parallax-bg-paper.png";
+import bgDefault from "@/assets/parallax-bg.webp";
+import bgSlime from "@/assets/parallax-bg-slime.webp";
+import bgNeon from "@/assets/parallax-bg-neon.webp";
+import bgWood from "@/assets/parallax-bg-wood.webp";
+import bgPaper from "@/assets/parallax-bg-paper.webp";
 
 export type BgTheme = "default" | "slime" | "neon" | "wood" | "paper";
 

@@ -43,7 +43,7 @@ function inferRetryDifficulty(row: Omit<LevelValidationRow, "expectedRetryDiffic
 function validateLevel(level: LevelData, index: number, seenNames: Set<string>) {
   const graphMetrics = analyzeLevelGraph(level);
   const optimalMoves = computeOptimalMoves(level);
-  const limit = moveLimit(optimalMoves);
+  const limit = moveLimit(level);
   const warnings: string[] = [];
 
   if (graphMetrics.startCellCount === 0) {

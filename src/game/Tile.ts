@@ -1,16 +1,16 @@
 import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { TILE_W, TILE_H, gridToScreen, isoZ } from "./iso";
 import type { Palette } from "./theme";
-import tileUnpaintedUrl from "@/assets/tile-unpainted.png";
-import tilePaintedUrl from "@/assets/tile-painted.png";
-import tileUnpaintedSlimeUrl from "@/assets/tile-unpainted-slime.png";
-import tilePaintedSlimeUrl from "@/assets/tile-painted-slime.png";
-import tileUnpaintedNeonUrl from "@/assets/tile-unpainted-neon.png";
-import tilePaintedNeonUrl from "@/assets/tile-painted-neon.png";
-import tileUnpaintedWoodUrl from "@/assets/tile-unpainted-wood.png";
-import tilePaintedWoodUrl from "@/assets/tile-painted-wood.png";
-import tileUnpaintedPaperUrl from "@/assets/tile-unpainted-paper.png";
-import tilePaintedPaperUrl from "@/assets/tile-painted-paper.png";
+import tileUnpaintedUrl from "@/assets/tile-unpainted.webp";
+import tilePaintedUrl from "@/assets/tile-painted.webp";
+import tileUnpaintedSlimeUrl from "@/assets/tile-unpainted-slime.webp";
+import tilePaintedSlimeUrl from "@/assets/tile-painted-slime.webp";
+import tileUnpaintedNeonUrl from "@/assets/tile-unpainted-neon.webp";
+import tilePaintedNeonUrl from "@/assets/tile-painted-neon.webp";
+import tileUnpaintedWoodUrl from "@/assets/tile-unpainted-wood.webp";
+import tilePaintedWoodUrl from "@/assets/tile-painted-wood.webp";
+import tileUnpaintedPaperUrl from "@/assets/tile-unpainted-paper.webp";
+import tilePaintedPaperUrl from "@/assets/tile-painted-paper.webp";
 
 export type TileState = "unpainted" | "painted";
 export type TileTheme = "default" | "slime" | "neon" | "wood" | "paper";

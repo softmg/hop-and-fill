@@ -3,6 +3,10 @@ import type { Dir } from "./iso";
 type Handler = (dir: Dir) => void;
 
 type BoardDir = Extract<Dir, "N" | "E" | "S" | "W">;
+type DiagonalDir = Extract<Dir, "NE" | "NW" | "SE" | "SW">;
+
+export const BOARD_COMBO_DEBOUNCE_MS = 120;
+export const TOUCH_MIN_DISTANCE = 24;
 
 const ARROW_KEY_TO_DIR: Record<string, Extract<Dir, "NE" | "NW" | "SE" | "SW">> = {
   ArrowUp: "NW",
@@ -49,12 +53,27 @@ export function resolveBoardKeyDir(keys: Iterable<BoardDir>): Dir | null {
   return vertical ?? horizontal;
 }
 
+const SCREEN_VECTOR_DIRS: Dir[] = ["NE", "E", "SE", "S", "SW", "W", "NW", "N"];
+
+export function screenVectorToDir(dx: number, dy: number, minDistance = TOUCH_MIN_DISTANCE): Dir | null {
+  if (Math.hypot(dx, dy) < minDistance) return null;
+
+  const sector = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
+  return SCREEN_VECTOR_DIRS[(sector + SCREEN_VECTOR_DIRS.length) % SCREEN_VECTOR_DIRS.length];
+}
+
+function isDiagonalDir(dir: Dir): dir is DiagonalDir {
+  return dir === "NE" || dir === "NW" || dir === "SE" || dir === "SW";
+}
+
 export class Input {
   private handler: Handler;
-  private touchStart: { x: number; y: number; t: number } | null = null;
+  private touchStart: { x: number; y: number } | null = null;
   private el: HTMLElement;
   private activeBoardKeys = new Set<BoardDir>();
   private lastBoardDir: Dir | null = null;
+  private pendingBoardDir: BoardDir | null = null;
+  private boardComboTimer: number | null = null;
 
   constructor(el: HTMLElement, handler: Handler) {
     this.el = el;
@@ -93,15 +112,48 @@ export class Input {
     e.preventDefault();
     this.activeBoardKeys.add(boardDir);
     const dir = resolveBoardKeyDir(this.activeBoardKeys);
-    if (dir && (e.repeat || dir !== this.lastBoardDir)) {
-      this.handler(dir);
-    }
-    this.lastBoardDir = dir;
+    this.handleBoardDir(dir, e.repeat);
   };
+
+  private handleBoardDir(dir: Dir | null, isRepeat: boolean) {
+    if (!dir) {
+      this.clearPendingBoardDir();
+      this.lastBoardDir = null;
+      return;
+    }
+
+    if (isDiagonalDir(dir)) {
+      this.clearPendingBoardDir();
+      if (isRepeat || dir !== this.lastBoardDir) {
+        this.handler(dir);
+      }
+      this.lastBoardDir = dir;
+      return;
+    }
+
+    if (isRepeat) {
+      if (this.pendingBoardDir) return;
+      this.handler(dir);
+      this.lastBoardDir = dir;
+      return;
+    }
+
+    if (dir === this.lastBoardDir && !this.pendingBoardDir) return;
+
+    this.scheduleBoardDir(dir);
+    this.lastBoardDir = dir;
+  }
 
   private onKeyUp = (e: KeyboardEvent) => {
     const boardDir = BOARD_KEY_TO_DIR[e.key];
     if (!boardDir) return;
+    e.preventDefault();
+
+    const dirBeforeRelease = resolveBoardKeyDir(this.activeBoardKeys);
+    if (this.pendingBoardDir && dirBeforeRelease === this.pendingBoardDir) {
+      this.flushPendingBoardDir();
+    }
+
     this.activeBoardKeys.delete(boardDir);
     this.lastBoardDir = resolveBoardKeyDir(this.activeBoardKeys);
   };
@@ -113,12 +165,44 @@ export class Input {
   private clearBoardKeys() {
     this.activeBoardKeys.clear();
     this.lastBoardDir = null;
+    this.clearPendingBoardDir();
+  }
+
+  private scheduleBoardDir(dir: BoardDir) {
+    this.clearPendingBoardDir();
+    this.pendingBoardDir = dir;
+    this.boardComboTimer = window.setTimeout(() => {
+      this.boardComboTimer = null;
+      if (this.pendingBoardDir !== dir) return;
+
+      const currentDir = resolveBoardKeyDir(this.activeBoardKeys);
+      this.pendingBoardDir = null;
+      if (currentDir === dir) {
+        this.handler(dir);
+      }
+    }, BOARD_COMBO_DEBOUNCE_MS);
+  }
+
+  private flushPendingBoardDir() {
+    const dir = this.pendingBoardDir;
+    if (!dir) return;
+    this.clearPendingBoardDir();
+    this.handler(dir);
+    this.lastBoardDir = dir;
+  }
+
+  private clearPendingBoardDir() {
+    if (this.boardComboTimer !== null) {
+      window.clearTimeout(this.boardComboTimer);
+      this.boardComboTimer = null;
+    }
+    this.pendingBoardDir = null;
   }
 
   private onTouchStart = (e: TouchEvent) => {
     const t = e.touches[0];
     if (!t) return;
-    this.touchStart = { x: t.clientX, y: t.clientY, t: performance.now() };
+    this.touchStart = { x: t.clientX, y: t.clientY };
   };
 
   private onTouchEnd = (e: TouchEvent) => {
@@ -127,15 +211,8 @@ export class Input {
     if (!t) return;
     const dx = t.clientX - this.touchStart.x;
     const dy = t.clientY - this.touchStart.y;
-    const dist = Math.hypot(dx, dy);
     this.touchStart = null;
-    if (dist < 24) return;
-    let dir: Dir;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      dir = dx > 0 ? "NE" : "SW";
-    } else {
-      dir = dy > 0 ? "SE" : "NW";
-    }
-    this.handler(dir);
+    const dir = screenVectorToDir(dx, dy);
+    if (dir) this.handler(dir);
   };
 }
