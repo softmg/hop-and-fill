@@ -1,5 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import { CarFront, Clock3, Map, Pause, Play, RotateCcw, Sparkles, Trophy, Volume2, VolumeX } from "lucide-react";
+import { CarFront, Check, Clock3, Map, Pause, Play, RotateCcw, Share2, Sparkles, Trophy, Volume2, VolumeX } from "lucide-react";
 import { PixiGame } from "@/game/PixiGame";
 import { createGameAudio } from "@/game/audio";
 import { decideInterstitialTrigger, type InterstitialTrigger } from "@/game/interstitials";
@@ -33,11 +33,13 @@ import {
   type PlayerProgress,
 } from "@/game/progress";
 import { calculateLeaderboardScore, loadLeaderboardSnapshot, saveLeaderboardScore, type LeaderboardRow } from "@/game/leaderboard";
+import { buildSharedResultUrl, createSharedResult, type SharedResultContext } from "@/game/shareResult";
 import { formatDurationMs } from "@/game/time";
 
 type OverlayMode = "playing" | "paused" | "won" | "lost" | "chapter" | "final";
 type LeaderboardStatus = "idle" | "loading" | "ready" | "error";
 type LeaderboardSaveStatus = "idle" | "saving" | "saved" | "error" | "skipped";
+type ShareStatus = "idle" | "copied" | "shared" | "error";
 
 const chapters = deriveChapters(levels);
 
@@ -137,6 +139,18 @@ const getNextLevelContext = (fromLevelIdx: number) => {
 
 const getTimerNowMs = () => performance.now();
 
+async function copyShareUrlToClipboard(url: string) {
+  if (!navigator.clipboard?.writeText) {
+    throw new Error("Clipboard API is unavailable");
+  }
+
+  await navigator.clipboard.writeText(url);
+}
+
+function isShareAbortError(error: unknown) {
+  return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
+}
+
 interface FinishedAttempt {
   id: number;
   outcome: "win" | "loss";
@@ -174,6 +188,8 @@ export const GameCanvas = () => {
   const [leaderboardSaveStatus, setLeaderboardSaveStatus] = useState<LeaderboardSaveStatus>("idle");
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardRow[]>([]);
   const [leaderboardUserRank, setLeaderboardUserRank] = useState<number | null>(null);
+  const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
+  const [shareUrl, setShareUrl] = useState("");
   const [isInterstitialActive, setInterstitialActive] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
   const [rewardedUndoState, setRewardedUndoState] = useState<"idle" | "loading" | "error">("idle");
@@ -721,6 +737,101 @@ export const GameCanvas = () => {
   const shouldShowMobileJoystick =
     overlayMode === "playing" && !isLevelSelectOpen && !isLeaderboardOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
   const pauseButtonLabel = overlayMode === "paused" ? "Продолжить" : "Пауза";
+  const shareStatusLabel =
+    shareStatus === "copied"
+      ? "Ссылка скопирована"
+      : shareStatus === "shared"
+        ? "Ссылка отправлена"
+        : shareStatus === "error"
+          ? "Не удалось скопировать ссылку"
+          : "";
+
+  const getShareContext = (): SharedResultContext => {
+    if (overlayMode === "won" && finishedAttempt?.outcome === "win") {
+      const resultStars = stars === 1 || stars === 2 || stars === 3 ? stars : 1;
+
+      return {
+        kind: "level",
+        levelNumber: levelIdx + 1,
+        levelName: currentLevel.name,
+        stars: resultStars,
+        hops,
+        optimalMoves: optimal,
+        timeMs: elapsedMs > 0 ? Math.trunc(elapsedMs) : null,
+      };
+    }
+
+    if (overlayMode === "final") {
+      return { kind: "final" };
+    }
+
+    return { kind: "progress" };
+  };
+
+  const shareCurrentResult = async () => {
+    const baseProgress = progressRef.current ?? progress;
+    if (!baseProgress) return;
+
+    const sharedResult = createSharedResult(baseProgress, levels.length, getShareContext());
+    const nextShareUrl = buildSharedResultUrl(sharedResult);
+    setShareUrl(nextShareUrl);
+    setShareStatus("idle");
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Hop & Fill: результат",
+          text: "Мой результат в Hop & Fill",
+          url: nextShareUrl,
+        });
+        setShareStatus("shared");
+        return;
+      }
+    } catch (error) {
+      if (isShareAbortError(error)) return;
+    }
+
+    try {
+      await copyShareUrlToClipboard(nextShareUrl);
+      setShareStatus("copied");
+    } catch {
+      setShareStatus("error");
+    }
+  };
+
+  const shareResultControls = (
+    <div className="flex flex-col gap-2">
+      <Button onClick={shareCurrentResult} disabled={isInteractionLocked} variant="secondary" className="w-full">
+        {shareStatus === "copied" || shareStatus === "shared" ? (
+          <Check className="h-4 w-4" aria-hidden />
+        ) : (
+          <Share2 className="h-4 w-4" aria-hidden />
+        )}
+        Поделиться результатом
+      </Button>
+      {shareStatusLabel && (
+        <div
+          className={`rounded-md border px-3 py-2 text-xs ${
+            shareStatus === "error"
+              ? "border-red-200/25 bg-red-400/10 text-red-100"
+              : "border-white/10 bg-white/[0.06] text-white/70"
+          }`}
+        >
+          <span>{shareStatusLabel}</span>
+          {shareUrl && (
+            <a href={shareUrl} target="_blank" rel="noreferrer" className="ml-2 font-bold text-white underline underline-offset-2">
+              Открыть результат
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  useEffect(() => {
+    setShareStatus("idle");
+    setShareUrl("");
+  }, [levelIdx, overlayMode]);
 
   useEffect(() => {
     if (lastGameplayActiveRef.current === isGameplayActive) return;
@@ -941,6 +1052,7 @@ export const GameCanvas = () => {
                         ? `Открыть главу ${pendingChapterTransition.toChapter.chapterIndex}`
                         : "Следующий уровень"}
                   </Button>
+                  {shareResultControls}
                   <Button onClick={restart} disabled={isInteractionLocked} variant="secondary" className="w-full">
                     Сыграть снова
                   </Button>
@@ -1075,6 +1187,7 @@ export const GameCanvas = () => {
                   Финал открыт для перепрохождения, а любые уровни доступны через меню выбора.
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
+                  {shareResultControls}
                   <Button onClick={restart} className="w-full">
                     Переиграть финальный уровень
                   </Button>

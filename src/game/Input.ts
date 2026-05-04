@@ -73,7 +73,7 @@ export class Input {
   private activeBoardKeys = new Set<BoardDir>();
   private lastBoardDir: Dir | null = null;
   private pendingBoardDir: BoardDir | null = null;
-  private boardComboTimer: ReturnType<typeof window.setTimeout> | null = null;
+  private boardComboTimer: number | null = null;
 
   constructor(el: HTMLElement, handler: Handler) {
     this.el = el;

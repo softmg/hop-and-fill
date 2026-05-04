@@ -179,7 +179,7 @@ export function hasRaceAward(progress: PlayerProgress, levelIndex: number) {
   return timeLimitMs !== null && bestTimeMs !== null && bestTimeMs <= timeLimitMs;
 }
 
-export function getTotalRaces(progress: PlayerProgress, levelCount = MAX_RACE_AWARDS) {
+export function getTotalRaces(progress: PlayerProgress, levelCount: number = MAX_RACE_AWARDS) {
   const maxRaces = getMaxRaces(levelCount);
   let total = 0;
 
