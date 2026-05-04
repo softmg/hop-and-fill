@@ -12,6 +12,12 @@ The game submits the player's total star count to a Yandex Games numeric leaderb
 
 Set `VITE_LEADERBOARD_BACKEND_URL` to store and read leaderboard scores through your backend instead of the Yandex Games leaderboard API.
 
+For local development this repo includes a backend in `backend/` and `.env.local` points the client to:
+
+```text
+VITE_LEADERBOARD_BACKEND_URL=http://localhost:8787
+```
+
 Expected endpoints:
 
 - `POST {VITE_LEADERBOARD_BACKEND_URL}/leaderboards/{leaderboardName}/scores`

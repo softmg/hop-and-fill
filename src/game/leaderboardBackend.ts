@@ -1,6 +1,8 @@
 import type { YsdkLeaderboardEntries, YsdkLeaderboardEntry } from "@/sdk/yandex";
 
 export const LEADERBOARD_BACKEND_URL = String(import.meta.env.VITE_LEADERBOARD_BACKEND_URL ?? "").trim();
+const BACKEND_PLAYER_ID_KEY = "crash-cubes:leaderboard-player-id";
+const BACKEND_PLAYER_ID_HEADER = "X-Crash-Cubes-Player-Id";
 
 interface BackendLeaderboardPlayer {
   publicName?: unknown;
@@ -24,6 +26,26 @@ interface BackendLeaderboardEntry {
 
 export function hasLeaderboardBackend() {
   return LEADERBOARD_BACKEND_URL.length > 0;
+}
+
+function readBackendPlayerId() {
+  try {
+    return localStorage.getItem(BACKEND_PLAYER_ID_KEY) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function persistBackendPlayerId(data: unknown) {
+  if (!data || typeof data !== "object") return;
+  const playerId = (data as { playerId?: unknown }).playerId;
+  if (typeof playerId !== "string" || playerId.length === 0) return;
+
+  try {
+    localStorage.setItem(BACKEND_PLAYER_ID_KEY, playerId);
+  } catch {
+    // Storage can be unavailable in restricted browser modes.
+  }
 }
 
 function optionalString(value: unknown) {
@@ -51,11 +73,13 @@ function createBackendUrl(path: string, query?: Record<string, string | number |
 }
 
 async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
+  const playerId = readBackendPlayerId();
   const response = await fetch(url, {
     credentials: "include",
     ...init,
     headers: {
       Accept: "application/json",
+      ...(playerId ? { [BACKEND_PLAYER_ID_HEADER]: playerId } : {}),
       ...init.headers,
     },
   });
@@ -112,7 +136,7 @@ export async function saveBackendLeaderboardScore(
   },
 ) {
   const url = createBackendUrl(`leaderboards/${encodeURIComponent(leaderboardName)}/scores`);
-  await requestJson<void>(url, {
+  const data = await requestJson<unknown>(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -123,6 +147,7 @@ export async function saveBackendLeaderboardScore(
       extraData: payload.extraData,
     }),
   });
+  persistBackendPlayerId(data);
 }
 
 export async function loadBackendLeaderboardSnapshot(
@@ -137,6 +162,7 @@ export async function loadBackendLeaderboardSnapshot(
   const data = await requestJson<unknown>(url, {
     method: "GET",
   });
+  persistBackendPlayerId(data);
 
   return normalizeBackendEntries(data);
 }

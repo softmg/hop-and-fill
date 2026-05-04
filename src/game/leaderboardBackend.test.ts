@@ -4,6 +4,19 @@ describe("leaderboardBackend", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv("VITE_LEADERBOARD_BACKEND_URL", "https://api.example.test/games");
+    const storage = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn((key: string) => storage.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => {
+        storage.set(key, String(value));
+      }),
+      removeItem: vi.fn((key: string) => {
+        storage.delete(key);
+      }),
+      clear: vi.fn(() => {
+        storage.clear();
+      }),
+    });
   });
 
   afterEach(() => {
@@ -13,7 +26,9 @@ describe("leaderboardBackend", () => {
   });
 
   it("posts scores to the configured backend", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ playerId: "player-123" }), { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const { saveBackendLeaderboardScore } = await import("./leaderboardBackend");
@@ -39,12 +54,14 @@ describe("leaderboardBackend", () => {
         }),
       }),
     );
+    expect(localStorage.getItem("crash-cubes:leaderboard-player-id")).toBe("player-123");
   });
 
   it("loads and normalizes backend entries", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
+          playerId: "player-456",
           userRank: 1,
           entries: [
             {
@@ -88,5 +105,25 @@ describe("leaderboardBackend", () => {
       },
     });
     expect(result.entries[0].player.getAvatarSrc?.("small")).toBe("https://example.com/ada.png");
+    expect(localStorage.getItem("crash-cubes:leaderboard-player-id")).toBe("player-456");
+  });
+
+  it("sends the persisted backend player id on later requests", async () => {
+    localStorage.setItem("crash-cubes:leaderboard-player-id", "player-789");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ userRank: 0, entries: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { loadBackendLeaderboardSnapshot } = await import("./leaderboardBackend");
+
+    await loadBackendLeaderboardSnapshot("crash_cubes_total_stars");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-Crash-Cubes-Player-Id": "player-789",
+        }),
+      }),
+    );
   });
 });

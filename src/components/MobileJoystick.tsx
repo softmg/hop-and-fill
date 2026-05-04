@@ -31,7 +31,7 @@ export const MobileJoystick = ({ onDirection, disabled = false, className }: Mob
   const rootRef = useRef<HTMLDivElement>(null);
   const activePointerIdRef = useRef<number | null>(null);
   const heldDirectionRef = useRef<Dir | null>(null);
-  const repeatTimerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
+  const repeatTimerRef = useRef<number | null>(null);
   const onDirectionRef = useRef(onDirection);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const [activeDir, setActiveDir] = useState<Dir | null>(null);

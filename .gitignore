@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+backend/data/*.json
+backend/data/*.tmp
+.backend.log
+.backend.pid
 
 # Local automation/runtime artifacts
 .archon/state/
@@ -22,6 +26,12 @@ dist-ssr
 # Local screenshots / smoke captures
 /start-screen-first-run.png
 /crash-cubes-webp-smoke.png
+/shared-result-smoke.png
+
+# Local generated release/source media
+/public/intro/
+/src/assets/paper-castle.png
+*.tsbuildinfo
 
 # Editor directories and files
 .vscode/*
