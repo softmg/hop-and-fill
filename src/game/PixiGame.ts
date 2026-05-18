@@ -81,7 +81,7 @@ export class PixiGame {
     this.app.stage.eventMode = "static";
     this.app.stage.hitArea = this.app.screen;
     this.app.stage.on("pointermove", this.onPointerMove);
-    this.app.stage.on("pointerdown", this.onPointerDown);
+    this.app.stage.on("pointerup", this.onPointerUp);
     this.app.stage.on("pointerleave", this.onPointerLeave);
     // Следим за реальным изменением размера контейнера и вызываем
     // app.resize() + layout() только когда размеры действительно поменялись.
@@ -196,7 +196,7 @@ export class PixiGame {
     this.setHover(null);
   };
 
-  private onPointerDown = (e: FederatedPointerEvent) => {
+  private onPointerUp = (e: FederatedPointerEvent) => {
     if (!this.ready || this.isPaused || this.state !== "playing" || this.player.isAnimating) return;
     const { gx, gy } = this.screenPointToGrid(e.global.x, e.global.y);
     const dir = this.dirToNeighbor(gx, gy);
