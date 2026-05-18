@@ -6,6 +6,8 @@ import { Input } from "./Input";
 import { dirToDelta, gridToScreen, screenToGrid, TILE_H, type Dir } from "./iso";
 import { colors, type Palette } from "./theme";
 
+const JUMP_TARGET_DIRECTIONS: Dir[] = ["NW", "N", "NE", "E", "SE", "S", "SW", "W"];
+
 export interface GameCallbacks {
   onHopCount: (n: number) => void;
   onHop: () => void;
@@ -83,6 +85,7 @@ export class PixiGame {
     this.app.stage.on("pointermove", this.onPointerMove);
     this.app.stage.on("pointerup", this.onPointerUp);
     this.app.stage.on("pointerleave", this.onPointerLeave);
+    this.app.ticker.add(this.onTick);
     // Следим за реальным изменением размера контейнера и вызываем
     // app.resize() + layout() только когда размеры действительно поменялись.
     // Это решает проблему первой загрузки, когда host ещё не имеет финального размера.
@@ -192,6 +195,34 @@ export class PixiGame {
     this.setHover({ gx, gy });
   };
 
+  private canShowJumpTargets() {
+    return this.ready && !this.isPaused && this.state === "playing" && !this.player.isAnimating;
+  }
+
+  private updateJumpTargets() {
+    if (!this.ready || !this.level || !this.player) return;
+
+    for (const tile of this.level.tiles.values()) {
+      tile.setJumpAvailable(false);
+    }
+
+    if (!this.canShowJumpTargets()) return;
+
+    for (const dir of JUMP_TARGET_DIRECTIONS) {
+      const { dx, dy } = dirToDelta(dir);
+      this.level.get(this.player.gx + dx, this.player.gy + dy)?.setJumpAvailable(true);
+    }
+  }
+
+  private onTick = () => {
+    if (!this.ready || !this.level) return;
+    this.updateJumpTargets();
+    const now = performance.now();
+    for (const tile of this.level.tiles.values()) {
+      tile.update(now);
+    }
+  };
+
   private onPointerLeave = () => {
     this.setHover(null);
   };
@@ -223,7 +254,7 @@ export class PixiGame {
     this.world.addChild(this.player.container);
 
     // Закрашиваем стартовую плитку сразу
-    this.level.get(this.level.startGx, this.level.startGy)?.paint();
+    this.level.get(this.level.startGx, this.level.startGy)?.paint({ immediate: true });
 
     this.hops = 0;
     this.state = "playing";
@@ -389,6 +420,7 @@ export class PixiGame {
       this.resizeRafId = null;
     }
     this.pendingSize = null;
+    this.app.ticker.remove(this.onTick);
     this.app.destroy(true, { children: true });
   }
 }
