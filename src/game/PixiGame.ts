@@ -7,6 +7,7 @@ import { dirToDelta, gridToScreen, screenToGrid, TILE_H, type Dir } from "./iso"
 import { colors, type Palette } from "./theme";
 
 const JUMP_TARGET_DIRECTIONS: Dir[] = ["NW", "N", "NE", "E", "SE", "S", "SW", "W"];
+const MOVE_COMMIT_DELAY_MS = 100;
 
 export interface GameCallbacks {
   onHopCount: (n: number) => void;
@@ -27,6 +28,13 @@ interface MoveSnapshot {
   toGy: number;
   previousHops: number;
   destinationWasPainted: boolean;
+}
+
+interface PendingMove {
+  fromGx: number;
+  fromGy: number;
+  toGx: number;
+  toGy: number;
 }
 
 export class PixiGame {
@@ -51,6 +59,9 @@ export class PixiGame {
   private destroyed = false;
   private firstSceneRenderableReported = false;
   private lastMove: MoveSnapshot | null = null;
+  private clickInputLocked = false;
+  private moveCommitTimeoutIds = new Set<number>();
+  private moveGeneration = 0;
 
   constructor(
     private host: HTMLDivElement,
@@ -76,7 +87,7 @@ export class PixiGame {
     this.app.stage.addChild(this.bg, this.world);
 
     this.preloadAndBuild();
-    this.input = new Input(host, this.handleDir);
+    this.input = new Input(host, this.handleInputDir);
     this.app.renderer.on("resize", this.layout);
 
     // Мышь: hover + клик. Используем eventMode на stage.
@@ -187,7 +198,7 @@ export class PixiGame {
   }
 
   private onPointerMove = (e: FederatedPointerEvent) => {
-    if (!this.ready || this.isPaused || this.state !== "playing" || this.player.isAnimating) {
+    if (!this.ready || this.isPaused || this.state !== "playing" || this.clickInputLocked) {
       this.setHover(null);
       return;
     }
@@ -196,7 +207,7 @@ export class PixiGame {
   };
 
   private canShowJumpTargets() {
-    return this.ready && !this.isPaused && this.state === "playing" && !this.player.isAnimating;
+    return this.ready && !this.isPaused && this.state === "playing" && !this.clickInputLocked;
   }
 
   private updateJumpTargets() {
@@ -228,10 +239,10 @@ export class PixiGame {
   };
 
   private onPointerUp = (e: FederatedPointerEvent) => {
-    if (!this.ready || this.isPaused || this.state !== "playing" || this.player.isAnimating) return;
+    if (!this.ready || this.isPaused || this.state !== "playing" || this.clickInputLocked) return;
     const { gx, gy } = this.screenPointToGrid(e.global.x, e.global.y);
     const dir = this.dirToNeighbor(gx, gy);
-    if (dir) this.handleDir(dir);
+    if (dir) this.handlePointerDir(dir);
   };
 
   triggerDir(d: Parameters<Input["emit"]>[0]) {
@@ -239,6 +250,8 @@ export class PixiGame {
   }
 
   private buildLevel(data: LevelData) {
+    this.clearMoveTimers();
+    this.moveGeneration++;
     // очистка
     this.world.removeChildren();
     this.hoveredTile = null;
@@ -280,7 +293,7 @@ export class PixiGame {
   }
 
   canUndoLastMove() {
-    return this.ready && !this.isPaused && !this.player.isAnimating && this.lastMove !== null;
+    return this.ready && !this.isPaused && !this.clickInputLocked && !this.player.isAnimating && this.lastMove !== null;
   }
 
   undoLastMove() {
@@ -308,7 +321,7 @@ export class PixiGame {
     this.isPaused = false;
   }
 
-  private handleDir = (dir: Parameters<Input["emit"]>[0]) => {
+  private handleInputDir = (dir: Parameters<Input["emit"]>[0]) => {
     if (!this.ready) return;
     if (this.isPaused) return;
     if (this.state !== "playing") return;
@@ -354,6 +367,94 @@ export class PixiGame {
       },
     );
   };
+
+  private handlePointerDir = (dir: Parameters<Input["emit"]>[0]) => {
+    if (!this.ready) return;
+    if (this.isPaused) return;
+    if (this.state !== "playing") return;
+    if (this.clickInputLocked) return;
+    this.setHover(null);
+    const { dx, dy } = dirToDelta(dir);
+    const fromGx = this.player.gx;
+    const fromGy = this.player.gy;
+    const tx = fromGx + dx;
+    const ty = fromGy + dy;
+    const target = this.level.get(tx, ty);
+    if (!target) return;
+
+    this.lockClickInput();
+    this.scheduleMoveCommit({ fromGx, fromGy, toGx: tx, toGy: ty });
+  };
+
+  private commitMove(move: PendingMove) {
+    if (!this.ready || this.destroyed) return;
+    if (this.isPaused) return;
+    if (this.state !== "playing") return;
+
+    const target = this.level.get(move.toGx, move.toGy);
+    if (!target) return;
+
+    this.lastMove = {
+      fromGx: move.fromGx,
+      fromGy: move.fromGy,
+      toGx: move.toGx,
+      toGy: move.toGy,
+      previousHops: this.hops,
+      destinationWasPainted: target.state === "painted",
+    };
+    this.hops++;
+    this.cb.onHopCount(this.hops);
+    this.cb.onHop();
+    this.player.hopFrom(
+      move.fromGx,
+      move.fromGy,
+      move.toGx,
+      move.toGy,
+      () => {
+        if (target.paint()) {
+          this.cb.onPaint();
+        }
+
+        if (this.level.isComplete()) {
+          this.state = "won";
+          this.setHover(null);
+          this.cb.onWin(this.hops);
+          return;
+        }
+
+        if (this.moveLimit !== null && this.hops >= this.moveLimit) {
+          this.state = "lost";
+          this.setHover(null);
+          this.cb.onLose();
+        }
+      },
+      () => {},
+    );
+  }
+
+  private lockClickInput() {
+    this.clickInputLocked = true;
+  }
+
+  private scheduleMoveCommit(move: PendingMove) {
+    const generation = this.moveGeneration;
+    const timeoutId = window.setTimeout(() => {
+      this.moveCommitTimeoutIds.delete(timeoutId);
+      if (this.destroyed || generation !== this.moveGeneration) return;
+      this.commitMove(move);
+      this.clickInputLocked = false;
+    }, MOVE_COMMIT_DELAY_MS);
+
+    this.moveCommitTimeoutIds.add(timeoutId);
+  }
+
+  private clearMoveTimers() {
+    for (const timeoutId of this.moveCommitTimeoutIds) {
+      window.clearTimeout(timeoutId);
+    }
+    this.moveCommitTimeoutIds.clear();
+    this.clickInputLocked = false;
+  }
 
   private layout = () => {
     if (!this.ready || !this.level) return;
@@ -412,6 +513,7 @@ export class PixiGame {
 
   destroy() {
     this.destroyed = true;
+    this.clearMoveTimers();
     this.input.destroy();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;

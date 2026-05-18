@@ -9,6 +9,17 @@ import playerPaperUrl from "@/assets/player-paper.webp";
 
 const HOP_DURATION = 280; // ms
 const HOP_HEIGHT = 80;
+const FAST_FORWARD_DISTANCE = 1;
+const FAST_FORWARD_MULTIPLIER = 2;
+
+interface HopJob {
+  fromGx: number;
+  fromGy: number;
+  targetGx: number;
+  targetGy: number;
+  onLand: () => void;
+  onSettle: () => void;
+}
 
 export type PlayerTheme = "default" | "slime" | "neon" | "wood" | "paper";
 
@@ -49,6 +60,8 @@ export class Player {
   gx: number;
   gy: number;
   private animating = false;
+  private hopQueue: HopJob[] = [];
+  private animationToken = 0;
 
   constructor(gx: number, gy: number, private palette: Palette, private theme: PlayerTheme = "default") {
     this.gx = gx;
@@ -85,6 +98,10 @@ export class Player {
   }
 
   snapTo(gx: number, gy: number) {
+    this.animationToken++;
+    this.hopQueue = [];
+    this.animating = false;
+    this.body.y = 0;
     this.gx = gx;
     this.gy = gy;
     const { x, y } = gridToScreen(gx, gy);
@@ -93,29 +110,54 @@ export class Player {
   }
 
   hop(targetGx: number, targetGy: number, onLand: () => void, onSettle: () => void) {
-    if (this.animating) return;
+    this.hopFrom(this.gx, this.gy, targetGx, targetGy, onLand, onSettle);
+  }
+
+  hopFrom(
+    fromGx: number,
+    fromGy: number,
+    targetGx: number,
+    targetGy: number,
+    onLand: () => void,
+    onSettle: () => void,
+  ) {
+    const job = { fromGx, fromGy, targetGx, targetGy, onLand, onSettle };
+
+    this.gx = targetGx;
+    this.gy = targetGy;
+
+    if (this.animating) {
+      this.hopQueue.push(job);
+      return;
+    }
+
+    this.runHop(job);
+  }
+
+  private runHop(job: HopJob) {
     this.animating = true;
 
-    const startScreen = gridToScreen(this.gx, this.gy);
-    const endScreen = gridToScreen(targetGx, targetGy);
+    const startScreen = gridToScreen(job.fromGx, job.fromGy);
+    const endScreen = gridToScreen(job.targetGx, job.targetGy);
     const startY = startScreen.y + TILE_H / 2;
     const endY = endScreen.y + TILE_H / 2;
     const startX = startScreen.x;
     const endX = endScreen.x;
 
-    const t0 = performance.now();
-    const fromGx = this.gx;
-    const fromGy = this.gy;
+    let lastFrameTime = performance.now();
+    let progress = 0;
     const baseScaleX = this.body.scale.x;
     const baseScaleY = this.body.scale.y;
-
-    this.gx = targetGx;
-    this.gy = targetGy;
+    const token = ++this.animationToken;
 
     const tick = () => {
+      if (token !== this.animationToken) return;
       if (!this.body || this.body.destroyed) return;
-      const elapsed = performance.now() - t0;
-      const t = Math.min(1, elapsed / HOP_DURATION);
+      const now = performance.now();
+      const elapsed = now - lastFrameTime;
+      lastFrameTime = now;
+      progress = Math.min(1, progress + (elapsed * this.visualSpeedMultiplier()) / HOP_DURATION);
+      const t = progress;
       const x = startX + (endX - startX) * t;
       const y = startY + (endY - startY) * t;
       const arc = -Math.sin(t * Math.PI) * HOP_HEIGHT;
@@ -126,8 +168,8 @@ export class Player {
       const sq = 1 + Math.sin(t * Math.PI) * 0.08;
       this.body.scale.set(baseScaleX / sq, baseScaleY * sq);
 
-      const zFrom = isoZ(fromGx, fromGy, 50);
-      const zTo = isoZ(targetGx, targetGy, 50);
+      const zFrom = isoZ(job.fromGx, job.fromGy, 50);
+      const zTo = isoZ(job.targetGx, job.targetGy, 50);
       this.container.zIndex = Math.max(zFrom, zTo);
 
       if (t < 1) {
@@ -135,15 +177,26 @@ export class Player {
       } else {
         this.body.y = 0;
         this.body.scale.set(baseScaleX, baseScaleY);
-        onLand();
-        const t1 = performance.now();
+        job.onLand();
+        let lastSettleFrameTime = performance.now();
+        let settleProgress = 0;
         const settle = () => {
+          if (token !== this.animationToken) return;
           if (!this.body || this.body.destroyed) return;
-          const e = (performance.now() - t1) / 140;
+          const now = performance.now();
+          const elapsed = now - lastSettleFrameTime;
+          lastSettleFrameTime = now;
+          settleProgress = Math.min(1, settleProgress + (elapsed * this.visualSpeedMultiplier()) / 140);
+          const e = settleProgress;
           if (e >= 1) {
             this.body.scale.set(baseScaleX, baseScaleY);
-            this.animating = false;
-            onSettle();
+            job.onSettle();
+            const next = this.hopQueue.shift();
+            if (next) {
+              this.runHop(next);
+            } else {
+              this.animating = false;
+            }
             return;
           }
           const s = 1 - Math.sin(e * Math.PI) * 0.16;
@@ -154,6 +207,11 @@ export class Player {
       }
     };
     requestAnimationFrame(tick);
+  }
+
+  private visualSpeedMultiplier() {
+    const queuedVisualMoves = 1 + this.hopQueue.length;
+    return queuedVisualMoves > FAST_FORWARD_DISTANCE ? FAST_FORWARD_MULTIPLIER : 1;
   }
 
   fall(targetGx: number, targetGy: number, onDone: () => void) {
