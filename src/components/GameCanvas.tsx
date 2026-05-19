@@ -122,16 +122,16 @@ const KeyboardCompassControl = ({
   rotation: KeyboardRotation;
   onToggleRotation: () => void;
 }) => (
-  <div className="absolute left-3 top-[5.2rem] z-30 hidden h-36 w-[18.25rem] sm:block lg:left-4 lg:top-[5.75rem]">
+  <div className="absolute left-3 top-[9rem] z-30 hidden h-36 w-[18.25rem] sm:block lg:left-4 lg:top-[9.5rem]">
     <div
       className="pointer-events-none absolute left-0 top-0 h-36 w-56"
       role="img"
       aria-label="Изометрическая подсказка управления: стрелки идут по экранным сторонам, WASD идут по диагоналям поля."
     >
-      <div className="absolute inset-x-2 inset-y-1 bg-black/[0.58] shadow-[0_18px_34px_rgba(0,0,0,0.44),inset_0_0_28px_rgba(255,255,255,0.08)] backdrop-blur-md [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]" />
-      <div className="absolute inset-x-2 inset-y-1 border border-cyan-200/35 bg-cyan-200/[0.04] [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]" />
-      <div className="absolute left-1/2 top-1/2 h-px w-[86%] -translate-x-1/2 -translate-y-1/2 rotate-[32deg] bg-cyan-200/22" />
-      <div className="absolute left-1/2 top-1/2 h-px w-[86%] -translate-x-1/2 -translate-y-1/2 -rotate-[32deg] bg-cyan-200/22" />
+      <div className="absolute inset-x-2 inset-y-1 bg-[linear-gradient(180deg,rgba(82,46,20,0.82),rgba(23,13,7,0.9))] shadow-[0_6px_0_rgba(78,39,14,0.8),0_18px_34px_rgba(0,0,0,0.44),inset_0_2px_0_rgba(255,255,255,0.12)] [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]" />
+      <div className="absolute inset-x-2 inset-y-1 border-2 border-[#e0ae6c]/55 bg-[#ffe0a0]/[0.04] [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]" />
+      <div className="absolute left-1/2 top-1/2 h-px w-[86%] -translate-x-1/2 -translate-y-1/2 rotate-[32deg] bg-[#ffe0a0]/22" />
+      <div className="absolute left-1/2 top-1/2 h-px w-[86%] -translate-x-1/2 -translate-y-1/2 -rotate-[32deg] bg-[#ffe0a0]/22" />
       <div className="absolute left-1/2 top-1/2 h-px w-[82%] -translate-x-1/2 -translate-y-1/2 bg-white/14" />
       <div className="absolute left-1/2 top-1/2 h-[78%] w-px -translate-x-1/2 -translate-y-1/2 bg-white/14" />
       <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-yellow-200/70 bg-yellow-300 shadow-[0_0_18px_rgba(250,204,21,0.55)]" />
@@ -141,9 +141,9 @@ const KeyboardCompassControl = ({
         return (
           <div
             key={key.key}
-            className={`absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-md border text-lg font-black leading-none shadow-[0_7px_14px_rgba(0,0,0,0.4),inset_0_-2px_0_rgba(0,0,0,0.2)] transition-[left,top] ${
+            className={`absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[0.55rem] border-2 text-lg font-black leading-none shadow-[0_4px_0_rgba(0,0,0,0.35),0_7px_14px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.24)] transition-[left,top] ${
               key.tone === "arrow"
-                ? "border-white/25 bg-white/90 text-[#24160c]"
+                ? "border-[#8b4a18] bg-[#ffe0a0] text-[#24160c]"
                 : "border-yellow-200/45 bg-[#31200f]/92 text-yellow-100"
             }`}
             style={position}
@@ -155,10 +155,10 @@ const KeyboardCompassControl = ({
     </div>
     <button
       type="button"
-      className={`pointer-events-auto absolute left-[14.75rem] top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md border shadow-[0_8px_18px_rgba(0,0,0,0.38)] backdrop-blur transition ${
+      className={`pointer-events-auto absolute left-[14.75rem] top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-[0.65rem] border-2 shadow-[0_4px_0_rgba(78,39,14,0.8),0_10px_18px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.16)] transition ${
         rotation === "counterclockwise"
-          ? "border-cyan-200/65 bg-cyan-200/20 text-cyan-50"
-          : "border-white/18 bg-black/[0.58] text-white/85 hover:bg-black/72"
+          ? "border-[#8b4a18] bg-[linear-gradient(180deg,#ffe68a,#e88922)] text-[#3c1d07]"
+          : "border-[#d8ad68]/70 bg-[linear-gradient(180deg,rgba(50,29,14,0.9),rgba(16,10,6,0.94))] text-[#ffe5b2] hover:brightness-115"
       }`}
       aria-label={rotation === "counterclockwise" ? "Вернуть обычную ориентацию клавиатуры" : "Повернуть управление на 90 градусов против часовой"}
       aria-pressed={rotation === "counterclockwise"}
@@ -180,6 +180,14 @@ const getNextLevelContext = (fromLevelIdx: number) => {
 };
 
 const getTimerNowMs = () => performance.now();
+
+const shouldUpdatePlayerHudPosition = (
+  current: { x: number; y: number } | null,
+  next: { x: number; y: number },
+) => {
+  if (!current) return true;
+  return Math.abs(current.x - next.x) > 0.5 || Math.abs(current.y - next.y) > 0.5;
+};
 
 async function copyShareUrlToClipboard(url: string) {
   if (!navigator.clipboard?.writeText) {
@@ -240,6 +248,7 @@ export const GameCanvas = () => {
   const [isFirstSceneRenderable, setFirstSceneRenderable] = useState(false);
   const [isStartScreenOpen, setStartScreenOpen] = useState(true);
   const [keyboardRotation, setKeyboardRotation] = useState<KeyboardRotation>("default");
+  const [playerHudPosition, setPlayerHudPosition] = useState<{ x: number; y: number } | null>(null);
   const lastGameplayActiveRef = useRef<boolean | null>(null);
 
   const currentLevel = levels[levelIdx];
@@ -509,6 +518,15 @@ export const GameCanvas = () => {
         });
         setOverlayMode("lost");
       },
+      onPlayerScreenPosition: (position) => {
+        const nextPosition = {
+          x: Math.round(position.x * 10) / 10,
+          y: Math.round(position.y * 10) / 10,
+        };
+        setPlayerHudPosition((current) => (
+          shouldUpdatePlayerHudPosition(current, nextPosition) ? nextPosition : current
+        ));
+      },
     }, {
       keyboardRotation,
       onFirstSceneRenderable: () => {
@@ -535,6 +553,7 @@ export const GameCanvas = () => {
     handledInterstitialAttemptRef.current = null;
     setFinishedAttempt(null);
     setRewardedUndoState("idle");
+    setPlayerHudPosition(null);
     resetAttemptTimer();
     setHops(0);
   }, [levelIdx, currentLevel, limit, progressReady, resetAttemptTimer]);
@@ -941,117 +960,113 @@ export const GameCanvas = () => {
 
 
       {/* HUD */}
-      <header className="absolute top-0 left-0 right-0 px-2 sm:px-4 py-2 sm:py-3 pointer-events-none">
-        <div className="flex items-center justify-between gap-2">
-          <div className="pointer-events-auto flex items-baseline gap-1.5 min-w-0">
-            <h1 className="text-white text-base sm:text-lg font-bold truncate [text-shadow:0_2px_6px_rgba(0,0,0,0.85)]">
-              Hop &amp; Fill
-            </h1>
-            <span className="hidden sm:inline text-white/85 text-sm truncate [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">
-              · {currentLevel.name}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-3 pointer-events-auto shrink-0">
-            <div className="bg-black/60 backdrop-blur px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-white text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ring-1 ring-white/10">
-              {hops}/{limit}
+      <header className="absolute left-0 right-0 top-0 px-2 py-2 pr-[4rem] pointer-events-none sm:px-4 sm:py-3 sm:pr-[4.75rem]">
+        <div className="flex items-start justify-between gap-2">
+          <div className="pointer-events-auto flex min-w-0 flex-col items-start gap-3">
+            <div className="flex min-w-0 items-baseline gap-1.5">
+              <h1 className="game-title truncate text-lg sm:text-2xl">
+                Hop &amp; Fill
+              </h1>
+              <span className="game-hud-text hidden truncate sm:inline">
+                · {currentLevel.name}
+              </span>
             </div>
-            <div
-              className="bg-black/60 backdrop-blur px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-white text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ring-1 ring-white/10"
-              title="Идеальное число ходов"
-            >
-              ★ {optimal}
+            {currentChapter && (
+              <div className="game-hud-text whitespace-nowrap">
+                Глава {currentChapter.chapterIndex} · {currentChapter.themeLabel}
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={openLevelSelect}
+                disabled={isInteractionLocked}
+                className="game-hud-action justify-start"
+              >
+                <Map className="h-4 w-4 shrink-0" aria-hidden />
+                Уровень {levelIdx + 1} / {levels.length}
+              </Button>
+              <div
+                className="game-hud-chip game-hud-ideal-pill px-2 py-1 text-xs font-black tabular-nums whitespace-nowrap sm:text-sm"
+                title="Идеальное число ходов"
+              >
+                ★ {optimal}
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={openLeaderboard}
+                disabled={isInteractionLocked}
+                className="game-hud-action game-hud-action-cyan"
+                title="Лидеры"
+                aria-label="Лидеры"
+              >
+                <Trophy className="h-4 w-4" aria-hidden />
+              </Button>
             </div>
-            <div
-              className="flex items-center gap-1 bg-black/60 backdrop-blur px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-white text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ring-1 ring-white/10"
-              title="Время попытки"
-            >
-              <Clock3 className="h-3.5 w-3.5" aria-hidden />
-              {formattedElapsedTime}
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={toggleMute}
-              className="h-7 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
-              title={progress.audioMuted ? "Включить звук" : "Выключить звук"}
-              aria-pressed={progress.audioMuted}
-            >
-              {progress.audioMuted ? <VolumeX className="h-3.5 w-3.5" aria-hidden /> : <Volume2 className="h-3.5 w-3.5" aria-hidden />}
-              <span className="hidden sm:inline">{progress.audioMuted ? "Звук выкл" : "Звук вкл"}</span>
-            </Button>
-            <Button size="sm" variant="secondary" onClick={restart} disabled={isInteractionLocked} className="h-7 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm">
-              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-              <span className="hidden sm:inline">Заново</span>
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={overlayMode === "paused" ? resumeGameplay : openPauseMenu}
-              className="h-7 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
-            >
-              {overlayMode === "paused" ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}
-              <span className="hidden sm:inline">{pauseButtonLabel}</span>
-            </Button>
           </div>
         </div>
 
-        {/* Выбор уровня — отдельной строкой под HUD */}
-        <div className="mt-1.5 sm:mt-2 flex items-center justify-center gap-2 pointer-events-auto">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={openLevelSelect}
-              disabled={isInteractionLocked}
-              className="h-7 bg-black/60 px-2.5 text-xs text-white ring-1 ring-white/10 backdrop-blur hover:bg-black/75 hover:text-white sm:h-9 sm:px-3 sm:text-sm"
-            >
-            <Map className="h-3.5 w-3.5" aria-hidden />
-            Уровень {levelIdx + 1} / {levels.length}
-          </Button>
-          {currentChapter && (
-            <div className="hidden sm:block bg-black/50 backdrop-blur px-2.5 py-1 rounded-md text-white/80 text-xs whitespace-nowrap ring-1 ring-white/10">
-              Глава {currentChapter.chapterIndex} · {currentChapter.themeLabel}
-            </div>
-          )}
-          <div className="bg-black/60 backdrop-blur px-2.5 py-1 rounded-md text-white text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ring-1 ring-white/10">
-            ★ {totalStars}/{maxStars}
+        <div className="game-timer-cluster pointer-events-auto absolute top-2 flex flex-col items-center gap-1.5 sm:top-3">
+          <div
+            className="game-hud-chip game-hud-timer flex items-center gap-1 px-2 py-1 text-xs font-black tabular-nums whitespace-nowrap sm:text-sm"
+            title="Время попытки"
+          >
+            <Clock3 className="h-3.5 w-3.5" aria-hidden />
+            {formattedElapsedTime}
           </div>
-          {maxRaces > 0 && (
-            <div
-              className="flex items-center gap-1 bg-black/60 px-2.5 py-1 text-xs font-semibold text-cyan-100 backdrop-blur rounded-md ring-1 ring-white/10 sm:text-sm"
-              title="Гонки за быстрое прохождение"
-            >
-              <CarFront className="h-3.5 w-3.5 text-cyan-200" aria-hidden />
-              <span className="tabular-nums">
-                {totalRaces}/{maxRaces}
-              </span>
+          {(formattedBestTime || formattedRaceTarget) && (
+            <div className="game-hud-subpanel">
+              {formattedBestTime && <div>Лучшее: {formattedBestTime}</div>}
+              {formattedRaceTarget && (
+                <div className={formattedBestTime ? "mt-1" : ""}>
+                  {hasCurrentRaceAward ? "Гонка получена" : `Гонка: ${formattedRaceTarget}`}
+                </div>
+              )}
             </div>
           )}
+        </div>
+
+        <div className="pointer-events-auto absolute right-2 top-2 flex flex-col items-end gap-2 sm:right-4 sm:top-3">
           <Button
             size="sm"
-            variant="ghost"
-            onClick={openLeaderboard}
-            disabled={isInteractionLocked}
-            className="h-7 bg-black/60 px-2.5 text-xs text-white ring-1 ring-white/10 backdrop-blur hover:bg-black/75 hover:text-white sm:h-9 sm:px-3 sm:text-sm"
+            variant="secondary"
+            onClick={overlayMode === "paused" ? resumeGameplay : openPauseMenu}
+            className="game-hud-action game-hud-action-stack"
+            title={pauseButtonLabel}
+            aria-label={pauseButtonLabel}
           >
-            <Trophy className="h-3.5 w-3.5" aria-hidden />
-            <span>Лидеры</span>
+            {overlayMode === "paused" ? <Play className="h-4 w-4 shrink-0" aria-hidden /> : <Pause className="h-4 w-4 shrink-0" aria-hidden />}
           </Button>
-          {formattedBestTime && (
-            <div className="hidden bg-black/50 px-2.5 py-1 text-xs text-white/80 backdrop-blur rounded-md ring-1 ring-white/10 sm:block">
-              Лучшее время: {formattedBestTime}
-            </div>
-          )}
-          {formattedRaceTarget && (
-            <div
-              className={`hidden items-center gap-1 rounded-md bg-black/50 px-2.5 py-1 text-xs backdrop-blur ring-1 ring-white/10 sm:flex ${hasCurrentRaceAward ? "text-cyan-100" : "text-white/80"}`}
-              title="Показатель для гонки"
-            >
-              <CarFront className="h-3.5 w-3.5 text-cyan-200" aria-hidden />
-              {hasCurrentRaceAward ? "Гонка получена" : `Гонка: ${formattedRaceTarget}`}
-            </div>
-          )}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={toggleMute}
+            className="game-hud-action game-hud-action-stack"
+            title={progress.audioMuted ? "Включить звук" : "Выключить звук"}
+            aria-label={progress.audioMuted ? "Включить звук" : "Выключить звук"}
+            aria-pressed={progress.audioMuted}
+          >
+            {progress.audioMuted ? <VolumeX className="h-4 w-4 shrink-0" aria-hidden /> : <Volume2 className="h-4 w-4 shrink-0" aria-hidden />}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={restart}
+            disabled={isInteractionLocked}
+            className="game-hud-action game-hud-action-stack"
+            title="Заново"
+            aria-label="Заново"
+          >
+            <RotateCcw className="h-4 w-4 shrink-0" aria-hidden />
+          </Button>
+        </div>
+
+        {/* Прогресс — отдельной строкой под HUD */}
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 pointer-events-auto">
           {saveState !== "idle" && (
-            <div className="hidden sm:block bg-black/50 backdrop-blur px-2.5 py-1 rounded-md text-white/80 text-xs whitespace-nowrap ring-1 ring-white/10">
+            <div className="game-hud-text hidden whitespace-nowrap sm:block">
               {saveState === "saving" ? "Сохранение..." : "Не сохранено"}
             </div>
           )}
@@ -1062,20 +1077,34 @@ export const GameCanvas = () => {
         <KeyboardCompassControl rotation={keyboardRotation} onToggleRotation={toggleKeyboardRotation} />
       )}
 
+      {overlayMode === "playing" && playerHudPosition && !isLevelSelectOpen && !isLeaderboardOpen && !isStartScreenBlocking && (
+        <div
+          className="game-floating-moves pointer-events-none absolute z-30 select-none tabular-nums"
+          style={{
+            left: `${playerHudPosition.x}px`,
+            top: `${playerHudPosition.y}px`,
+            transform: "translate(-50%, -100%)",
+          }}
+          aria-hidden
+        >
+          {Math.max(0, limit - hops)}
+        </div>
+      )}
+
       {shouldShowMobileJoystick && (
         <MobileJoystick onDirection={(dir) => gameRef.current?.triggerDir(dir)} />
       )}
 
       {/* Оверлеи */}
       {overlayMode !== "playing" && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/72 px-4 backdrop-blur-sm">
-          <div className={`relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/15 bg-black/75 p-5 text-center text-white shadow-2xl ring-1 ring-white/10 sm:p-6 ${isPerfectWin ? "perfect-win-panel" : ""}`}>
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#120804]/70 px-4 backdrop-blur-[2px]">
+          <div className={`game-panel relative w-full max-w-sm overflow-hidden p-5 text-center text-white sm:p-6 ${isPerfectWin ? "perfect-win-panel" : ""}`}>
             {overlayMode === "won" && (
               <div className="relative z-10">
                 {isPerfectWin && <PerfectCelebration />}
-                <h2 className="text-2xl font-bold">Уровень пройден!</h2>
+                <h2 className="game-title text-2xl">Уровень пройден!</h2>
                 {isPerfectWin && (
-                  <div className="perfect-win-badge mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full border border-yellow-200/45 bg-yellow-300/15 px-3 py-1 text-xs font-bold uppercase text-yellow-100 shadow-[0_0_28px_rgba(250,204,21,0.24)]">
+                  <div className="perfect-win-badge game-hud-text mx-auto mt-3 inline-flex items-center gap-1.5 uppercase text-yellow-100">
                     <Sparkles className="h-3.5 w-3.5" aria-hidden />
                     Идеально!
                   </div>
@@ -1101,7 +1130,7 @@ export const GameCanvas = () => {
                 </p>
                 {formattedRaceTarget && (
                   <div
-                    className={`mx-auto mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-bold ${hasCurrentRaceAward ? "border-cyan-200/45 bg-cyan-200/10 text-cyan-100" : "border-white/15 bg-white/5 text-white/70"}`}
+                    className={`game-hud-text mx-auto mt-3 inline-flex items-center gap-1.5 ${hasCurrentRaceAward ? "text-cyan-100" : "text-white/78"}`}
                   >
                     <CarFront className="h-3.5 w-3.5 text-cyan-200" aria-hidden />
                     {hasCurrentRaceAward ? "Гонка получена" : `Гонка за ${formattedRaceTarget}`}
@@ -1125,7 +1154,7 @@ export const GameCanvas = () => {
 
             {overlayMode === "lost" && (
               <>
-                <h2 className="text-2xl font-bold">Ходы закончились</h2>
+                <h2 className="game-title text-2xl">Ходы закончились</h2>
                 <p className="mt-3 text-sm text-white/75">
                   Ты исчерпал лимит ходов. Попробуй другой маршрут и уложись в {limit}.
                 </p>
@@ -1155,14 +1184,14 @@ export const GameCanvas = () => {
 
             {overlayMode === "paused" && (
               <>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/55">
+                <p className="text-xs font-black uppercase text-[#ffd98e]/75">
                   Меню
                 </p>
-                <h2 className="mt-2 text-2xl font-bold">Пауза</h2>
+                <h2 className="game-title mt-2 text-2xl">Пауза</h2>
                 <p className="mt-3 text-sm text-white/75">
                   Игра остановлена. Продолжай сейчас или открой другой уровень.
                 </p>
-                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
+                <div className="game-stat-cell mt-4 p-3 text-left">
                   <div className="flex items-center justify-between gap-2 text-xs text-white/70">
                     <span>Сейчас</span>
                     <span>
@@ -1171,23 +1200,23 @@ export const GameCanvas = () => {
                     </span>
                   </div>
                   <div className="mt-3 grid gap-2 text-xs text-white/75 sm:grid-cols-2">
-                    <div className="rounded-lg bg-black/25 px-3 py-2">
+                    <div className="game-stat-cell px-3 py-2">
                       <div className="font-semibold text-white">ПК</div>
                       <div className="mt-1">Мышь: клик по соседней плитке</div>
                       <div className="mt-1">Стрелки: диагонали одним нажатием</div>
                       <div className="mt-1">WASD: прямые ходы · сочетания WASD: диагонали</div>
                     </div>
-                    <div className="rounded-lg bg-black/25 px-3 py-2">
+                    <div className="game-stat-cell px-3 py-2">
                       <div className="font-semibold text-white">Телефон</div>
                       <div className="mt-1">Свайпай или тяни джойстик в сторону соседней плитки</div>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/70">
-                    <span className="rounded-md bg-black/30 px-2 py-1">Ходы: {hops}/{limit}</span>
-                    <span className="rounded-md bg-black/30 px-2 py-1">Лучший результат: {bestStars || "—"} ★</span>
-                    {maxRaces > 0 && <span className="rounded-md bg-black/30 px-2 py-1">Гонки: {totalRaces}/{maxRaces}</span>}
-                    <span className="rounded-md bg-black/30 px-2 py-1">Время: {formattedElapsedTime}</span>
-                    <span className="rounded-md bg-black/30 px-2 py-1">Лучшее время: {formattedBestTime ?? "—"}</span>
+                    <span className="game-hud-text">Ходы: {hops}/{limit}</span>
+                    <span className="game-hud-text">Лучший результат: {bestStars || "—"} ★</span>
+                    {maxRaces > 0 && <span className="game-hud-text">Гонки: {totalRaces}/{maxRaces}</span>}
+                    <span className="game-hud-text">Время: {formattedElapsedTime}</span>
+                    <span className="game-hud-text">Лучшее время: {formattedBestTime ?? "—"}</span>
                   </div>
                 </div>
                 <div className="mt-5 flex flex-col gap-2">
@@ -1209,13 +1238,13 @@ export const GameCanvas = () => {
 
             {overlayMode === "chapter" && pendingChapterTransition && (
               <>
-                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/10">
+                <div className="game-hud-chip mx-auto flex h-11 w-11 items-center justify-center rounded-full">
                   <Trophy className="h-5 w-5 text-yellow-300" aria-hidden />
                 </div>
-                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-white/55">
+                <p className="mt-4 text-xs font-black uppercase text-[#ffd98e]/75">
                   Новая глава
                 </p>
-                <h2 className="mt-2 text-2xl font-bold">
+                <h2 className="game-title mt-2 text-2xl">
                   Глава {pendingChapterTransition.toChapter.chapterIndex}
                 </h2>
                 <p className="mt-2 text-sm text-white/75">
@@ -1238,10 +1267,10 @@ export const GameCanvas = () => {
 
             {overlayMode === "final" && (
               <>
-                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-yellow-300/20 ring-1 ring-yellow-300/30">
+                <div className="game-hud-chip mx-auto flex h-11 w-11 items-center justify-center rounded-full">
                   <Trophy className="h-5 w-5 text-yellow-300" aria-hidden />
                 </div>
-                <h2 className="mt-4 text-2xl font-bold">Все главы пройдены</h2>
+                <h2 className="game-title mt-4 text-2xl">Все главы пройдены</h2>
                 <p className="mt-3 text-sm text-white/75">
                   Ты закрыл все {levels.length} уровней и собрал {totalStars} из {maxStars} звёзд
                   {maxRaces > 0 ? ` и ${totalRaces} из ${maxRaces} гонок` : ""}.

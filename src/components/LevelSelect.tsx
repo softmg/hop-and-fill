@@ -491,30 +491,30 @@ export const LevelSelect = ({
     : null;
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#110c08]/88 px-2 py-2 backdrop-blur-md sm:px-4 sm:py-4">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#110c08]/82 px-2 py-2 backdrop-blur-[2px] sm:px-4 sm:py-4">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="level-select-title"
-        className="flex h-[min(94svh,60rem)] w-full max-w-[112rem] flex-col overflow-hidden rounded-lg border border-[#c9945c]/45 bg-[#140d08] text-white shadow-2xl"
+        className="game-panel relative flex h-[min(94svh,60rem)] w-full max-w-[112rem] flex-col overflow-hidden text-white"
       >
-        <div className="relative z-20 flex items-center justify-between gap-3 border-b border-[#e3b26c]/25 bg-black/28 px-3 py-2.5 sm:px-5 sm:py-3">
+        <div className="relative z-20 flex items-center justify-between gap-3 border-b-[3px] border-[#6b3716]/75 bg-[linear-gradient(180deg,rgba(92,52,24,0.92),rgba(36,20,10,0.92))] px-3 py-2.5 shadow-[0_6px_14px_rgba(0,0,0,0.22)] sm:px-5 sm:py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="inline-flex items-center gap-1.5 rounded-md border border-[#d2a260]/45 bg-black/45 px-2.5 py-1 text-sm font-bold text-[#ffe3a2] shadow-[0_0_18px_rgba(233,168,86,0.22)] sm:text-base">
+            <div className="game-hud-chip inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-black sm:text-base">
               <Star className="h-4 w-4 fill-[#ffcc45] text-[#ffcc45]" aria-hidden />
               <span className="tabular-nums">
                 {totalStars}/{maxStars}
               </span>
             </div>
             {maxRaces > 0 && (
-              <div className="inline-flex items-center gap-1.5 rounded-md border border-cyan-200/35 bg-black/42 px-2.5 py-1 text-sm font-bold text-cyan-100 shadow-[0_0_18px_rgba(125,211,252,0.16)] sm:text-base">
+                <div className="game-hud-chip inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-black text-cyan-100 sm:text-base">
                 <CarFront className="h-4 w-4 text-cyan-200" aria-hidden />
                 <span className="tabular-nums">
                   {totalRaces}/{maxRaces}
                 </span>
               </div>
             )}
-            <div className="hidden items-center gap-1.5 rounded-md border border-[#d2a260]/35 bg-black/35 px-2.5 py-1 text-sm font-semibold text-[#f5d49b] sm:inline-flex">
+            <div className="game-hud-chip hidden items-center gap-1.5 px-2.5 py-1 text-sm font-black text-[#f5d49b] sm:inline-flex">
               <Trophy className="h-4 w-4 text-[#ffcc45]" aria-hidden />
               <span className="tabular-nums">
                 {completedCount}/{levels.length}
@@ -525,7 +525,7 @@ export const LevelSelect = ({
           <div className="min-w-0 text-center">
             <h2
               id="level-select-title"
-              className="truncate text-2xl font-black leading-none text-white [text-shadow:0_3px_12px_rgba(0,0,0,0.9)] sm:text-4xl"
+              className="game-title truncate text-2xl leading-none sm:text-4xl"
             >
               Карта уровней
             </h2>
@@ -541,7 +541,7 @@ export const LevelSelect = ({
             size="icon"
             variant="ghost"
             onClick={onClose}
-            className="h-10 w-10 shrink-0 border border-[#d2a260]/45 bg-black/45 text-[#f4d8a4] hover:bg-[#26170d] hover:text-white"
+            className="h-10 w-10 shrink-0"
             aria-label="Закрыть выбор уровня"
           >
             <X className="h-5 w-5" aria-hidden />
@@ -577,12 +577,12 @@ export const LevelSelect = ({
               return (
                 <div
                   key={chapter.chapterIndex}
-                  className="absolute top-[4%] h-[78%] overflow-hidden rounded-lg border border-white/10 bg-black/35 bg-cover bg-center shadow-[inset_0_0_48px_rgba(0,0,0,0.5)]"
+                  className="absolute top-[4%] h-[78%] overflow-hidden rounded-[1rem] border-[3px] border-[#e0ae6c]/22 bg-black/35 bg-cover bg-center shadow-[inset_0_0_48px_rgba(0,0,0,0.5),0_8px_0_rgba(76,39,17,0.42)]"
                   style={style}
                 >
                   <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-transparent to-black/52" />
                   <div
-                    className="absolute left-3 top-3 rounded-md border bg-black/45 px-2 py-1 text-xs font-black text-white/90 backdrop-blur"
+                    className="game-hud-chip absolute left-3 top-3 px-2 py-1 text-xs font-black text-white/90"
                     style={{ borderColor: visual.accentSoft }}
                   >
                     Глава {chapter.chapterIndex}
@@ -711,7 +711,7 @@ export const LevelSelect = ({
                   disabled={!node.unlocked}
                   onClick={() => onSelectLevel(node.index)}
                   className={cn(
-                    "absolute z-20 flex h-[4.35rem] w-[4.35rem] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-[3px] text-center text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffd875]",
+                    "game-map-node absolute z-20 flex h-[4.35rem] w-[4.35rem] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center border-[3px] text-center text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffd875]",
                     "disabled:cursor-not-allowed disabled:opacity-65",
                     node.unlocked && "hover:scale-105",
                     node.selected && "animate-pulse",
@@ -749,7 +749,7 @@ export const LevelSelect = ({
                   {bestTimeLabel && (
                     <span
                       className={cn(
-                        "pointer-events-none absolute flex h-7 w-[5.25rem] items-center justify-center gap-1.5 rounded-md border bg-[linear-gradient(180deg,rgba(42,28,15,0.98),rgba(11,8,5,0.96))] px-2 text-[0.72rem] font-black leading-none text-[#ffe5ac] tabular-nums shadow-[0_8px_18px_rgba(0,0,0,0.55)] backdrop-blur",
+                        "game-hud-chip pointer-events-none absolute flex h-7 w-[5.25rem] items-center justify-center gap-1.5 px-2 text-[0.72rem] font-black leading-none text-[#ffe5ac] tabular-nums",
                         "before:absolute before:h-1.5 before:w-1.5 before:rounded-full before:border before:border-[#ffe1a3]/70 before:bg-[#160d06]",
                         getTimeBadgePlacementClass(timeBadgePlacement),
                       )}
@@ -803,7 +803,7 @@ export const LevelSelect = ({
                     disabled={!unlocked}
                     onClick={() => unlockedLevelIndex !== null && onSelectLevel(unlockedLevelIndex)}
                     className={cn(
-                      "relative min-h-[6.9rem] overflow-hidden rounded-lg border bg-black/62 p-2.5 text-left backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffd875]",
+                      "game-map-tab relative min-h-[6.9rem] overflow-hidden p-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffd875]",
                       unlocked ? "hover:-translate-y-0.5 hover:bg-black/72" : "cursor-not-allowed opacity-62",
                     )}
                     style={chapterStyle}

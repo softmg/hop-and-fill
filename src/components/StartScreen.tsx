@@ -38,13 +38,13 @@ export const StartScreen = ({
         decoding="async"
         draggable={false}
       />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,transparent_0%,rgba(0,0,0,0.08)_42%,rgba(0,0,0,0.62)_100%)]" />
-      <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black via-black/70 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_43%,transparent_0%,rgba(0,0,0,0.04)_40%,rgba(0,0,0,0.62)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#120804] via-[#120804]/74 to-transparent" />
 
       <div className="absolute inset-x-0 bottom-0 flex justify-center px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(2.25rem+env(safe-area-inset-bottom))]">
-        <div className="flex w-full max-w-md flex-col items-center gap-3">
+        <div className="flex w-full max-w-md flex-col items-center gap-3 px-4 py-4">
           {!isLoading && !isFirstStart && (
-            <div className="flex items-center gap-2 rounded-md border border-white/18 bg-black/58 px-3 py-1.5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(0,0,0,0.45)] backdrop-blur">
+            <div className="game-hud-text flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
               <span>Уровень {currentLevelNumber}</span>
               <span className="h-1 w-1 rounded-full bg-white/45" aria-hidden />
               <span className="inline-flex items-center gap-1 tabular-nums">
@@ -67,7 +67,7 @@ export const StartScreen = ({
             size="lg"
             onClick={onStart}
             disabled={isLoading}
-            className="h-14 min-w-56 rounded-md border border-yellow-200/55 bg-yellow-300 px-8 text-lg font-black text-[#251505] shadow-[0_18px_40px_rgba(0,0,0,0.48),inset_0_-3px_0_rgba(120,53,15,0.25)] hover:bg-yellow-200"
+            className="h-14 min-w-56 px-8 text-lg"
           >
             <Play className="h-5 w-5 fill-current" aria-hidden />
             {buttonLabel}

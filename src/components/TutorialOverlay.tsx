@@ -103,14 +103,14 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
 
           {/* Тултип-плашка по центру снизу */}
           <div className="absolute bottom-48 left-1/2 -translate-x-1/2 pointer-events-auto max-w-sm w-[90%] sm:bottom-24">
-            <div className="bg-card text-card-foreground rounded-xl shadow-2xl px-5 py-4 text-center animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <p className="text-sm font-medium leading-relaxed">
+            <div className="game-panel relative px-5 py-4 text-center text-white animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <p className="text-sm font-black leading-relaxed text-[#fff0c2]">
                 Свайпай, тяни джойстик или используй стрелки, чтобы двигаться и закрашивать плитки!
               </p>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="mt-2 text-xs font-semibold text-[#f1d3a0]/80">
                 ПК: стрелки — диагонали · WASD — прямые · сочетания WASD — диагонали
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="mt-1 text-xs font-semibold text-[#f1d3a0]/80">
                 Телефон: свайп или джойстик в сторону соседней плитки
               </p>
             </div>
@@ -129,11 +129,11 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
 
           {/* Подсказка под HUD */}
           <div className="absolute top-20 right-4 pointer-events-auto max-w-xs">
-            <div className="bg-card text-card-foreground rounded-xl shadow-2xl px-5 py-4 animate-in fade-in slide-in-from-top-4 duration-300">
-              <p className="text-sm font-medium leading-relaxed">
+            <div className="game-panel relative px-5 py-4 text-white animate-in fade-in slide-in-from-top-4 duration-300">
+              <p className="text-sm font-black leading-relaxed text-[#fff0c2]">
                 Твоя цель — закрасить всё поле за минимальное количество ходов.
               </p>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="mt-2 text-xs font-semibold text-[#f1d3a0]/80">
                 Уложишься в идеальное число — получишь 3 звезды! ★★★
               </p>
               <Button size="sm" className="w-full mt-3" onClick={finish}>
