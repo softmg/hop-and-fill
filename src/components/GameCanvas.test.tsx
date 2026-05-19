@@ -400,6 +400,30 @@ describe("GameCanvas yandex lifecycle", () => {
     });
   });
 
+  it("ignores a late win callback after game over", async () => {
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await waitFor(() => {
+      expect(onLoseCallback).toEqual(expect.any(Function));
+      expect(onWinCallback).toEqual(expect.any(Function));
+    });
+
+    await act(async () => {
+      onLoseCallback?.();
+    });
+
+    expect(mockGameAudio.playLoss).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      onWinCallback?.(8);
+    });
+
+    expect(mockGameAudio.playWin).not.toHaveBeenCalled();
+    expect(mockGameAudio.playPerfectWin).not.toHaveBeenCalled();
+    expect(mockSavePlayerProgress).not.toHaveBeenCalled();
+  });
+
   it("starts the level timer on the first hop and stores the completion time after a win", async () => {
     const { GameCanvas } = await import("./GameCanvas");
     render(<GameCanvas />);

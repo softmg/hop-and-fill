@@ -215,6 +215,7 @@ export const GameCanvas = () => {
   const timerElapsedMsRef = useRef(0);
   const timerIntervalRef = useRef<number | null>(null);
   const hasAttemptTimerStartedRef = useRef(false);
+  const attemptOutcomeRef = useRef<"playing" | "win" | "loss">("playing");
   const leaderboardRequestIdRef = useRef(0);
   const lastSubmittedLeaderboardScoreRef = useRef(0);
   const [hops, setHops] = useState(0);
@@ -458,6 +459,9 @@ export const GameCanvas = () => {
       },
       onPaint: () => audioRef.current?.playPaint(),
       onWin: (winningHops) => {
+        if (attemptOutcomeRef.current !== "playing") return;
+        attemptOutcomeRef.current = "win";
+
         const completionTimeMs = stopAttemptTimer();
         const wonLevelIdx = levelIdxRef.current;
         const wonLevel = levels[wonLevelIdx];
@@ -487,6 +491,9 @@ export const GameCanvas = () => {
         setOverlayMode("won");
       },
       onLose: () => {
+        if (attemptOutcomeRef.current !== "playing") return;
+        attemptOutcomeRef.current = "loss";
+
         audioRef.current?.playLoss();
         stopAttemptTimer();
         const lostLevelIdx = levelIdxRef.current;
@@ -522,6 +529,7 @@ export const GameCanvas = () => {
   useEffect(() => {
     if (!progressReady) return;
     if (!gameRef.current) return;
+    attemptOutcomeRef.current = "playing";
     gameRef.current.setLevel(currentLevel);
     gameRef.current.setMoveLimit(limit);
     handledInterstitialAttemptRef.current = null;
@@ -576,6 +584,7 @@ export const GameCanvas = () => {
   }, [isStartScreenBlocking, overlayMode, isLevelSelectOpen, isLeaderboardOpen, pauseAttemptTimer, resumeAttemptTimer]);
 
   const loadLevel = (nextLevelIdx: number) => {
+    attemptOutcomeRef.current = "playing";
     if (nextLevelIdx === levelIdx) {
       gameRef.current?.setLevel(levels[nextLevelIdx]);
       gameRef.current?.setMoveLimit(moveLimit(levels[nextLevelIdx]));
@@ -592,6 +601,7 @@ export const GameCanvas = () => {
 
   const restart = () => {
     if (isInterstitialActiveRef.current) return;
+    attemptOutcomeRef.current = "playing";
     setFinishedAttempt(null);
     gameRef.current?.reset();
     setPendingChapterTransition(null);

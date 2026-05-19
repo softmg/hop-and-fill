@@ -7,7 +7,6 @@ import { dirToDelta, gridToScreen, screenToGrid, TILE_H, type Dir } from "./iso"
 import { colors, type Palette } from "./theme";
 
 const JUMP_TARGET_DIRECTIONS: Dir[] = ["NW", "N", "NE", "E", "SE", "S", "SW", "W"];
-const MOVE_COMMIT_DELAY_MS = 100;
 
 export interface GameCallbacks {
   onHopCount: (n: number) => void;
@@ -29,13 +28,6 @@ interface MoveSnapshot {
   toGy: number;
   previousHops: number;
   destinationWasPainted: boolean;
-}
-
-interface PendingMove {
-  fromGx: number;
-  fromGy: number;
-  toGx: number;
-  toGy: number;
 }
 
 export class PixiGame {
@@ -60,9 +52,6 @@ export class PixiGame {
   private destroyed = false;
   private firstSceneRenderableReported = false;
   private lastMove: MoveSnapshot | null = null;
-  private clickInputLocked = false;
-  private moveCommitTimeoutIds = new Set<number>();
-  private moveGeneration = 0;
 
   constructor(
     private host: HTMLDivElement,
@@ -199,7 +188,7 @@ export class PixiGame {
   }
 
   private onPointerMove = (e: FederatedPointerEvent) => {
-    if (!this.ready || this.isPaused || this.state !== "playing" || this.clickInputLocked) {
+    if (!this.ready || this.isPaused || this.state !== "playing") {
       this.setHover(null);
       return;
     }
@@ -208,7 +197,7 @@ export class PixiGame {
   };
 
   private canShowJumpTargets() {
-    return this.ready && !this.isPaused && this.state === "playing" && !this.clickInputLocked;
+    return this.ready && !this.isPaused && this.state === "playing";
   }
 
   private updateJumpTargets() {
@@ -240,7 +229,7 @@ export class PixiGame {
   };
 
   private onPointerUp = (e: FederatedPointerEvent) => {
-    if (!this.ready || this.isPaused || this.state !== "playing" || this.clickInputLocked) return;
+    if (!this.ready || this.isPaused || this.state !== "playing") return;
     const { gx, gy } = this.screenPointToGrid(e.global.x, e.global.y);
     const dir = this.dirToNeighbor(gx, gy);
     if (dir) this.handlePointerDir(dir);
@@ -255,8 +244,6 @@ export class PixiGame {
   }
 
   private buildLevel(data: LevelData) {
-    this.clearMoveTimers();
-    this.moveGeneration++;
     // очистка
     this.world.removeChildren();
     this.hoveredTile = null;
@@ -298,7 +285,7 @@ export class PixiGame {
   }
 
   canUndoLastMove() {
-    return this.ready && !this.isPaused && !this.clickInputLocked && !this.player.isAnimating && this.lastMove !== null;
+    return this.ready && !this.isPaused && !this.player.isAnimating && this.lastMove !== null;
   }
 
   undoLastMove() {
@@ -360,6 +347,8 @@ export class PixiGame {
         }
       },
       () => {
+        if (this.state !== "playing") return;
+
         if (this.level.isComplete()) {
           this.state = "won";
           this.cb.onWin(this.hops);
@@ -377,7 +366,6 @@ export class PixiGame {
     if (!this.ready) return;
     if (this.isPaused) return;
     if (this.state !== "playing") return;
-    if (this.clickInputLocked) return;
     this.setHover(null);
     const { dx, dy } = dirToDelta(dir);
     const fromGx = this.player.gx;
@@ -387,23 +375,22 @@ export class PixiGame {
     const target = this.level.get(tx, ty);
     if (!target) return;
 
-    this.lockClickInput();
-    this.scheduleMoveCommit({ fromGx, fromGy, toGx: tx, toGy: ty });
+    this.commitMove(fromGx, fromGy, tx, ty);
   };
 
-  private commitMove(move: PendingMove) {
+  private commitMove(fromGx: number, fromGy: number, toGx: number, toGy: number) {
     if (!this.ready || this.destroyed) return;
     if (this.isPaused) return;
     if (this.state !== "playing") return;
 
-    const target = this.level.get(move.toGx, move.toGy);
+    const target = this.level.get(toGx, toGy);
     if (!target) return;
 
     this.lastMove = {
-      fromGx: move.fromGx,
-      fromGy: move.fromGy,
-      toGx: move.toGx,
-      toGy: move.toGy,
+      fromGx,
+      fromGy,
+      toGx,
+      toGy,
       previousHops: this.hops,
       destinationWasPainted: target.state === "painted",
     };
@@ -411,11 +398,13 @@ export class PixiGame {
     this.cb.onHopCount(this.hops);
     this.cb.onHop();
     this.player.hopFrom(
-      move.fromGx,
-      move.fromGy,
-      move.toGx,
-      move.toGy,
+      fromGx,
+      fromGy,
+      toGx,
+      toGy,
       () => {
+        if (this.state !== "playing") return;
+
         if (target.paint()) {
           this.cb.onPaint();
         }
@@ -435,30 +424,6 @@ export class PixiGame {
       },
       () => {},
     );
-  }
-
-  private lockClickInput() {
-    this.clickInputLocked = true;
-  }
-
-  private scheduleMoveCommit(move: PendingMove) {
-    const generation = this.moveGeneration;
-    const timeoutId = window.setTimeout(() => {
-      this.moveCommitTimeoutIds.delete(timeoutId);
-      if (this.destroyed || generation !== this.moveGeneration) return;
-      this.commitMove(move);
-      this.clickInputLocked = false;
-    }, MOVE_COMMIT_DELAY_MS);
-
-    this.moveCommitTimeoutIds.add(timeoutId);
-  }
-
-  private clearMoveTimers() {
-    for (const timeoutId of this.moveCommitTimeoutIds) {
-      window.clearTimeout(timeoutId);
-    }
-    this.moveCommitTimeoutIds.clear();
-    this.clickInputLocked = false;
   }
 
   private layout = () => {
@@ -518,7 +483,6 @@ export class PixiGame {
 
   destroy() {
     this.destroyed = true;
-    this.clearMoveTimers();
     this.input.destroy();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
