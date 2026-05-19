@@ -2,7 +2,7 @@ import { Application, Container, Graphics, FederatedPointerEvent } from "pixi.js
 import { Level, type LevelData } from "./Level";
 import { Player, preloadPlayerTexture, type PlayerTheme } from "./Player";
 import { preloadTileTextures } from "./Tile";
-import { Input } from "./Input";
+import { Input, type KeyboardRotation } from "./Input";
 import { dirToDelta, gridToScreen, screenToGrid, TILE_H, type Dir } from "./iso";
 import { colors, type Palette } from "./theme";
 
@@ -18,6 +18,7 @@ export interface GameCallbacks {
 }
 
 interface PixiGameOptions {
+  keyboardRotation?: KeyboardRotation;
   onFirstSceneRenderable?: () => void;
 }
 
@@ -87,7 +88,7 @@ export class PixiGame {
     this.app.stage.addChild(this.bg, this.world);
 
     this.preloadAndBuild();
-    this.input = new Input(host, this.handleInputDir);
+    this.input = new Input(host, this.handleInputDir, { keyboardRotation: options.keyboardRotation });
     this.app.renderer.on("resize", this.layout);
 
     // Мышь: hover + клик. Используем eventMode на stage.
@@ -247,6 +248,10 @@ export class PixiGame {
 
   triggerDir(d: Parameters<Input["emit"]>[0]) {
     this.input.emit(d);
+  }
+
+  setKeyboardRotation(rotation: KeyboardRotation) {
+    this.input.setKeyboardRotation(rotation);
   }
 
   private buildLevel(data: LevelData) {

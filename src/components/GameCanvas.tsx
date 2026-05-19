@@ -1,6 +1,8 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { CarFront, Check, Clock3, Map, Pause, Play, RotateCcw, Share2, Sparkles, Trophy, Volume2, VolumeX } from "lucide-react";
 import { PixiGame } from "@/game/PixiGame";
+import { rotateKeyboardDir, type KeyboardRotation } from "@/game/Input";
+import type { Dir } from "@/game/iso";
 import { createGameAudio } from "@/game/audio";
 import { decideInterstitialTrigger, type InterstitialTrigger } from "@/game/interstitials";
 import { levels } from "@/game/levels";
@@ -91,40 +93,80 @@ const PerfectCelebration = () => (
   </div>
 );
 
-const KeyboardCompassHint = () => (
-  <div
-    className="pointer-events-none absolute left-3 top-[5.2rem] z-30 hidden h-36 w-56 sm:block lg:left-4 lg:top-[5.75rem]"
-    role="img"
-    aria-label="Изометрическая подсказка управления: стрелки идут вверх, вправо, вниз и влево по экрану; W, D, S, A идут по диагоналям поля."
-  >
-    <div className="absolute inset-x-2 inset-y-1 bg-black/58 shadow-[0_18px_34px_rgba(0,0,0,0.44),inset_0_0_28px_rgba(255,255,255,0.08)] backdrop-blur-md [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]" />
-    <div className="absolute inset-x-2 inset-y-1 border border-cyan-200/35 bg-cyan-200/[0.04] [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]" />
-    <div className="absolute left-1/2 top-1/2 h-px w-[86%] -translate-x-1/2 -translate-y-1/2 rotate-[32deg] bg-cyan-200/22" />
-    <div className="absolute left-1/2 top-1/2 h-px w-[86%] -translate-x-1/2 -translate-y-1/2 -rotate-[32deg] bg-cyan-200/22" />
-    <div className="absolute left-1/2 top-1/2 h-px w-[82%] -translate-x-1/2 -translate-y-1/2 bg-white/14" />
-    <div className="absolute left-1/2 top-1/2 h-[78%] w-px -translate-x-1/2 -translate-y-1/2 bg-white/14" />
-    <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-yellow-200/70 bg-yellow-300 shadow-[0_0_18px_rgba(250,204,21,0.55)]" />
-    {[
-      { key: "↑", className: "left-1/2 top-[7%] -translate-x-1/2", tone: "arrow" },
-      { key: "W", className: "right-[24%] top-[20%]", tone: "wasd" },
-      { key: "→", className: "right-[6%] top-1/2 -translate-y-1/2", tone: "arrow" },
-      { key: "D", className: "right-[24%] bottom-[20%]", tone: "wasd" },
-      { key: "↓", className: "bottom-[7%] left-1/2 -translate-x-1/2", tone: "arrow" },
-      { key: "S", className: "bottom-[20%] left-[24%]", tone: "wasd" },
-      { key: "←", className: "left-[6%] top-1/2 -translate-y-1/2", tone: "arrow" },
-      { key: "A", className: "left-[24%] top-[20%]", tone: "wasd" },
-    ].map((key) => (
-      <div
-        key={key.key}
-        className={`absolute flex h-8 w-8 items-center justify-center rounded-md border text-lg font-black leading-none shadow-[0_7px_14px_rgba(0,0,0,0.4),inset_0_-2px_0_rgba(0,0,0,0.2)] ${
-          key.tone === "arrow"
-            ? "border-white/25 bg-white/90 text-[#24160c]"
-            : "border-yellow-200/45 bg-[#31200f]/92 text-yellow-100"
-        } ${key.className}`}
-      >
-        {key.key}
-      </div>
-    ))}
+const KEYBOARD_COMPASS_KEYS = [
+  { key: "\u2191", dir: "NW", tone: "arrow" },
+  { key: "W", dir: "N", tone: "wasd" },
+  { key: "\u2192", dir: "NE", tone: "arrow" },
+  { key: "D", dir: "E", tone: "wasd" },
+  { key: "\u2193", dir: "SE", tone: "arrow" },
+  { key: "S", dir: "S", tone: "wasd" },
+  { key: "\u2190", dir: "SW", tone: "arrow" },
+  { key: "A", dir: "W", tone: "wasd" },
+] as const;
+
+const ISO_HINT_POSITIONS: Record<Dir, { left: string; top: string }> = {
+  NW: { left: "50%", top: "8%" },
+  N: { left: "71%", top: "27%" },
+  NE: { left: "92%", top: "50%" },
+  E: { left: "71%", top: "73%" },
+  SE: { left: "50%", top: "92%" },
+  S: { left: "29%", top: "73%" },
+  SW: { left: "8%", top: "50%" },
+  W: { left: "29%", top: "27%" },
+};
+
+const KeyboardCompassControl = ({
+  rotation,
+  onToggleRotation,
+}: {
+  rotation: KeyboardRotation;
+  onToggleRotation: () => void;
+}) => (
+  <div className="absolute left-3 top-[5.2rem] z-30 hidden h-36 w-[18.25rem] sm:block lg:left-4 lg:top-[5.75rem]">
+    <div
+      className="pointer-events-none absolute left-0 top-0 h-36 w-56"
+      role="img"
+      aria-label="Изометрическая подсказка управления: стрелки идут по экранным сторонам, WASD идут по диагоналям поля."
+    >
+      <div className="absolute inset-x-2 inset-y-1 bg-black/[0.58] shadow-[0_18px_34px_rgba(0,0,0,0.44),inset_0_0_28px_rgba(255,255,255,0.08)] backdrop-blur-md [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]" />
+      <div className="absolute inset-x-2 inset-y-1 border border-cyan-200/35 bg-cyan-200/[0.04] [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]" />
+      <div className="absolute left-1/2 top-1/2 h-px w-[86%] -translate-x-1/2 -translate-y-1/2 rotate-[32deg] bg-cyan-200/22" />
+      <div className="absolute left-1/2 top-1/2 h-px w-[86%] -translate-x-1/2 -translate-y-1/2 -rotate-[32deg] bg-cyan-200/22" />
+      <div className="absolute left-1/2 top-1/2 h-px w-[82%] -translate-x-1/2 -translate-y-1/2 bg-white/14" />
+      <div className="absolute left-1/2 top-1/2 h-[78%] w-px -translate-x-1/2 -translate-y-1/2 bg-white/14" />
+      <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-yellow-200/70 bg-yellow-300 shadow-[0_0_18px_rgba(250,204,21,0.55)]" />
+      {KEYBOARD_COMPASS_KEYS.map((key) => {
+        const position = ISO_HINT_POSITIONS[rotateKeyboardDir(key.dir, rotation)];
+
+        return (
+          <div
+            key={key.key}
+            className={`absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-md border text-lg font-black leading-none shadow-[0_7px_14px_rgba(0,0,0,0.4),inset_0_-2px_0_rgba(0,0,0,0.2)] transition-[left,top] ${
+              key.tone === "arrow"
+                ? "border-white/25 bg-white/90 text-[#24160c]"
+                : "border-yellow-200/45 bg-[#31200f]/92 text-yellow-100"
+            }`}
+            style={position}
+          >
+            {key.key}
+          </div>
+        );
+      })}
+    </div>
+    <button
+      type="button"
+      className={`pointer-events-auto absolute left-[14.75rem] top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md border shadow-[0_8px_18px_rgba(0,0,0,0.38)] backdrop-blur transition ${
+        rotation === "counterclockwise"
+          ? "border-cyan-200/65 bg-cyan-200/20 text-cyan-50"
+          : "border-white/18 bg-black/[0.58] text-white/85 hover:bg-black/72"
+      }`}
+      aria-label={rotation === "counterclockwise" ? "Вернуть обычную ориентацию клавиатуры" : "Повернуть управление на 90 градусов против часовой"}
+      aria-pressed={rotation === "counterclockwise"}
+      title={rotation === "counterclockwise" ? "Вернуть управление" : "Повернуть управление на 90 градусов против часовой"}
+      onClick={onToggleRotation}
+    >
+      <RotateCcw className="h-5 w-5" aria-hidden />
+    </button>
   </div>
 );
 
@@ -196,6 +238,7 @@ export const GameCanvas = () => {
   const [isDocumentVisible, setDocumentVisible] = useState(() => document.visibilityState !== "hidden");
   const [isFirstSceneRenderable, setFirstSceneRenderable] = useState(false);
   const [isStartScreenOpen, setStartScreenOpen] = useState(true);
+  const [keyboardRotation, setKeyboardRotation] = useState<KeyboardRotation>("default");
   const lastGameplayActiveRef = useRef<boolean | null>(null);
 
   const currentLevel = levels[levelIdx];
@@ -460,6 +503,7 @@ export const GameCanvas = () => {
         setOverlayMode("lost");
       },
     }, {
+      keyboardRotation,
       onFirstSceneRenderable: () => {
         setFirstSceneRenderable(true);
         ysdkReady().catch(() => {});
@@ -486,6 +530,10 @@ export const GameCanvas = () => {
     resetAttemptTimer();
     setHops(0);
   }, [levelIdx, currentLevel, limit, progressReady, resetAttemptTimer]);
+
+  useEffect(() => {
+    gameRef.current?.setKeyboardRotation(keyboardRotation);
+  }, [keyboardRotation]);
 
   useEffect(() => {
     if (overlayMode === "playing") {
@@ -736,6 +784,9 @@ export const GameCanvas = () => {
   const shouldShowKeyboardCompass = overlayMode === "playing" && !isLevelSelectOpen && !isLeaderboardOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
   const shouldShowMobileJoystick =
     overlayMode === "playing" && !isLevelSelectOpen && !isLeaderboardOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
+  const toggleKeyboardRotation = () => {
+    setKeyboardRotation((current) => current === "default" ? "counterclockwise" : "default");
+  };
   const pauseButtonLabel = overlayMode === "paused" ? "Продолжить" : "Пауза";
   const shareStatusLabel =
     shareStatus === "copied"
@@ -997,7 +1048,9 @@ export const GameCanvas = () => {
         </div>
       </header>
 
-      {shouldShowKeyboardCompass && <KeyboardCompassHint />}
+      {shouldShowKeyboardCompass && (
+        <KeyboardCompassControl rotation={keyboardRotation} onToggleRotation={toggleKeyboardRotation} />
+      )}
 
       {shouldShowMobileJoystick && (
         <MobileJoystick onDirection={(dir) => gameRef.current?.triggerDir(dir)} />

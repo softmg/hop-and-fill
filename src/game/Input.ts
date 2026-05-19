@@ -5,6 +5,8 @@ type Handler = (dir: Dir) => void;
 type BoardDir = Extract<Dir, "N" | "E" | "S" | "W">;
 type DiagonalDir = Extract<Dir, "NE" | "NW" | "SE" | "SW">;
 
+export type KeyboardRotation = "default" | "counterclockwise";
+
 export const BOARD_COMBO_DEBOUNCE_MS = 120;
 export const TOUCH_MIN_DISTANCE = 24;
 
@@ -34,8 +36,17 @@ const BOARD_KEY_TO_DIR: Record<string, BoardDir> = {
   Ф: "W",
 };
 
+const SCREEN_DIRS_CLOCKWISE: Dir[] = ["NW", "N", "NE", "E", "SE", "S", "SW", "W"];
+
 export function keyToDir(key: string): Dir | null {
   return ARROW_KEY_TO_DIR[key] ?? BOARD_KEY_TO_DIR[key] ?? null;
+}
+
+export function rotateKeyboardDir(dir: Dir, rotation: KeyboardRotation): Dir {
+  if (rotation === "default") return dir;
+
+  const index = SCREEN_DIRS_CLOCKWISE.indexOf(dir);
+  return SCREEN_DIRS_CLOCKWISE[(index + SCREEN_DIRS_CLOCKWISE.length - 2) % SCREEN_DIRS_CLOCKWISE.length];
 }
 
 export function resolveBoardKeyDir(keys: Iterable<BoardDir>): Dir | null {
@@ -68,6 +79,7 @@ function isDiagonalDir(dir: Dir): dir is DiagonalDir {
 
 export class Input {
   private handler: Handler;
+  private keyboardRotation: KeyboardRotation;
   private touchStart: { x: number; y: number } | null = null;
   private el: HTMLElement;
   private activeBoardKeys = new Set<BoardDir>();
@@ -75,9 +87,10 @@ export class Input {
   private pendingBoardDir: BoardDir | null = null;
   private boardComboTimer: number | null = null;
 
-  constructor(el: HTMLElement, handler: Handler) {
+  constructor(el: HTMLElement, handler: Handler, options: { keyboardRotation?: KeyboardRotation } = {}) {
     this.el = el;
     this.handler = handler;
+    this.keyboardRotation = options.keyboardRotation ?? "default";
     window.addEventListener("keydown", this.onKey);
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("blur", this.onBlur);
@@ -98,11 +111,21 @@ export class Input {
     this.handler(dir);
   }
 
+  setKeyboardRotation(rotation: KeyboardRotation) {
+    if (this.keyboardRotation === rotation) return;
+    this.keyboardRotation = rotation;
+    this.clearBoardKeys();
+  }
+
+  private emitKeyboardDir(dir: Dir) {
+    this.handler(rotateKeyboardDir(dir, this.keyboardRotation));
+  }
+
   private onKey = (e: KeyboardEvent) => {
     const arrowDir = ARROW_KEY_TO_DIR[e.key];
     if (arrowDir) {
       e.preventDefault();
-      this.handler(arrowDir);
+      this.emitKeyboardDir(arrowDir);
       return;
     }
 
@@ -125,7 +148,7 @@ export class Input {
     if (isDiagonalDir(dir)) {
       this.clearPendingBoardDir();
       if (isRepeat || dir !== this.lastBoardDir) {
-        this.handler(dir);
+        this.emitKeyboardDir(dir);
       }
       this.lastBoardDir = dir;
       return;
@@ -133,7 +156,7 @@ export class Input {
 
     if (isRepeat) {
       if (this.pendingBoardDir) return;
-      this.handler(dir);
+      this.emitKeyboardDir(dir);
       this.lastBoardDir = dir;
       return;
     }
@@ -178,7 +201,7 @@ export class Input {
       const currentDir = resolveBoardKeyDir(this.activeBoardKeys);
       this.pendingBoardDir = null;
       if (currentDir === dir) {
-        this.handler(dir);
+        this.emitKeyboardDir(dir);
       }
     }, BOARD_COMBO_DEBOUNCE_MS);
   }
@@ -187,7 +210,7 @@ export class Input {
     const dir = this.pendingBoardDir;
     if (!dir) return;
     this.clearPendingBoardDir();
-    this.handler(dir);
+    this.emitKeyboardDir(dir);
     this.lastBoardDir = dir;
   }
 
