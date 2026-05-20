@@ -39,6 +39,9 @@ const _texPlayer: Record<PlayerTheme, Texture | null> = {
   paper: null,
 };
 
+/**
+ * Loads all player theme textures before the scene is built.
+ */
 export async function preloadPlayerTexture() {
   const themes: PlayerTheme[] = ["default", "slime", "neon", "wood", "paper"];
   await Promise.all(
@@ -53,6 +56,9 @@ function getPlayerTexture(theme: PlayerTheme = "default") {
   return _texPlayer[theme]!;
 }
 
+/**
+ * Renders the player sprite and coordinates hop, queue, and fall animations.
+ */
 export class Player {
   readonly container: Container;
   private body: Sprite;
@@ -63,6 +69,9 @@ export class Player {
   private hopQueue: HopJob[] = [];
   private animationToken = 0;
 
+  /**
+   * Creates a player at the given grid cell using the selected visual theme.
+   */
   constructor(gx: number, gy: number, private palette: Palette, private theme: PlayerTheme = "default") {
     this.gx = gx;
     this.gy = gy;
@@ -86,6 +95,9 @@ export class Player {
     this.snapTo(gx, gy);
   }
 
+  /**
+   * Reports whether a hop, queued hop, or fall animation is currently active.
+   */
   get isAnimating() {
     return this.animating;
   }
@@ -104,6 +116,9 @@ export class Player {
     this.shadow.endFill();
   }
 
+  /**
+   * Places the player on a grid cell and cancels any active hop queue.
+   */
   snapTo(gx: number, gy: number) {
     this.animationToken++;
     this.hopQueue = [];
@@ -116,10 +131,16 @@ export class Player {
     this.container.zIndex = isoZ(gx, gy, 50);
   }
 
+  /**
+   * Starts a hop from the player's current grid cell to the target cell.
+   */
   hop(targetGx: number, targetGy: number, onLand: () => void, onSettle: () => void) {
     this.hopFrom(this.gx, this.gy, targetGx, targetGy, onLand, onSettle);
   }
 
+  /**
+   * Queues or runs a hop from an explicit source cell to preserve rapid input order.
+   */
   hopFrom(
     fromGx: number,
     fromGy: number,
@@ -141,6 +162,9 @@ export class Player {
     this.runHop(job);
   }
 
+  /**
+   * Runs one visual hop job and continues with the next queued job after settling.
+   */
   private runHop(job: HopJob) {
     this.animating = true;
 
@@ -216,11 +240,17 @@ export class Player {
     requestAnimationFrame(tick);
   }
 
+  /**
+   * Speeds up visual playback when input has queued multiple pending moves.
+   */
   private visualSpeedMultiplier() {
     const queuedVisualMoves = 1 + this.hopQueue.length;
     return queuedVisualMoves > FAST_FORWARD_DISTANCE ? FAST_FORWARD_MULTIPLIER : 1;
   }
 
+  /**
+   * Plays the level-failure fall animation toward a target grid cell.
+   */
   fall(targetGx: number, targetGy: number, onDone: () => void) {
     if (this.animating) return;
     this.animating = true;
@@ -248,6 +278,9 @@ export class Player {
     requestAnimationFrame(tick);
   }
 
+  /**
+   * Restores visual properties after transient animations.
+   */
   resetVisual() {
     this.container.alpha = 1;
   }

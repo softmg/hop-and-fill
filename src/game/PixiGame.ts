@@ -31,6 +31,9 @@ interface MoveSnapshot {
   destinationWasPainted: boolean;
 }
 
+/**
+ * Coordinates the Pixi scene, level state, input, and gameplay callbacks.
+ */
 export class PixiGame {
   app: Application;
   private world: Container;
@@ -54,6 +57,9 @@ export class PixiGame {
   private firstSceneRenderableReported = false;
   private lastMove: MoveSnapshot | null = null;
 
+  /**
+   * Creates the Pixi application inside the host element and starts scene loading.
+   */
   constructor(
     private host: HTMLDivElement,
     levelData: LevelData,
@@ -203,10 +209,16 @@ export class PixiGame {
     this.setHover({ gx, gy });
   };
 
+  /**
+   * Reports whether reachable jump targets should currently be highlighted.
+   */
   private canShowJumpTargets() {
     return this.ready && !this.isPaused && this.state === "playing";
   }
 
+  /**
+   * Refreshes the per-tile reachable target markers around the player.
+   */
   private updateJumpTargets() {
     if (!this.ready || !this.level || !this.player) return;
 
@@ -243,10 +255,16 @@ export class PixiGame {
     if (dir) this.handlePointerDir(dir);
   };
 
+  /**
+   * Emits a direction from external controls such as the mobile joystick.
+   */
   triggerDir(d: Parameters<Input["emit"]>[0]) {
     this.input.emit(d);
   }
 
+  /**
+   * Applies the selected keyboard rotation to the input manager.
+   */
   setKeyboardRotation(rotation: KeyboardRotation) {
     this.input.setKeyboardRotation(rotation);
   }
@@ -275,12 +293,18 @@ export class PixiGame {
     this.cb.onHopCount(0);
   }
 
+  /**
+   * Restarts the current level from its initial state.
+   */
   reset() {
     if (!this.ready) return;
     this.buildLevel(this.currentLevelData);
     this.layout();
   }
 
+  /**
+   * Rebuilds the current scene with a new level definition.
+   */
   setLevel(data: LevelData) {
     this.currentLevelData = data;
     if (!this.ready) return;
@@ -288,6 +312,9 @@ export class PixiGame {
     this.layout();
   }
 
+  /**
+   * Updates the optional move limit used to detect loss.
+   */
   setMoveLimit(limit: number | null) {
     this.moveLimit = limit;
   }
@@ -312,15 +339,24 @@ export class PixiGame {
     return true;
   }
 
+  /**
+   * Pauses gameplay input and clears hover state.
+   */
   pause() {
     this.isPaused = true;
     this.setHover(null);
   }
 
+  /**
+   * Resumes gameplay after a pause overlay or visibility pause.
+   */
   resume() {
     this.isPaused = false;
   }
 
+  /**
+   * Handles keyboard or touch movement, respecting animation locks.
+   */
   private handleInputDir = (dir: Parameters<Input["emit"]>[0]) => {
     if (!this.ready) return;
     if (this.isPaused) return;
@@ -370,6 +406,9 @@ export class PixiGame {
     );
   };
 
+  /**
+   * Handles pointer-click movement without waiting for the player to settle.
+   */
   private handlePointerDir = (dir: Parameters<Input["emit"]>[0]) => {
     if (!this.ready) return;
     if (this.isPaused) return;
@@ -386,6 +425,9 @@ export class PixiGame {
     this.commitMove(fromGx, fromGy, tx, ty);
   };
 
+  /**
+   * Commits a move, updates score state, and schedules player/tile effects.
+   */
   private commitMove(fromGx: number, fromGy: number, toGx: number, toGy: number) {
     if (!this.ready || this.destroyed) return;
     if (this.isPaused) return;
@@ -490,6 +532,9 @@ export class PixiGame {
     };
   }
 
+  /**
+   * Releases Pixi resources, input listeners, timers, and observers.
+   */
   destroy() {
     this.destroyed = true;
     this.input.destroy();

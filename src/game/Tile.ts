@@ -29,9 +29,14 @@ const TILE_VISUAL = {
   highlightFillAlpha: 0.18,
 };
 
+/** Eases reveal animations toward their target without a hard stop. */
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+/** Eases paint reveal animations symmetrically at the start and end. */
 const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
 
+/**
+ * Fits a tile sprite to the target width once its texture is available.
+ */
 function fitSpriteWidth(sprite: Sprite, targetW: number) {
   const apply = () => {
     const w = sprite.texture.width || 1;
@@ -61,6 +66,9 @@ const URLS: Record<TileTheme, { unpainted: string; painted: string }> = {
   paper: { unpainted: tileUnpaintedPaperUrl, painted: tilePaintedPaperUrl },
 };
 
+/**
+ * Loads all tile theme textures before the scene is built.
+ */
 export async function preloadTileTextures() {
   const themes: TileTheme[] = ["default", "slime", "neon", "wood", "paper"];
   await Promise.all(
@@ -79,6 +87,9 @@ const TILE_METRICS: Record<TileTheme, { anchorX: number; anchorY: number; faceWR
   paper: { anchorX: 0.5, anchorY: 0.424, faceWRatio: 1090 / 1262 },
 };
 
+/**
+ * Returns cached tile textures, creating lazy Texture instances when needed.
+ */
 function getTextures(theme: TileTheme = "default") {
   const slot = _tex[theme];
   if (!slot.unpainted) slot.unpainted = Texture.from(URLS[theme].unpainted);
@@ -86,6 +97,9 @@ function getTextures(theme: TileTheme = "default") {
   return { unpainted: slot.unpainted, painted: slot.painted };
 }
 
+/**
+ * Renders one board tile and manages paint, hover, and jump-available effects.
+ */
 export class Tile {
   readonly container: Container;
   private visual: Container;
@@ -109,6 +123,9 @@ export class Tile {
   private paintChangedFrom = 0;
   private paintAnimating = false;
 
+  /**
+   * Creates a tile at the given grid cell using the selected visual theme.
+   */
   constructor(
     public gx: number,
     public gy: number,
@@ -154,6 +171,9 @@ export class Tile {
     this.container.zIndex = isoZ(gx, gy, 0);
   }
 
+  /**
+   * Starts or reverses the hover highlight reveal animation.
+   */
   setHovered(on: boolean) {
     if (this.hovered === on) return;
     this.hovered = on;
@@ -163,16 +183,25 @@ export class Tile {
     if (on) this.highlight.visible = true;
   }
 
+  /**
+   * Marks whether this tile is a currently reachable jump target.
+   */
   setJumpAvailable(on: boolean) {
     this.jumpAvailable = on;
   }
 
+  /**
+   * Advances all per-frame tile visual effects.
+   */
   update(now: number) {
     this.updateHover(now);
     this.updatePaint(now);
     this.updateJumpMotion(now);
   }
 
+  /**
+   * Draws the static diamond highlight shape before it is masked.
+   */
   private drawHighlight() {
     const hw = TILE_W / 2;
     const hh = TILE_H / 2;
@@ -191,14 +220,23 @@ export class Tile {
     this.highlight.endFill();
   }
 
+  /**
+   * Updates the radial mask that reveals the hover highlight.
+   */
   private drawHighlightMask(progress: number) {
     this.drawRadialMask(this.highlightMask, progress);
   }
 
+  /**
+   * Updates the radial mask that reveals the painted sprite.
+   */
   private drawPaintMask(progress: number) {
     this.drawRadialMask(this.paintMask, progress);
   }
 
+  /**
+   * Draws a circular reveal mask centered on the visible tile face.
+   */
   private drawRadialMask(mask: Graphics, progress: number) {
     const hw = TILE_W / 2;
     const hh = TILE_H / 2;
@@ -210,6 +248,9 @@ export class Tile {
     mask.endFill();
   }
 
+  /**
+   * Animates hover highlight progress toward the current hover target.
+   */
   private updateHover(now: number) {
     if (this.hoverProgress === this.hoverTarget) return;
     const raw = (now - this.hoverChangedAt) / TILE_VISUAL.hoverRevealMs;
@@ -224,6 +265,9 @@ export class Tile {
     }
   }
 
+  /**
+   * Animates the painted texture reveal after the tile is stepped on.
+   */
   private updatePaint(now: number) {
     if (!this.paintAnimating) return;
     const raw = (now - this.paintChangedAt) / TILE_VISUAL.paintRevealMs;
@@ -238,6 +282,9 @@ export class Tile {
     }
   }
 
+  /**
+   * Applies lift, wobble, and brightness while the tile is a jump target.
+   */
   private updateJumpMotion(now: number) {
     const targetLift = this.jumpAvailable ? TILE_VISUAL.jumpLiftPx : 0;
     this.jumpLift += (targetLift - this.jumpLift) * TILE_VISUAL.jumpLiftEase;
@@ -250,6 +297,9 @@ export class Tile {
     this.brightnessFilter.brightness(1 + TILE_VISUAL.jumpBrightnessBoost * brightnessProgress, false);
   }
 
+  /**
+   * Marks the tile painted and optionally skips the reveal animation.
+   */
   paint(options: { immediate?: boolean } = {}) {
     if (this.state === "painted") return false;
     this.state = "painted";
@@ -261,6 +311,9 @@ export class Tile {
     return true;
   }
 
+  /**
+   * Restores the tile to its initial unpainted and unhighlighted state.
+   */
   reset() {
     this.state = "unpainted";
     this.paintAnimating = false;
