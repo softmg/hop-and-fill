@@ -14,6 +14,7 @@ export interface GameCallbacks {
   onPaint: () => void;
   onWin: (hops: number) => void;
   onLose: () => void;
+  /** Receives the player's current screen-space HUD anchor each rendered frame. */
   onPlayerScreenPosition?: (position: { x: number; y: number }) => void;
 }
 
@@ -154,6 +155,9 @@ export class PixiGame {
     this.options.onFirstSceneRenderable?.();
   }
 
+  /**
+   * Emits the player HUD anchor only when a consumer is registered.
+   */
   private reportPlayerScreenPosition() {
     if (!this.ready || !this.player || !this.cb.onPlayerScreenPosition) return;
     const point = this.world.toGlobal(this.player.getHudAnchorPoint());

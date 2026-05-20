@@ -207,6 +207,9 @@ const getNextLevelContext = (fromLevelIdx: number) => {
 
 const getTimerNowMs = () => performance.now();
 
+/**
+ * Avoids React state churn from tiny Pixi coordinate changes between frames.
+ */
 const shouldUpdatePlayerHudPosition = (
   current: { x: number; y: number } | null,
   next: { x: number; y: number },

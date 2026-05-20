@@ -102,6 +102,9 @@ export class Player {
     return this.animating;
   }
 
+  /**
+   * Returns the world-space point where the floating moves HUD should attach.
+   */
   getHudAnchorPoint() {
     return {
       x: this.container.x,

@@ -122,6 +122,7 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+
     font-family: Nunito, ui-rounded, "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
     font-size: 18px;
   }
