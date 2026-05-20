@@ -155,9 +155,9 @@ export class PixiGame {
   }
 
   private reportPlayerScreenPosition() {
-    if (!this.ready || !this.player) return;
+    if (!this.ready || !this.player || !this.cb.onPlayerScreenPosition) return;
     const point = this.world.toGlobal(this.player.getHudAnchorPoint());
-    this.cb.onPlayerScreenPosition?.({ x: point.x, y: point.y });
+    this.cb.onPlayerScreenPosition({ x: point.x, y: point.y });
   }
 
   private screenPointToGrid(globalX: number, globalY: number) {

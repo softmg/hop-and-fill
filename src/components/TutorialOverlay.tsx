@@ -92,7 +92,8 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
       const overlayRect = overlayRef.current?.getBoundingClientRect();
       if (!overlayRect) return;
 
-      const elements = Array.from(document.querySelectorAll<HTMLElement>("[data-tutorial-highlight='goal']"));
+      const root = overlayRef.current.parentElement ?? overlayRef.current;
+      const elements = Array.from(root.querySelectorAll<HTMLElement>("[data-tutorial-highlight='goal']"));
       setHighlightRects(elements.map((element, index) => {
         const rect = element.getBoundingClientRect();
         return {
