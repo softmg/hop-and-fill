@@ -74,6 +74,9 @@ const Star = ({ filled, perfectIndex }: { filled: boolean; perfectIndex?: number
   </svg>
 );
 
+/**
+ * Renders the completion badge shown after a perfect level clear.
+ */
 const PerfectCelebration = () => (
   <div className="perfect-celebration" data-testid="perfect-celebration" aria-hidden>
     <div className="perfect-celebration__burst" />
@@ -115,6 +118,9 @@ const ISO_HINT_POSITIONS: Record<Dir, { left: string; top: string }> = {
   W: { left: "29%", top: "27%" },
 };
 
+/**
+ * Shows the keyboard-to-isometric direction map and rotation toggle.
+ */
 const KeyboardCompassControl = ({
   rotation,
   onToggleRotation,
@@ -202,6 +208,9 @@ interface FinishedAttempt {
   didCompleteNewLevel: boolean;
 }
 
+/**
+ * Owns the playable game screen, overlays, persistence, audio, and Pixi bridge.
+ */
 export const GameCanvas = () => {
   const hostRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<PixiGame | null>(null);
