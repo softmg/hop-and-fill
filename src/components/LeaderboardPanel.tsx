@@ -58,20 +58,20 @@ export const LeaderboardPanel = ({
   const isLoading = status === "loading";
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#110c08]/88 px-3 py-3 backdrop-blur-md sm:px-4">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#110c08]/82 px-3 py-3 backdrop-blur-[2px] sm:px-4">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="leaderboard-title"
-        className="flex h-[min(88svh,42rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-[#e5b56e]/35 bg-[#120d09] text-white shadow-2xl"
+        className="game-panel relative flex h-[min(88svh,42rem)] w-full max-w-2xl flex-col overflow-hidden text-white"
       >
-        <div className="flex items-center justify-between gap-3 border-b border-[#e5b56e]/22 bg-black/32 px-3 py-3 sm:px-5">
+        <div className="relative z-10 flex items-center justify-between gap-3 border-b-[3px] border-[#6b3716]/75 bg-[linear-gradient(180deg,rgba(92,52,24,0.92),rgba(36,20,10,0.92))] px-3 py-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[#ffcf61]/45 bg-[#ffcf61]/13 shadow-[0_0_22px_rgba(255,207,97,0.2)]">
+            <div className="game-hud-chip flex h-10 w-10 shrink-0 items-center justify-center">
               <Trophy className="h-5 w-5 text-[#ffd35f]" aria-hidden />
             </div>
             <div className="min-w-0">
-              <h2 id="leaderboard-title" className="truncate text-2xl font-black leading-none text-white sm:text-3xl">
+              <h2 id="leaderboard-title" className="game-title truncate text-2xl leading-none sm:text-3xl">
                 Лидеры
               </h2>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#f6d9a6]/78">
@@ -92,7 +92,7 @@ export const LeaderboardPanel = ({
               variant="ghost"
               onClick={onRefresh}
               disabled={isLoading}
-              className="h-10 w-10 border border-[#d2a260]/35 bg-black/38 text-[#f4d8a4] hover:bg-[#26170d] hover:text-white"
+              className="h-10 w-10"
               aria-label="Обновить лидеров"
               title="Обновить"
             >
@@ -103,7 +103,7 @@ export const LeaderboardPanel = ({
               size="icon"
               variant="ghost"
               onClick={onClose}
-              className="h-10 w-10 border border-[#d2a260]/35 bg-black/38 text-[#f4d8a4] hover:bg-[#26170d] hover:text-white"
+              className="h-10 w-10"
               aria-label="Закрыть лидеров"
             >
               <X className="h-5 w-5" aria-hidden />
@@ -111,13 +111,13 @@ export const LeaderboardPanel = ({
           </div>
         </div>
 
-        <div className="grid gap-3 border-b border-[#e5b56e]/18 bg-[radial-gradient(circle_at_24%_0%,rgba(255,204,69,0.18),transparent_34%),linear-gradient(180deg,rgba(58,34,14,0.62),rgba(14,9,6,0.88))] px-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center sm:px-5">
+        <div className="relative z-10 grid gap-3 border-b-[3px] border-[#6b3716]/50 bg-[radial-gradient(circle_at_24%_0%,rgba(255,204,69,0.18),transparent_34%),linear-gradient(180deg,rgba(58,34,14,0.62),rgba(14,9,6,0.88))] px-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center sm:px-5">
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="rounded-md border border-white/10 bg-black/30 px-3 py-2">
+            <div className="game-stat-cell px-3 py-2">
               <div className="text-xs font-semibold text-white/52">Мой результат</div>
               <div className="mt-1 text-lg font-black tabular-nums text-[#ffe0a0]">{currentScore} ★</div>
             </div>
-            <div className="rounded-md border border-white/10 bg-black/30 px-3 py-2">
+            <div className="game-stat-cell px-3 py-2">
               <div className="text-xs font-semibold text-white/52">Место</div>
               <div className="mt-1 text-lg font-black tabular-nums text-white">{userRank ?? "-"}</div>
             </div>
@@ -126,7 +126,7 @@ export const LeaderboardPanel = ({
             type="button"
             onClick={onSave}
             disabled={!canSave}
-            className="h-10 border border-[#ffd56f]/35 bg-[#ffd35f] px-3 font-black text-[#1d1106] hover:bg-[#ffe083]"
+            className="h-10 px-3"
           >
             {saveStatus === "saving" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Save className="mr-2 h-4 w-4" aria-hidden />}
             {saveStatus === "saving" ? "Сохраняем" : "Сохранить результат"}
@@ -160,18 +160,18 @@ export const LeaderboardPanel = ({
                 <li
                   key={`${entry.rank}-${entry.uniqueID ?? entry.publicName}`}
                   className={cn(
-                    "grid min-h-16 grid-cols-[2.75rem_1fr_auto] items-center gap-3 rounded-lg border px-3 py-2 shadow-[0_10px_20px_rgba(0,0,0,0.24)]",
+                    "grid min-h-16 grid-cols-[2.75rem_1fr_auto] items-center gap-3 rounded-[0.8rem] border-2 px-3 py-2 shadow-[0_5px_0_rgba(75,39,18,0.55),0_12px_20px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)]",
                     entry.isCurrentUser
                       ? "border-[#ffd35f]/48 bg-[#ffd35f]/12"
                       : "border-white/10 bg-white/[0.045]",
                   )}
                 >
-                  <div className={cn("flex h-10 w-10 items-center justify-center rounded-md border text-sm font-black tabular-nums", getRankClassName(entry.rank))}>
+                  <div className={cn("game-map-node flex h-10 w-10 items-center justify-center border-2 text-sm font-black tabular-nums", getRankClassName(entry.rank))}>
                     {entry.rank}
                   </div>
 
                   <div className="flex min-w-0 items-center gap-2">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-black/30">
+                    <div className="game-map-node flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden border-2 border-white/10 bg-black/30">
                       {entry.avatarSrc ? (
                         <img src={entry.avatarSrc} alt="" className="h-full w-full object-cover" draggable={false} />
                       ) : (

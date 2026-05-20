@@ -102,6 +102,16 @@ export class Player {
     return this.animating;
   }
 
+  /**
+   * Returns the world-space point where the floating moves HUD should attach.
+   */
+  getHudAnchorPoint() {
+    return {
+      x: this.container.x,
+      y: this.container.y + this.body.y - TILE_H * 1.35,
+    };
+  }
+
   private drawShadow() {
     this.shadow.clear();
     this.shadow.beginFill(0x000000, 0.22);

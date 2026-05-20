@@ -162,8 +162,8 @@ export const MobileJoystick = ({ onDirection, disabled = false, className }: Mob
       onPointerUp={onPointerUp}
       style={rootStyle}
     >
-      <div className="absolute inset-0 rounded-full border border-white/25 bg-black/45 shadow-2xl shadow-black/30 backdrop-blur-md ring-1 ring-black/30" />
-      <div className="absolute inset-3 rounded-full border border-white/10 bg-white/5" aria-hidden />
+      <div className="absolute inset-0 rounded-full border-[3px] border-[#d9aa68]/65 bg-[radial-gradient(circle_at_35%_20%,rgba(255,234,180,0.18),transparent_34%),linear-gradient(180deg,rgba(78,45,21,0.78),rgba(18,10,5,0.88))] shadow-[0_7px_0_rgba(78,39,14,0.78),0_20px_34px_rgba(0,0,0,0.38),inset_0_2px_0_rgba(255,255,255,0.16)]" />
+      <div className="absolute inset-3 rounded-full border-2 border-[#ffe0a0]/18 bg-black/15" aria-hidden />
       {markerVectors.map((marker) => (
         <div
           key={marker.dir}
@@ -179,12 +179,12 @@ export const MobileJoystick = ({ onDirection, disabled = false, className }: Mob
       ))}
       <div
         aria-hidden
-        className="absolute left-1/2 top-1/2 h-14 w-14 rounded-full border border-white/40 bg-white/85 shadow-xl shadow-black/35 transition-[background-color,box-shadow] duration-100"
+        className="absolute left-1/2 top-1/2 h-14 w-14 rounded-full border-[3px] border-[#8b4a18] bg-[linear-gradient(180deg,#ffe68a,#e88922)] shadow-[0_5px_0_#71300f,0_12px_20px_rgba(0,0,0,0.35),inset_0_2px_0_rgba(255,255,255,0.5)] transition-[background-color,box-shadow] duration-100"
         style={{
           transform: `translate(calc(-50% + ${knob.x}px), calc(-50% + ${knob.y}px))`,
         }}
       >
-        <div className="absolute inset-3 rounded-full bg-black/20" />
+        <div className="absolute inset-3 rounded-full bg-[#71300f]/35" />
       </div>
     </div>
   );

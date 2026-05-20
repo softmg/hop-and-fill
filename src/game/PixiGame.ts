@@ -14,6 +14,8 @@ export interface GameCallbacks {
   onPaint: () => void;
   onWin: (hops: number) => void;
   onLose: () => void;
+  /** Receives the player's current screen-space HUD anchor each rendered frame. */
+  onPlayerScreenPosition?: (position: { x: number; y: number }) => void;
 }
 
 interface PixiGameOptions {
@@ -153,6 +155,15 @@ export class PixiGame {
     this.options.onFirstSceneRenderable?.();
   }
 
+  /**
+   * Emits the player HUD anchor only when a consumer is registered.
+   */
+  private reportPlayerScreenPosition() {
+    if (!this.ready || !this.player || !this.cb.onPlayerScreenPosition) return;
+    const point = this.world.toGlobal(this.player.getHudAnchorPoint());
+    this.cb.onPlayerScreenPosition({ x: point.x, y: point.y });
+  }
+
   private screenPointToGrid(globalX: number, globalY: number) {
     // Переводим из stage-координат в world-координаты
     const local = this.world.toLocal({ x: globalX, y: globalY });
@@ -230,6 +241,7 @@ export class PixiGame {
   private onTick = () => {
     if (!this.ready || !this.level) return;
     this.updateJumpTargets();
+    this.reportPlayerScreenPosition();
     const now = performance.now();
     for (const tile of this.level.tiles.values()) {
       tile.update(now);
@@ -499,6 +511,7 @@ export class PixiGame {
     );
 
     if (w > 0 && h > 0) this.reportFirstSceneRenderable();
+    this.reportPlayerScreenPosition();
   };
 
   private computeLevelBounds(tight = false) {
