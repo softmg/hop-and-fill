@@ -390,6 +390,79 @@ All colors MUST be HSL.
   animation: tutorial-arrow-pulse 1.4s ease-in-out infinite;
 }
 
+@keyframes tutorial-control-rotate {
+  0%, 20%, 100% {
+    left: var(--control-from-left);
+    top: var(--control-from-top);
+  }
+  45%, 72% {
+    left: var(--control-to-left);
+    top: var(--control-to-top);
+  }
+}
+
+.tutorial-control-key {
+  position: absolute;
+  left: var(--control-from-left);
+  top: var(--control-from-top);
+  transform: translate(-50%, -50%);
+  animation: tutorial-control-rotate 3.2s ease-in-out var(--control-delay) infinite;
+}
+
+@keyframes tutorial-rotation-button {
+  0%, 18%, 100% {
+    border-color: rgb(216 173 104 / 0.7);
+    background: linear-gradient(180deg, rgb(50 29 14 / 0.9), rgb(16 10 6 / 0.94));
+    color: #ffe5b2;
+    transform: translateY(-50%) scale(1) rotate(0deg);
+  }
+  34%, 72% {
+    border-color: #8b4a18;
+    background: linear-gradient(180deg, #ffe68a, #e88922);
+    color: #3c1d07;
+    transform: translateY(-50%) scale(1.08) rotate(-90deg);
+  }
+}
+
+.tutorial-rotation-button {
+  animation: tutorial-rotation-button 3.2s ease-in-out infinite;
+}
+
+.tutorial-move-panel {
+  position: absolute;
+  left: calc(10rem + env(safe-area-inset-left));
+  right: calc(1rem + env(safe-area-inset-right));
+  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 520px) {
+  .tutorial-move-panel {
+    left: calc(1rem + env(safe-area-inset-left));
+    right: calc(1rem + env(safe-area-inset-right));
+    bottom: calc(10rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 640px) {
+  .tutorial-move-panel {
+    left: 1rem;
+    right: auto;
+    top: 19rem;
+    bottom: auto;
+    width: min(21rem, calc(100% - 2rem));
+  }
+}
+
+.tutorial-move-panel .game-panel {
+  width: 100%;
+}
+
+.tutorial-limit-panel {
+  position: absolute;
+  left: var(--tutorial-panel-left, 0.75rem);
+  top: var(--tutorial-panel-top, 5rem);
+}
+
 @keyframes tutorial-glow {
   0%, 100% {
     box-shadow: 0 0 0 0 hsl(var(--tile-start-top) / 0.6);

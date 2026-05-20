@@ -42,6 +42,13 @@ type OverlayMode = "playing" | "paused" | "won" | "lost" | "chapter" | "final";
 type LeaderboardStatus = "idle" | "loading" | "ready" | "error";
 type LeaderboardSaveStatus = "idle" | "saving" | "saved" | "error" | "skipped";
 type ShareStatus = "idle" | "copied" | "shared" | "error";
+type KeyboardCompassKeyStyle = CSSProperties & {
+  "--control-from-left"?: string;
+  "--control-from-top"?: string;
+  "--control-to-left"?: string;
+  "--control-to-top"?: string;
+  "--control-delay"?: string;
+};
 
 const chapters = deriveChapters(levels);
 
@@ -97,14 +104,14 @@ const PerfectCelebration = () => (
 );
 
 const KEYBOARD_COMPASS_KEYS = [
-  { key: "\u2191", dir: "NW", tone: "arrow" },
-  { key: "W", dir: "N", tone: "wasd" },
-  { key: "\u2192", dir: "NE", tone: "arrow" },
-  { key: "D", dir: "E", tone: "wasd" },
-  { key: "\u2193", dir: "SE", tone: "arrow" },
-  { key: "S", dir: "S", tone: "wasd" },
-  { key: "\u2190", dir: "SW", tone: "arrow" },
-  { key: "A", dir: "W", tone: "wasd" },
+  { key: "\u2191", dir: "NW", tone: "arrow", delay: "0ms" },
+  { key: "W", dir: "N", tone: "wasd", delay: "45ms" },
+  { key: "\u2192", dir: "NE", tone: "arrow", delay: "90ms" },
+  { key: "D", dir: "E", tone: "wasd", delay: "135ms" },
+  { key: "\u2193", dir: "SE", tone: "arrow", delay: "180ms" },
+  { key: "S", dir: "S", tone: "wasd", delay: "225ms" },
+  { key: "\u2190", dir: "SW", tone: "arrow", delay: "270ms" },
+  { key: "A", dir: "W", tone: "wasd", delay: "315ms" },
 ] as const;
 
 const ISO_HINT_POSITIONS: Record<Dir, { left: string; top: string }> = {
@@ -124,11 +131,13 @@ const ISO_HINT_POSITIONS: Record<Dir, { left: string; top: string }> = {
 const KeyboardCompassControl = ({
   rotation,
   onToggleRotation,
+  animateRotationHint = false,
 }: {
   rotation: KeyboardRotation;
   onToggleRotation: () => void;
+  animateRotationHint?: boolean;
 }) => (
-  <div className="absolute left-3 top-[9rem] z-30 hidden h-36 w-[18.25rem] sm:block lg:left-4 lg:top-[9.5rem]">
+  <div className={`absolute left-3 top-[9rem] hidden h-36 w-[18.25rem] sm:block lg:left-4 lg:top-[9.5rem] ${animateRotationHint ? "z-50" : "z-30"}`}>
     <div
       className="pointer-events-none absolute left-0 top-0 h-36 w-56"
       role="img"
@@ -143,16 +152,27 @@ const KeyboardCompassControl = ({
       <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-yellow-200/70 bg-yellow-300 shadow-[0_0_18px_rgba(250,204,21,0.55)]" />
       {KEYBOARD_COMPASS_KEYS.map((key) => {
         const position = ISO_HINT_POSITIONS[rotateKeyboardDir(key.dir, rotation)];
+        const defaultPosition = ISO_HINT_POSITIONS[rotateKeyboardDir(key.dir, "default")];
+        const rotatedPosition = ISO_HINT_POSITIONS[rotateKeyboardDir(key.dir, "counterclockwise")];
+        const style: KeyboardCompassKeyStyle = animateRotationHint
+          ? {
+              "--control-from-left": defaultPosition.left,
+              "--control-from-top": defaultPosition.top,
+              "--control-to-left": rotatedPosition.left,
+              "--control-to-top": rotatedPosition.top,
+              "--control-delay": key.delay,
+            }
+          : position;
 
         return (
           <div
             key={key.key}
-            className={`absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[0.55rem] border-2 text-lg font-black leading-none shadow-[0_4px_0_rgba(0,0,0,0.35),0_7px_14px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.24)] transition-[left,top] ${
+            className={`absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[0.55rem] border-2 text-lg font-black leading-none shadow-[0_4px_0_rgba(0,0,0,0.35),0_7px_14px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.24)] transition-[left,top] ${animateRotationHint ? "tutorial-control-key" : ""} ${
               key.tone === "arrow"
                 ? "border-[#8b4a18] bg-[#ffe0a0] text-[#24160c]"
                 : "border-yellow-200/45 bg-[#31200f]/92 text-yellow-100"
             }`}
-            style={position}
+            style={style}
           >
             {key.key}
           </div>
@@ -161,7 +181,7 @@ const KeyboardCompassControl = ({
     </div>
     <button
       type="button"
-      className={`pointer-events-auto absolute left-[14.75rem] top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-[0.65rem] border-2 shadow-[0_4px_0_rgba(78,39,14,0.8),0_10px_18px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.16)] transition ${
+      className={`pointer-events-auto absolute left-[14.75rem] top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-[0.65rem] border-2 shadow-[0_4px_0_rgba(78,39,14,0.8),0_10px_18px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.16)] transition ${animateRotationHint ? "tutorial-rotation-button" : ""} ${
         rotation === "counterclockwise"
           ? "border-[#8b4a18] bg-[linear-gradient(180deg,#ffe68a,#e88922)] text-[#3c1d07]"
           : "border-[#d8ad68]/70 bg-[linear-gradient(180deg,rgba(50,29,14,0.9),rgba(16,10,6,0.94))] text-[#ffe5b2] hover:brightness-115"
@@ -820,6 +840,7 @@ export const GameCanvas = () => {
   const bgTheme: BgTheme = (currentLevel.theme as BgTheme) ?? "default";
   const currentChapter = getChapterForLevel(chapters, levelIdx);
   const shouldShowKeyboardCompass = overlayMode === "playing" && !isLevelSelectOpen && !isLeaderboardOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
+  const shouldAnimateKeyboardCompassTutorial = shouldShowKeyboardCompass && isTutorialBlocking && hops < 1;
   const shouldShowMobileJoystick =
     overlayMode === "playing" && !isLevelSelectOpen && !isLeaderboardOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
   const toggleKeyboardRotation = () => {
@@ -999,6 +1020,7 @@ export const GameCanvas = () => {
               <div
                 className="game-hud-chip game-hud-ideal-pill px-2 py-1 text-xs font-black tabular-nums whitespace-nowrap sm:text-sm"
                 title="Идеальное число ходов"
+                data-tutorial-highlight="goal"
               >
                 ★ {optimal}
               </div>
@@ -1083,7 +1105,11 @@ export const GameCanvas = () => {
       </header>
 
       {shouldShowKeyboardCompass && (
-        <KeyboardCompassControl rotation={keyboardRotation} onToggleRotation={toggleKeyboardRotation} />
+        <KeyboardCompassControl
+          rotation={keyboardRotation}
+          onToggleRotation={toggleKeyboardRotation}
+          animateRotationHint={shouldAnimateKeyboardCompassTutorial}
+        />
       )}
 
       {overlayMode === "playing" && playerHudPosition && !isLevelSelectOpen && !isLeaderboardOpen && !isStartScreenBlocking && (

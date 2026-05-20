@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { FIRST_TUTORIAL_ARROW } from "@/components/tutorialArrow";
 
@@ -13,6 +13,19 @@ interface TutorialOverlayProps {
 
 type Step = "move" | "limit" | "done";
 
+type HighlightRect = {
+  key: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+type TutorialPanelStyle = CSSProperties & {
+  "--tutorial-panel-left"?: string;
+  "--tutorial-panel-top"?: string;
+};
+
 type TutorialArrowStyle = CSSProperties & {
   "--tutorial-arrow-pulse-x"?: string;
   "--tutorial-arrow-pulse-y"?: string;
@@ -26,6 +39,8 @@ type TutorialArrowStyle = CSSProperties & {
  */
 export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }: TutorialOverlayProps) => {
   const [step, setStep] = useState<Step>("done");
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const [highlightRects, setHighlightRects] = useState<HighlightRect[]>([]);
 
   // Инициализация — только для первого уровня и если туториал ещё не пройден.
   useEffect(() => {
@@ -59,10 +74,50 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
     "--tutorial-arrow-pulse-y": `${FIRST_TUTORIAL_ARROW.pulseOffset.y}px`,
   };
 
+  const goalRect = highlightRects[0];
+  const limitPanelStyle: TutorialPanelStyle | undefined = goalRect
+    ? {
+        "--tutorial-panel-left": `clamp(0.75rem, ${goalRect.left}px, calc(100% - 22rem))`,
+        "--tutorial-panel-top": `${goalRect.top + goalRect.height + 18}px`,
+      }
+    : undefined;
+
+  useEffect(() => {
+    if (step !== "limit") {
+      setHighlightRects([]);
+      return;
+    }
+
+    const updateRects = () => {
+      const overlayRect = overlayRef.current?.getBoundingClientRect();
+      if (!overlayRect) return;
+
+      const elements = Array.from(document.querySelectorAll<HTMLElement>("[data-tutorial-highlight='goal']"));
+      setHighlightRects(elements.map((element, index) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          key: `${element.dataset.tutorialHighlight}-${index}`,
+          left: rect.left - overlayRect.left,
+          top: rect.top - overlayRect.top,
+          width: rect.width,
+          height: rect.height,
+        };
+      }));
+    };
+
+    updateRects();
+    const animationFrame = window.requestAnimationFrame(updateRects);
+    window.addEventListener("resize", updateRects);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", updateRects);
+    };
+  }, [step]);
+
   if (step === "done") return null;
 
   return (
-    <div className="absolute inset-0 z-40 pointer-events-none">
+    <div ref={overlayRef} className="absolute inset-0 z-40 pointer-events-none">
       {/* Затемнение фона. На шаге "move" затемняем сильнее, на "limit" мягче.
           Используем pointer-events-none, чтобы не блокировать игру. */}
       <div
@@ -102,16 +157,19 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
           </div>
 
           {/* Тултип-плашка по центру снизу */}
-          <div className="absolute bottom-48 left-1/2 -translate-x-1/2 pointer-events-auto max-w-sm w-[90%] sm:bottom-24">
+          <div className="tutorial-move-panel pointer-events-auto">
             <div className="game-panel relative px-5 py-4 text-center text-white animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <p className="text-sm font-black leading-relaxed text-[#fff0c2]">
-                Свайпай, тяни джойстик или используй стрелки, чтобы двигаться и закрашивать плитки!
+              <p className="hidden text-sm font-black leading-relaxed text-[#fff0c2] sm:block">
+                Кликни по соседней плитке или используй клавиатуру, чтобы двигаться и закрашивать поле!
               </p>
-              <p className="mt-2 text-xs font-semibold text-[#f1d3a0]/80">
-                ПК: стрелки — диагонали · WASD — прямые · сочетания WASD — диагонали
+              <p className="text-sm font-black leading-relaxed text-[#fff0c2] sm:hidden">
+                Свайпай, тапай по соседней плитке или тяни джойстик, чтобы двигаться и закрашивать поле!
               </p>
-              <p className="mt-1 text-xs font-semibold text-[#f1d3a0]/80">
-                Телефон: свайп или джойстик в сторону соседней плитки
+              <p className="mt-2 hidden text-xs font-semibold text-[#f1d3a0]/80 sm:block">
+                ПК: карта клавиш слева показывает текущие направления. Кнопка поворота меняет ориентацию управления.
+              </p>
+              <p className="mt-2 text-xs font-semibold text-[#f1d3a0]/80 sm:hidden">
+                Двигайся только на соседние плитки. Закрась всё поле.
               </p>
             </div>
           </div>
@@ -120,15 +178,25 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
 
       {step === "limit" && (
         <>
-          {/* Подсветка-рамка вокруг верхней панели HUD */}
-          <div
-            className="absolute top-2 right-2 h-12 rounded-lg ring-2 ring-yellow-400/80 tutorial-glow pointer-events-none"
-            style={{ width: "min(420px, calc(100% - 1rem))" }}
-            aria-hidden
-          />
+          {highlightRects.map((rect) => (
+            <div
+              key={rect.key}
+              className="absolute rounded-xl ring-2 ring-yellow-300/85 tutorial-glow pointer-events-none"
+              style={{
+                left: rect.left - 6,
+                top: rect.top - 6,
+                width: rect.width + 12,
+                height: rect.height + 12,
+              }}
+              aria-hidden
+            />
+          ))}
 
-          {/* Подсказка под HUD */}
-          <div className="absolute top-20 right-4 pointer-events-auto max-w-xs">
+          {/* Подсказка рядом со звёздами HUD */}
+          <div
+            className="tutorial-limit-panel pointer-events-auto w-[min(21rem,calc(100%-1.5rem))]"
+            style={limitPanelStyle}
+          >
             <div className="game-panel relative px-5 py-4 text-white animate-in fade-in slide-in-from-top-4 duration-300">
               <p className="text-sm font-black leading-relaxed text-[#fff0c2]">
                 Твоя цель — закрасить всё поле за минимальное количество ходов.
