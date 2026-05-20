@@ -58,6 +58,17 @@ describe("Input keyboard combinations", () => {
     vi.advanceTimersByTime(BOARD_COMBO_DEBOUNCE_MS);
     expect(handler).toHaveBeenCalledTimes(1);
   });
+
+  it("rotates keyboard directions 90 degrees counterclockwise", () => {
+    input.setKeyboardRotation("counterclockwise");
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", cancelable: true }));
+    expect(handler).toHaveBeenLastCalledWith("SW");
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "w", cancelable: true }));
+    vi.advanceTimersByTime(BOARD_COMBO_DEBOUNCE_MS);
+    expect(handler).toHaveBeenLastCalledWith("W");
+  });
 });
 
 describe("screenVectorToDir", () => {

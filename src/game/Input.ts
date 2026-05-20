@@ -5,6 +5,8 @@ type Handler = (dir: Dir) => void;
 type BoardDir = Extract<Dir, "N" | "E" | "S" | "W">;
 type DiagonalDir = Extract<Dir, "NE" | "NW" | "SE" | "SW">;
 
+export type KeyboardRotation = "default" | "counterclockwise";
+
 export const BOARD_COMBO_DEBOUNCE_MS = 120;
 export const TOUCH_MIN_DISTANCE = 24;
 
@@ -34,10 +36,28 @@ const BOARD_KEY_TO_DIR: Record<string, BoardDir> = {
   Ф: "W",
 };
 
+const SCREEN_DIRS_CLOCKWISE: Dir[] = ["NW", "N", "NE", "E", "SE", "S", "SW", "W"];
+
+/**
+ * Converts a keyboard key into the game's unrotated board direction.
+ */
 export function keyToDir(key: string): Dir | null {
   return ARROW_KEY_TO_DIR[key] ?? BOARD_KEY_TO_DIR[key] ?? null;
 }
 
+/**
+ * Applies the selected keyboard layout rotation to a board direction.
+ */
+export function rotateKeyboardDir(dir: Dir, rotation: KeyboardRotation): Dir {
+  if (rotation === "default") return dir;
+
+  const index = SCREEN_DIRS_CLOCKWISE.indexOf(dir);
+  return SCREEN_DIRS_CLOCKWISE[(index + SCREEN_DIRS_CLOCKWISE.length - 2) % SCREEN_DIRS_CLOCKWISE.length];
+}
+
+/**
+ * Resolves active WASD-style board keys into a single cardinal or diagonal move.
+ */
 export function resolveBoardKeyDir(keys: Iterable<BoardDir>): Dir | null {
   const active = new Set(keys);
   const vertical = active.has("N")
@@ -55,6 +75,9 @@ export function resolveBoardKeyDir(keys: Iterable<BoardDir>): Dir | null {
 
 const SCREEN_VECTOR_DIRS: Dir[] = ["NE", "E", "SE", "S", "SW", "W", "NW", "N"];
 
+/**
+ * Maps a touch swipe vector to the nearest screen direction when it is long enough.
+ */
 export function screenVectorToDir(dx: number, dy: number, minDistance = TOUCH_MIN_DISTANCE): Dir | null {
   if (Math.hypot(dx, dy) < minDistance) return null;
 
@@ -66,8 +89,12 @@ function isDiagonalDir(dir: Dir): dir is DiagonalDir {
   return dir === "NE" || dir === "NW" || dir === "SE" || dir === "SW";
 }
 
+/**
+ * Owns keyboard and touch listeners and emits normalized game directions.
+ */
 export class Input {
   private handler: Handler;
+  private keyboardRotation: KeyboardRotation;
   private touchStart: { x: number; y: number } | null = null;
   private el: HTMLElement;
   private activeBoardKeys = new Set<BoardDir>();
@@ -75,9 +102,13 @@ export class Input {
   private pendingBoardDir: BoardDir | null = null;
   private boardComboTimer: number | null = null;
 
-  constructor(el: HTMLElement, handler: Handler) {
+  /**
+   * Registers input listeners on the provided element and window.
+   */
+  constructor(el: HTMLElement, handler: Handler, options: { keyboardRotation?: KeyboardRotation } = {}) {
     this.el = el;
     this.handler = handler;
+    this.keyboardRotation = options.keyboardRotation ?? "default";
     window.addEventListener("keydown", this.onKey);
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("blur", this.onBlur);
@@ -85,6 +116,9 @@ export class Input {
     el.addEventListener("touchend", this.onTouchEnd, { passive: true });
   }
 
+  /**
+   * Removes registered listeners and clears pending keyboard state.
+   */
   destroy() {
     window.removeEventListener("keydown", this.onKey);
     window.removeEventListener("keyup", this.onKeyUp);
@@ -94,15 +128,34 @@ export class Input {
     this.clearBoardKeys();
   }
 
+  /**
+   * Emits a direction directly, bypassing keyboard rotation.
+   */
   emit(dir: Dir) {
     this.handler(dir);
+  }
+
+  /**
+   * Updates keyboard rotation and drops pressed-key state to prevent stale moves.
+   */
+  setKeyboardRotation(rotation: KeyboardRotation) {
+    if (this.keyboardRotation === rotation) return;
+    this.keyboardRotation = rotation;
+    this.clearBoardKeys();
+  }
+
+  /**
+   * Emits a keyboard direction after applying the active rotation option.
+   */
+  private emitKeyboardDir(dir: Dir) {
+    this.handler(rotateKeyboardDir(dir, this.keyboardRotation));
   }
 
   private onKey = (e: KeyboardEvent) => {
     const arrowDir = ARROW_KEY_TO_DIR[e.key];
     if (arrowDir) {
       e.preventDefault();
-      this.handler(arrowDir);
+      this.emitKeyboardDir(arrowDir);
       return;
     }
 
@@ -115,6 +168,9 @@ export class Input {
     this.handleBoardDir(dir, e.repeat);
   };
 
+  /**
+   * Debounces cardinal WASD input so quick two-key presses become diagonals.
+   */
   private handleBoardDir(dir: Dir | null, isRepeat: boolean) {
     if (!dir) {
       this.clearPendingBoardDir();
@@ -125,7 +181,7 @@ export class Input {
     if (isDiagonalDir(dir)) {
       this.clearPendingBoardDir();
       if (isRepeat || dir !== this.lastBoardDir) {
-        this.handler(dir);
+        this.emitKeyboardDir(dir);
       }
       this.lastBoardDir = dir;
       return;
@@ -133,7 +189,7 @@ export class Input {
 
     if (isRepeat) {
       if (this.pendingBoardDir) return;
-      this.handler(dir);
+      this.emitKeyboardDir(dir);
       this.lastBoardDir = dir;
       return;
     }
@@ -162,12 +218,18 @@ export class Input {
     this.clearBoardKeys();
   };
 
+  /**
+   * Clears pressed WASD keys and any delayed cardinal move.
+   */
   private clearBoardKeys() {
     this.activeBoardKeys.clear();
     this.lastBoardDir = null;
     this.clearPendingBoardDir();
   }
 
+  /**
+   * Delays a cardinal move briefly to allow a diagonal combo key to arrive.
+   */
   private scheduleBoardDir(dir: BoardDir) {
     this.clearPendingBoardDir();
     this.pendingBoardDir = dir;
@@ -178,19 +240,25 @@ export class Input {
       const currentDir = resolveBoardKeyDir(this.activeBoardKeys);
       this.pendingBoardDir = null;
       if (currentDir === dir) {
-        this.handler(dir);
+        this.emitKeyboardDir(dir);
       }
     }, BOARD_COMBO_DEBOUNCE_MS);
   }
 
+  /**
+   * Emits the delayed cardinal move before its key is released.
+   */
   private flushPendingBoardDir() {
     const dir = this.pendingBoardDir;
     if (!dir) return;
     this.clearPendingBoardDir();
-    this.handler(dir);
+    this.emitKeyboardDir(dir);
     this.lastBoardDir = dir;
   }
 
+  /**
+   * Cancels the delayed cardinal move timer.
+   */
   private clearPendingBoardDir() {
     if (this.boardComboTimer !== null) {
       window.clearTimeout(this.boardComboTimer);

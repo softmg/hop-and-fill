@@ -2,9 +2,11 @@ import { Application, Container, Graphics, FederatedPointerEvent } from "pixi.js
 import { Level, type LevelData } from "./Level";
 import { Player, preloadPlayerTexture, type PlayerTheme } from "./Player";
 import { preloadTileTextures } from "./Tile";
-import { Input } from "./Input";
+import { Input, type KeyboardRotation } from "./Input";
 import { dirToDelta, gridToScreen, screenToGrid, TILE_H, type Dir } from "./iso";
 import { colors, type Palette } from "./theme";
+
+const JUMP_TARGET_DIRECTIONS: Dir[] = ["NW", "N", "NE", "E", "SE", "S", "SW", "W"];
 
 export interface GameCallbacks {
   onHopCount: (n: number) => void;
@@ -15,6 +17,7 @@ export interface GameCallbacks {
 }
 
 interface PixiGameOptions {
+  keyboardRotation?: KeyboardRotation;
   onFirstSceneRenderable?: () => void;
 }
 
@@ -27,6 +30,9 @@ interface MoveSnapshot {
   destinationWasPainted: boolean;
 }
 
+/**
+ * Coordinates the Pixi scene, level state, input, and gameplay callbacks.
+ */
 export class PixiGame {
   app: Application;
   private world: Container;
@@ -50,6 +56,9 @@ export class PixiGame {
   private firstSceneRenderableReported = false;
   private lastMove: MoveSnapshot | null = null;
 
+  /**
+   * Creates the Pixi application inside the host element and starts scene loading.
+   */
   constructor(
     private host: HTMLDivElement,
     levelData: LevelData,
@@ -74,15 +83,16 @@ export class PixiGame {
     this.app.stage.addChild(this.bg, this.world);
 
     this.preloadAndBuild();
-    this.input = new Input(host, this.handleDir);
+    this.input = new Input(host, this.handleInputDir, { keyboardRotation: options.keyboardRotation });
     this.app.renderer.on("resize", this.layout);
 
     // Мышь: hover + клик. Используем eventMode на stage.
     this.app.stage.eventMode = "static";
     this.app.stage.hitArea = this.app.screen;
     this.app.stage.on("pointermove", this.onPointerMove);
-    this.app.stage.on("pointerdown", this.onPointerDown);
+    this.app.stage.on("pointerup", this.onPointerUp);
     this.app.stage.on("pointerleave", this.onPointerLeave);
+    this.app.ticker.add(this.onTick);
     // Следим за реальным изменением размера контейнера и вызываем
     // app.resize() + layout() только когда размеры действительно поменялись.
     // Это решает проблему первой загрузки, когда host ещё не имеет финального размера.
@@ -184,7 +194,7 @@ export class PixiGame {
   }
 
   private onPointerMove = (e: FederatedPointerEvent) => {
-    if (!this.ready || this.isPaused || this.state !== "playing" || this.player.isAnimating) {
+    if (!this.ready || this.isPaused || this.state !== "playing") {
       this.setHover(null);
       return;
     }
@@ -192,19 +202,63 @@ export class PixiGame {
     this.setHover({ gx, gy });
   };
 
+  /**
+   * Reports whether reachable jump targets should currently be highlighted.
+   */
+  private canShowJumpTargets() {
+    return this.ready && !this.isPaused && this.state === "playing";
+  }
+
+  /**
+   * Refreshes the per-tile reachable target markers around the player.
+   */
+  private updateJumpTargets() {
+    if (!this.ready || !this.level || !this.player) return;
+
+    for (const tile of this.level.tiles.values()) {
+      tile.setJumpAvailable(false);
+    }
+
+    if (!this.canShowJumpTargets()) return;
+
+    for (const dir of JUMP_TARGET_DIRECTIONS) {
+      const { dx, dy } = dirToDelta(dir);
+      this.level.get(this.player.gx + dx, this.player.gy + dy)?.setJumpAvailable(true);
+    }
+  }
+
+  private onTick = () => {
+    if (!this.ready || !this.level) return;
+    this.updateJumpTargets();
+    const now = performance.now();
+    for (const tile of this.level.tiles.values()) {
+      tile.update(now);
+    }
+  };
+
   private onPointerLeave = () => {
     this.setHover(null);
   };
 
-  private onPointerDown = (e: FederatedPointerEvent) => {
-    if (!this.ready || this.isPaused || this.state !== "playing" || this.player.isAnimating) return;
+  private onPointerUp = (e: FederatedPointerEvent) => {
+    if (!this.ready || this.isPaused || this.state !== "playing") return;
     const { gx, gy } = this.screenPointToGrid(e.global.x, e.global.y);
     const dir = this.dirToNeighbor(gx, gy);
-    if (dir) this.handleDir(dir);
+    if (dir) this.handlePointerDir(dir);
   };
 
+  /**
+   * Emits a direction from external controls such as the mobile joystick.
+   */
   triggerDir(d: Parameters<Input["emit"]>[0]) {
     this.input.emit(d);
+  }
+
+  /**
+   * Applies the selected keyboard rotation to the input manager.
+   */
+  setKeyboardRotation(rotation: KeyboardRotation) {
+    this.input.setKeyboardRotation(rotation);
   }
 
   private buildLevel(data: LevelData) {
@@ -223,7 +277,7 @@ export class PixiGame {
     this.world.addChild(this.player.container);
 
     // Закрашиваем стартовую плитку сразу
-    this.level.get(this.level.startGx, this.level.startGy)?.paint();
+    this.level.get(this.level.startGx, this.level.startGy)?.paint({ immediate: true });
 
     this.hops = 0;
     this.state = "playing";
@@ -231,12 +285,18 @@ export class PixiGame {
     this.cb.onHopCount(0);
   }
 
+  /**
+   * Restarts the current level from its initial state.
+   */
   reset() {
     if (!this.ready) return;
     this.buildLevel(this.currentLevelData);
     this.layout();
   }
 
+  /**
+   * Rebuilds the current scene with a new level definition.
+   */
   setLevel(data: LevelData) {
     this.currentLevelData = data;
     if (!this.ready) return;
@@ -244,6 +304,9 @@ export class PixiGame {
     this.layout();
   }
 
+  /**
+   * Updates the optional move limit used to detect loss.
+   */
   setMoveLimit(limit: number | null) {
     this.moveLimit = limit;
   }
@@ -268,16 +331,25 @@ export class PixiGame {
     return true;
   }
 
+  /**
+   * Pauses gameplay input and clears hover state.
+   */
   pause() {
     this.isPaused = true;
     this.setHover(null);
   }
 
+  /**
+   * Resumes gameplay after a pause overlay or visibility pause.
+   */
   resume() {
     this.isPaused = false;
   }
 
-  private handleDir = (dir: Parameters<Input["emit"]>[0]) => {
+  /**
+   * Handles keyboard or touch movement, respecting animation locks.
+   */
+  private handleInputDir = (dir: Parameters<Input["emit"]>[0]) => {
     if (!this.ready) return;
     if (this.isPaused) return;
     if (this.state !== "playing") return;
@@ -311,6 +383,8 @@ export class PixiGame {
         }
       },
       () => {
+        if (this.state !== "playing") return;
+
         if (this.level.isComplete()) {
           this.state = "won";
           this.cb.onWin(this.hops);
@@ -323,6 +397,76 @@ export class PixiGame {
       },
     );
   };
+
+  /**
+   * Handles pointer-click movement without waiting for the player to settle.
+   */
+  private handlePointerDir = (dir: Parameters<Input["emit"]>[0]) => {
+    if (!this.ready) return;
+    if (this.isPaused) return;
+    if (this.state !== "playing") return;
+    this.setHover(null);
+    const { dx, dy } = dirToDelta(dir);
+    const fromGx = this.player.gx;
+    const fromGy = this.player.gy;
+    const tx = fromGx + dx;
+    const ty = fromGy + dy;
+    const target = this.level.get(tx, ty);
+    if (!target) return;
+
+    this.commitMove(fromGx, fromGy, tx, ty);
+  };
+
+  /**
+   * Commits a move, updates score state, and schedules player/tile effects.
+   */
+  private commitMove(fromGx: number, fromGy: number, toGx: number, toGy: number) {
+    if (!this.ready || this.destroyed) return;
+    if (this.isPaused) return;
+    if (this.state !== "playing") return;
+
+    const target = this.level.get(toGx, toGy);
+    if (!target) return;
+
+    this.lastMove = {
+      fromGx,
+      fromGy,
+      toGx,
+      toGy,
+      previousHops: this.hops,
+      destinationWasPainted: target.state === "painted",
+    };
+    this.hops++;
+    this.cb.onHopCount(this.hops);
+    this.cb.onHop();
+    this.player.hopFrom(
+      fromGx,
+      fromGy,
+      toGx,
+      toGy,
+      () => {
+        if (this.state !== "playing") return;
+
+        if (target.paint()) {
+          this.cb.onPaint();
+        }
+
+        if (this.level.isComplete()) {
+          this.state = "won";
+          this.setHover(null);
+          this.cb.onWin(this.hops);
+          return;
+        }
+
+        if (this.moveLimit !== null && this.hops >= this.moveLimit) {
+          this.state = "lost";
+          this.setHover(null);
+          this.cb.onLose();
+        }
+      },
+      () => {},
+    );
+  }
 
   private layout = () => {
     if (!this.ready || !this.level) return;
@@ -379,6 +523,9 @@ export class PixiGame {
     };
   }
 
+  /**
+   * Releases Pixi resources, input listeners, timers, and observers.
+   */
   destroy() {
     this.destroyed = true;
     this.input.destroy();
@@ -389,6 +536,7 @@ export class PixiGame {
       this.resizeRafId = null;
     }
     this.pendingSize = null;
+    this.app.ticker.remove(this.onTick);
     this.app.destroy(true, { children: true });
   }
 }
