@@ -99,11 +99,7 @@ export class Level {
   }
 
   getTeleportDestination(gx: number, gy: number) {
-    for (const pair of this.data.teleportPairs ?? []) {
-      if (pair.from.gx === gx && pair.from.gy === gy) return pair.to;
-      if (pair.to.gx === gx && pair.to.gy === gy) return pair.from;
-    }
-    return null;
+    return resolveTeleportDestination(this.data.teleportPairs, gx, gy);
   }
 
   isComplete() {
@@ -124,6 +120,28 @@ function key(gx: number, gy: number) {
 
 function isCellInList(cells: LevelCell[] | undefined, gx: number, gy: number) {
   return cells?.some((cell) => cell.gx === gx && cell.gy === gy) ?? false;
+}
+
+/**
+ * Resolves a teleport endpoint only when its configured destination is unique.
+ */
+export function resolveTeleportDestination(pairs: TeleportPair[] | undefined, gx: number, gy: number) {
+  let destination: LevelCell | null = null;
+
+  for (const pair of pairs ?? []) {
+    const next =
+      pair.from.gx === gx && pair.from.gy === gy
+        ? pair.to
+        : pair.to.gx === gx && pair.to.gy === gy
+          ? pair.from
+          : null;
+
+    if (!next) continue;
+    if (destination) return null;
+    destination = next;
+  }
+
+  return destination;
 }
 
 function getTeleportIndex(pairs: TeleportPair[] | undefined, gx: number, gy: number) {
