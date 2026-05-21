@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveTeleportDestination, type TeleportPair } from "./Level";
+import { getTeleportIndex, resolveTeleportDestination, type TeleportPair } from "./Level";
 
 describe("resolveTeleportDestination", () => {
   it("resolves both directions for a unique teleport endpoint", () => {
@@ -18,5 +18,6 @@ describe("resolveTeleportDestination", () => {
     ];
 
     expect(resolveTeleportDestination(pairs, 0, 1)).toBeNull();
+    expect(getTeleportIndex(pairs, 0, 1)).toBeNull();
   });
 });

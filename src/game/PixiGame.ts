@@ -277,6 +277,7 @@ export class PixiGame {
     // Закрашиваем стартовую плитку сразу
     const startTile = this.level.get(this.level.startGx, this.level.startGy);
     startTile?.paint({ immediate: true });
+    startTile?.recordLanding();
 
     this.hops = 0;
     this.state = "playing";

@@ -116,13 +116,6 @@ const FRAGILE_TOP_COLORS: Record<TileTheme, { fill: number; edge: number }> = {
 };
 
 /**
- * Counts the player's initial occupancy when the level starts on a fragile tile.
- */
-export function getInitialLandingCount(isStart: boolean, feature: TileFeature) {
-  return isStart && feature === "fragile" ? 1 : 0;
-}
-
-/**
  * Renders one board tile and manages paint, hover, and jump-available effects.
  */
 export class Tile {
@@ -139,8 +132,7 @@ export class Tile {
   private fragileCage: Sprite;
   state: TileState = "unpainted";
   isStart: boolean;
-  landingCount: number;
-  private initialLandingCount: number;
+  landingCount = 0;
   private fragileSealed = false;
   private hovered = false;
   private jumpAvailable = false;
@@ -167,8 +159,6 @@ export class Tile {
     readonly teleportIndex: number | null = null,
   ) {
     this.isStart = isStart;
-    this.initialLandingCount = getInitialLandingCount(isStart, feature);
-    this.landingCount = this.initialLandingCount;
     this.container = new Container();
     this.visual = new Container();
 
@@ -449,7 +439,7 @@ export class Tile {
    */
   reset() {
     this.state = "unpainted";
-    this.landingCount = this.initialLandingCount;
+    this.landingCount = 0;
     this.setFragileSealed(false);
     this.paintAnimating = false;
     this.paintProgress = 0;

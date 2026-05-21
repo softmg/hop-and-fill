@@ -144,7 +144,9 @@ export function resolveTeleportDestination(pairs: TeleportPair[] | undefined, gx
   return destination;
 }
 
-function getTeleportIndex(pairs: TeleportPair[] | undefined, gx: number, gy: number) {
+export function getTeleportIndex(pairs: TeleportPair[] | undefined, gx: number, gy: number) {
+  if (!resolveTeleportDestination(pairs, gx, gy)) return null;
+
   const index = pairs?.findIndex(
     (pair) =>
       (pair.from.gx === gx && pair.from.gy === gy) ||
