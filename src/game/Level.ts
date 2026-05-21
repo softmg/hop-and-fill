@@ -16,6 +16,16 @@ export interface StarThresholds {
   oneStar: number;
 }
 
+export interface LevelCell {
+  gx: number;
+  gy: number;
+}
+
+export interface TeleportPair {
+  from: LevelCell;
+  to: LevelCell;
+}
+
 export interface LevelData {
   name: string;
   // Каждая строка — ряд по gy. Символы: 'X' плитка, 'S' старт-плитка, '.' пусто.
@@ -27,6 +37,8 @@ export interface LevelData {
   // Optional balancing data from imported level packs.
   mOpt?: number;
   starThresholds?: StarThresholds;
+  fragileCells?: LevelCell[];
+  teleportPairs?: TeleportPair[];
 }
 
 export class Level {
@@ -44,7 +56,15 @@ export class Level {
       [...row].forEach((ch, gx) => {
         if (ch === "." || ch === " ") return;
         const isStart = ch === "S";
-        const tile = new Tile(gx, gy, isStart, palette, theme);
+        const tile = new Tile(
+          gx,
+          gy,
+          isStart,
+          palette,
+          theme,
+          isCellInList(data.fragileCells, gx, gy) ? "fragile" : "normal",
+          getTeleportIndex(data.teleportPairs, gx, gy),
+        );
         this.tiles.set(key(gx, gy), tile);
         this.container.addChild(tile.container);
         if (isStart) {
@@ -78,6 +98,14 @@ export class Level {
     return true;
   }
 
+  getTeleportDestination(gx: number, gy: number) {
+    for (const pair of this.data.teleportPairs ?? []) {
+      if (pair.from.gx === gx && pair.from.gy === gy) return pair.to;
+      if (pair.to.gx === gx && pair.to.gy === gy) return pair.from;
+    }
+    return null;
+  }
+
   isComplete() {
     for (const t of this.tiles.values()) {
       if (t.state !== "painted") return false;
@@ -92,4 +120,17 @@ export class Level {
 
 function key(gx: number, gy: number) {
   return `${gx},${gy}`;
+}
+
+function isCellInList(cells: LevelCell[] | undefined, gx: number, gy: number) {
+  return cells?.some((cell) => cell.gx === gx && cell.gy === gy) ?? false;
+}
+
+function getTeleportIndex(pairs: TeleportPair[] | undefined, gx: number, gy: number) {
+  const index = pairs?.findIndex(
+    (pair) =>
+      (pair.from.gx === gx && pair.from.gy === gy) ||
+      (pair.to.gx === gx && pair.to.gy === gy),
+  );
+  return index === undefined || index < 0 ? null : index;
 }

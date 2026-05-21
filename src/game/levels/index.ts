@@ -1,4 +1,5 @@
 import type { LevelData, LevelDifficulty, StarThresholds } from "../Level.ts";
+import { applyShippedFeaturePlan } from "./specialFeatures.ts";
 
 interface ImportedLevelDefinition {
   id: number;
@@ -612,7 +613,7 @@ const importedLevels = [
     name: "Gauntlet Return",
     start: { r: 5, c: 5 },
     grid: [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
       [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
       [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
       [0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0],
@@ -620,7 +621,7 @@ const importedLevels = [
       [0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0],
       [0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0],
       [0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0],
-      [0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0],
+      [1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0],
       [0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     ],
@@ -657,7 +658,7 @@ const importedLevels = [
     name: "Asymmetric Bastion",
     start: { r: 5, c: 6 },
     grid: [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
       [0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
       [0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0],
@@ -668,7 +669,7 @@ const importedLevels = [
       [0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0],
       [0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0],
       [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
     ],
     mOpt: 62,
     starThresholds: { threeStars: 62, twoStars: 64, oneStar: 67 },
@@ -794,10 +795,12 @@ function getImportedLevelByNumber(levelNumber: number) {
 
 export const levels: LevelData[] = chapterLevelGroups.flatMap(({ chapter, theme, sourceLevelNumbers }) =>
   sourceLevelNumbers.map((sourceLevelNumber) =>
-    fromImportedLevel({
-      ...getImportedLevelByNumber(sourceLevelNumber),
-      chapter,
-      theme,
-    }),
+    applyShippedFeaturePlan(
+      fromImportedLevel({
+        ...getImportedLevelByNumber(sourceLevelNumber),
+        chapter,
+        theme,
+      }),
+    ),
   ),
 );

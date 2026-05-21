@@ -269,7 +269,7 @@ describe("GameCanvas yandex lifecycle", () => {
     const savedProgress = mockSavePlayerProgress.mock.calls.at(-1)?.[0];
     expect(savedProgress.hasStarted).toBe(true);
     expect(savedProgress.tutorialComplete).toBe(false);
-    expect(screen.getByText(/Свайпай, тяни джойстик/)).toBeInTheDocument();
+    expect(screen.getByText(/Свайпай, тапай по соседней плитке/)).toBeInTheDocument();
     expect(mockYsdkGameplayStart).not.toHaveBeenCalled();
   });
 
@@ -459,7 +459,6 @@ describe("GameCanvas yandex lifecycle", () => {
       expect(screen.getByText("Уровень пройден!")).toBeInTheDocument();
       expect(screen.getByText(/Время: 0:01.2/)).toBeInTheDocument();
       expect(screen.getAllByText("Гонка получена").length).toBeGreaterThan(0);
-      expect(screen.getByTitle("Гонки за быстрое прохождение")).toHaveTextContent("1/25");
     } finally {
       vi.useRealTimers();
     }

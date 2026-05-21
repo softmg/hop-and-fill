@@ -1,5 +1,5 @@
 import { Assets, ColorMatrixFilter, Container, Graphics, Sprite, Texture } from "pixi.js";
-import { TILE_W, TILE_H, gridToScreen, isoZ } from "./iso";
+import { TILE_W, TILE_H, TILE_DEPTH, gridToScreen, isoZ } from "./iso";
 import type { Palette } from "./theme";
 import tileUnpaintedUrl from "@/assets/tile-unpainted.webp";
 import tilePaintedUrl from "@/assets/tile-painted.webp";
@@ -11,9 +11,11 @@ import tileUnpaintedWoodUrl from "@/assets/tile-unpainted-wood.webp";
 import tilePaintedWoodUrl from "@/assets/tile-painted-wood.webp";
 import tileUnpaintedPaperUrl from "@/assets/tile-unpainted-paper.webp";
 import tilePaintedPaperUrl from "@/assets/tile-painted-paper.webp";
+import fragileCageUrl from "@/assets/fragile-cage.png";
 
 export type TileState = "unpainted" | "painted";
 export type TileTheme = "default" | "slime" | "neon" | "wood" | "paper";
+export type TileFeature = "normal" | "fragile";
 
 const TILE_VISUAL = {
   spriteWidthFactor: 0.92,
@@ -27,6 +29,7 @@ const TILE_VISUAL = {
   highlightLineWidth: 3,
   highlightLineAlpha: 0.95,
   highlightFillAlpha: 0.18,
+  teleportRayHeight: 52,
 };
 
 /** Eases reveal animations toward their target without a hard stop. */
@@ -57,6 +60,7 @@ const _tex: Record<TileTheme, { unpainted: Texture | null; painted: Texture | nu
   wood: { unpainted: null, painted: null },
   paper: { unpainted: null, painted: null },
 };
+let _texFragileCage: Texture | null = null;
 
 const URLS: Record<TileTheme, { unpainted: string; painted: string }> = {
   default: { unpainted: tileUnpaintedUrl, painted: tilePaintedUrl },
@@ -77,6 +81,7 @@ export async function preloadTileTextures() {
       Assets.load<Texture>(URLS[th].painted).then((t) => (_tex[th].painted = t)),
     ]),
   );
+  _texFragileCage = await Assets.load<Texture>(fragileCageUrl);
 }
 
 const TILE_METRICS: Record<TileTheme, { anchorX: number; anchorY: number; faceWRatio: number }> = {
@@ -97,6 +102,19 @@ function getTextures(theme: TileTheme = "default") {
   return { unpainted: slot.unpainted, painted: slot.painted };
 }
 
+function getFragileCageTexture() {
+  if (!_texFragileCage) _texFragileCage = Texture.from(fragileCageUrl);
+  return _texFragileCage;
+}
+
+const FRAGILE_TOP_COLORS: Record<TileTheme, { fill: number; edge: number }> = {
+  default: { fill: 0xc74860, edge: 0xffa2ad },
+  slime: { fill: 0xbe4b61, edge: 0xffb0b7 },
+  neon: { fill: 0xff386d, edge: 0xffa3d0 },
+  wood: { fill: 0xbe4a42, edge: 0xffad93 },
+  paper: { fill: 0xc65b68, edge: 0xffc0b8 },
+};
+
 /**
  * Renders one board tile and manages paint, hover, and jump-available effects.
  */
@@ -107,10 +125,15 @@ export class Tile {
   private paintedSprite: Sprite;
   private paintMask: Graphics;
   private brightnessFilter: ColorMatrixFilter;
+  private fragileTop: Graphics;
+  private teleportEffect: Graphics;
   private highlight: Graphics;
   private highlightMask: Graphics;
+  private fragileCage: Sprite;
   state: TileState = "unpainted";
   isStart: boolean;
+  landingCount = 0;
+  private fragileSealed = false;
   private hovered = false;
   private jumpAvailable = false;
   private jumpLift = 0;
@@ -132,6 +155,8 @@ export class Tile {
     isStart: boolean,
     private palette: Palette,
     private theme: TileTheme = "default",
+    readonly feature: TileFeature = "normal",
+    readonly teleportIndex: number | null = null,
   ) {
     this.isStart = isStart;
     this.container = new Container();
@@ -153,16 +178,33 @@ export class Tile {
     this.brightnessFilter = new ColorMatrixFilter();
     this.visual.filters = [this.brightnessFilter];
 
+    this.fragileTop = new Graphics();
+    this.teleportEffect = new Graphics();
     this.highlight = new Graphics();
     this.highlightMask = new Graphics();
+    this.fragileCage = new Sprite(getFragileCageTexture());
+    this.fragileCage.anchor.set(0.5, 0.91);
+    this.fragileCage.position.set(0, TILE_H + TILE_DEPTH * 0.8);
+    this.fragileCage.visible = false;
+    fitSpriteWidth(this.fragileCage, TILE_W * 1.48);
     this.highlight.mask = this.highlightMask;
     this.highlight.visible = false;
+    this.drawFragileTop();
     this.drawHighlight();
     this.drawHighlightMask(0);
     this.drawPaintMask(0);
 
     this.container.addChild(this.visual);
-    this.visual.addChild(this.unpaintedSprite, this.paintedSprite, this.paintMask, this.highlight, this.highlightMask);
+    this.visual.addChild(
+      this.unpaintedSprite,
+      this.paintedSprite,
+      this.paintMask,
+      this.fragileTop,
+      this.teleportEffect,
+      this.highlight,
+      this.highlightMask,
+      this.fragileCage,
+    );
     this.unpaintedSprite.position.set(0, TILE_H / 2);
     this.paintedSprite.position.set(0, TILE_H / 2);
 
@@ -191,12 +233,42 @@ export class Tile {
   }
 
   /**
+   * Fragile cells can only be reached by one jump during a run.
+   */
+  canLand() {
+    return this.feature !== "fragile" || this.landingCount === 0;
+  }
+
+  recordLanding() {
+    this.landingCount += 1;
+  }
+
+  setLandingCount(count: number) {
+    this.landingCount = count;
+  }
+
+  shouldSealAfterDeparture() {
+    return this.feature === "fragile" && this.landingCount > 0;
+  }
+
+  isFragileSealed() {
+    return this.fragileSealed;
+  }
+
+  setFragileSealed(on: boolean) {
+    if (this.feature !== "fragile") return;
+    this.fragileSealed = on;
+    this.fragileCage.visible = on;
+  }
+
+  /**
    * Advances all per-frame tile visual effects.
    */
   update(now: number) {
     this.updateHover(now);
     this.updatePaint(now);
     this.updateJumpMotion(now);
+    this.drawTeleportEffect(now);
   }
 
   /**
@@ -218,6 +290,57 @@ export class Tile {
     this.highlight.lineTo(-hw, hh);
     this.highlight.closePath();
     this.highlight.endFill();
+  }
+
+  private drawFragileTop() {
+    if (this.feature !== "fragile") return;
+
+    const hw = TILE_W / 2;
+    const hh = TILE_H / 2;
+    const colors = FRAGILE_TOP_COLORS[this.theme];
+    this.fragileTop.clear();
+    this.fragileTop.lineStyle({ width: 2, color: colors.edge, alpha: 0.92 });
+    this.fragileTop.beginFill(colors.fill, 0.82);
+    this.fragileTop.moveTo(0, 0);
+    this.fragileTop.lineTo(hw, hh);
+    this.fragileTop.lineTo(0, TILE_H);
+    this.fragileTop.lineTo(-hw, hh);
+    this.fragileTop.closePath();
+    this.fragileTop.endFill();
+  }
+
+  private drawTeleportEffect(now: number) {
+    this.teleportEffect.clear();
+    if (this.teleportIndex === null) return;
+
+    const accent = this.theme === "neon" ? 0xff4fe9 : 0x2de6ff;
+    const phase = now * 0.004 + this.teleportIndex * 1.7;
+    const hw = TILE_W / 2;
+    const hh = TILE_H / 2;
+    const perimeter = [
+      { x: 0, y: 4 },
+      { x: hw * 0.62, y: hh * 0.68 },
+      { x: hw * 0.52, y: hh * 1.28 },
+      { x: 0, y: TILE_H - 4 },
+      { x: -hw * 0.52, y: hh * 1.28 },
+      { x: -hw * 0.62, y: hh * 0.68 },
+    ];
+
+    this.teleportEffect.lineStyle({ width: 2, color: accent, alpha: 0.62 });
+    this.teleportEffect.moveTo(perimeter[0].x, perimeter[0].y);
+    for (const point of perimeter.slice(1)) this.teleportEffect.lineTo(point.x, point.y);
+    this.teleportEffect.closePath();
+
+    perimeter.forEach((point, index) => {
+      const wave = (Math.sin(phase + index * 0.9) + 1) / 2;
+      const rayHeight = TILE_VISUAL.teleportRayHeight * (0.42 + wave * 0.58);
+      this.teleportEffect.lineStyle({ width: index % 2 === 0 ? 3 : 2, color: accent, alpha: 0.28 + wave * 0.6 });
+      this.teleportEffect.moveTo(point.x, point.y);
+      this.teleportEffect.lineTo(point.x, point.y - rayHeight);
+      this.teleportEffect.beginFill(0xffffff, 0.28 + wave * 0.4);
+      this.teleportEffect.drawCircle(point.x, point.y - rayHeight, 2 + wave * 1.4);
+      this.teleportEffect.endFill();
+    });
   }
 
   /**
@@ -316,6 +439,8 @@ export class Tile {
    */
   reset() {
     this.state = "unpainted";
+    this.landingCount = 0;
+    this.setFragileSealed(false);
     this.paintAnimating = false;
     this.paintProgress = 0;
     this.drawPaintMask(0);

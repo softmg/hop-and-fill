@@ -1,6 +1,7 @@
 import type { LevelData } from "../Level.ts";
 import { computeOptimalMoves, moveLimit } from "../difficulty.ts";
-import { analyzeLevelGraph } from "../levelAnalysis.ts";
+import { analyzeLevelGraph, parseLevelGraph, toCellKey } from "../levelAnalysis.ts";
+import { assessFeatureImpact } from "./specialFeatures.ts";
 
 export type RetryDifficulty = "low" | "medium" | "high";
 
@@ -18,6 +19,10 @@ export interface LevelValidationRow {
   branchingCount: number;
   graphDiameter: number;
   startPenalty: number;
+  interiorFragileCount: number;
+  fragileCellsRaiseOptimal: boolean;
+  teleportRequiredForOptimal: boolean;
+  optimalRouteUsesTeleport: boolean;
   expectedRetryDifficulty: RetryDifficulty;
   warnings: string[];
 }
@@ -40,8 +45,14 @@ function inferRetryDifficulty(row: Omit<LevelValidationRow, "expectedRetryDiffic
   return "low";
 }
 
+function isBoardCell(level: LevelData, gx: number, gy: number) {
+  const value = level.rows[gy]?.[gx];
+  return value !== undefined && value !== "." && value !== " ";
+}
+
 function validateLevel(level: LevelData, index: number, seenNames: Set<string>) {
   const graphMetrics = analyzeLevelGraph(level);
+  const parsedGraph = parseLevelGraph(level);
   const optimalMoves = computeOptimalMoves(level);
   const limit = moveLimit(level);
   const warnings: string[] = [];
@@ -64,6 +75,42 @@ function validateLevel(level: LevelData, index: number, seenNames: Set<string>) 
     warnings.push(`move limit ${limit} is lower than optimal ${optimalMoves}`);
   }
 
+  const fragileCells = level.fragileCells ?? [];
+  if (level.chapter >= 2 && fragileCells.length === 0) {
+    warnings.push("chapter requires a fragile cell");
+  }
+  for (const cell of fragileCells) {
+    if (!isBoardCell(level, cell.gx, cell.gy)) {
+      warnings.push(`fragile cell is outside the board: ${toCellKey(cell.gx, cell.gy)}`);
+    }
+  }
+  const interiorFragileCount = fragileCells.filter(
+    (cell) => (parsedGraph.degreeByKey.get(toCellKey(cell.gx, cell.gy)) ?? 0) >= 3,
+  ).length;
+
+  const teleportPairs = level.teleportPairs ?? [];
+  if (level.chapter >= 3 && teleportPairs.length === 0) {
+    warnings.push("chapter requires a teleport pair");
+  }
+  teleportPairs.forEach((pair, pairIndex) => {
+    for (const cell of [pair.from, pair.to]) {
+      if (!isBoardCell(level, cell.gx, cell.gy)) {
+        warnings.push(`teleport pair ${pairIndex + 1} is outside the board: ${toCellKey(cell.gx, cell.gy)}`);
+      }
+    }
+    if (pair.from.gx === pair.to.gx && pair.from.gy === pair.to.gy) {
+      warnings.push(`teleport pair ${pairIndex + 1} points to one cell`);
+    }
+    if (Math.max(Math.abs(pair.from.gx - pair.to.gx), Math.abs(pair.from.gy - pair.to.gy)) <= 1) {
+      warnings.push(`teleport pair ${pairIndex + 1} is still adjacent`);
+    }
+  });
+
+  const featureImpact = level.chapter >= 2 ? assessFeatureImpact(level, optimalMoves) : null;
+  if (level.chapter >= 2 && !featureImpact?.optimalRoute) {
+    warnings.push(`no route found at stated optimal move count ${optimalMoves}`);
+  }
+
   if (seenNames.has(level.name)) {
     warnings.push(`duplicate level name: ${level.name}`);
   }
@@ -83,6 +130,10 @@ function validateLevel(level: LevelData, index: number, seenNames: Set<string>) 
     branchingCount: graphMetrics.branchingCount,
     graphDiameter: graphMetrics.graphDiameter,
     startPenalty: graphMetrics.startPenalty,
+    interiorFragileCount,
+    fragileCellsRaiseOptimal: featureImpact?.fragileCellsRaiseOptimal ?? false,
+    teleportRequiredForOptimal: featureImpact?.teleportRequiredForOptimal ?? false,
+    optimalRouteUsesTeleport: featureImpact?.optimalRouteUsesTeleport ?? false,
   };
 
   return {
@@ -119,6 +170,9 @@ export function formatLevelsValidationReport(report: LevelsValidationReport) {
         `branching=${level.branchingCount}`,
         `diameter=${level.graphDiameter}`,
         `startPenalty=${level.startPenalty}`,
+        `fragileInterior=${level.interiorFragileCount}`,
+        `fragileImpact=${level.fragileCellsRaiseOptimal ? "raises-optimal" : "-"}`,
+        `teleportOptimal=${level.teleportRequiredForOptimal ? "required" : level.optimalRouteUsesTeleport ? "used" : "-"}`,
         `retry=${level.expectedRetryDifficulty}`,
         `trick=${level.intendedTrick ?? "-"}`,
       ].join(" | "),

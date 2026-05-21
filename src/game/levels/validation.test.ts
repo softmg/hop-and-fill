@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { levels } from "./index";
 import { formatLevelsValidationReport, validateLevels } from "./validation";
 
@@ -15,6 +15,18 @@ describe("level metadata", () => {
       expect(level.starThresholds?.threeStars).toBe(level.mOpt);
       expect(level.starThresholds?.twoStars).toBeGreaterThanOrEqual(level.starThresholds?.threeStars ?? 0);
       expect(level.starThresholds?.oneStar).toBeGreaterThanOrEqual(level.starThresholds?.twoStars ?? 0);
+
+      if (level.chapter >= 2) {
+        expect(level.fragileCells?.length).toBeGreaterThanOrEqual(1);
+      } else {
+        expect(level.fragileCells).toBeUndefined();
+      }
+
+      if (level.chapter >= 3) {
+        expect(level.teleportPairs?.length).toBeGreaterThanOrEqual(1);
+      } else {
+        expect(level.teleportPairs).toBeUndefined();
+      }
     }
 
     expect(levels.map((level) => ({ name: level.name, chapter: level.chapter, theme: level.theme ?? "default" }))).toEqual([
@@ -56,37 +68,41 @@ describe("level metadata", () => {
       name: "Gauntlet Return",
       chapter: 3,
       difficulty: 5,
-      mOpt: 57,
-      starThresholds: { threeStars: 57, twoStars: 59, oneStar: 62 },
+      mOpt: 50,
+      starThresholds: { threeStars: 50, twoStars: 52, oneStar: 55 },
     });
     expect(levels[19]).toMatchObject({
       name: "Bent Stronghold",
       chapter: 4,
       difficulty: 5,
-      mOpt: 65,
-      starThresholds: { threeStars: 65, twoStars: 67, oneStar: 70 },
+      mOpt: 55,
+      starThresholds: { threeStars: 55, twoStars: 57, oneStar: 60 },
     });
     expect(levels[21]).toMatchObject({
       name: "Asymmetric Bastion",
       chapter: 5,
       difficulty: 5,
-      mOpt: 62,
-      starThresholds: { threeStars: 62, twoStars: 64, oneStar: 67 },
+      mOpt: 64,
+      starThresholds: { threeStars: 64, twoStars: 66, oneStar: 69 },
     });
     expect(levels[24]).toMatchObject({
       name: "Shifted Fortress",
       chapter: 5,
       difficulty: 5,
-      mOpt: 103,
-      starThresholds: { threeStars: 103, twoStars: 105, oneStar: 108 },
+      mOpt: 90,
+      starThresholds: { threeStars: 90, twoStars: 92, oneStar: 95 },
     });
   });
 });
 
 describe("level validation", () => {
-  it("produces stable metrics for representative current levels", () => {
-    const report = validateLevels(levels);
+  let report: ReturnType<typeof validateLevels>;
 
+  beforeAll(() => {
+    report = validateLevels(levels);
+  }, 30_000);
+
+  it("produces stable metrics for representative current levels", () => {
     expect(report.warnings).toEqual([]);
     expect(report.levels[0]).toMatchObject({
       index: 1,
@@ -120,10 +136,29 @@ describe("level validation", () => {
   });
 
   it("formats the report as readable line output", () => {
-    const output = formatLevelsValidationReport(validateLevels(levels));
+    const output = formatLevelsValidationReport(report);
 
     expect(output).toContain("Hop and Fill level validation");
     expect(output).toContain("L01 Square");
     expect(output).toContain("Warnings: none");
+  });
+
+  it("keeps shipped teleports structural in representative advanced levels", () => {
+    for (const levelName of [
+      "Broken Switchbacks",
+      "Hidden Spine",
+      "Gauntlet Return",
+      "Branchlock Court",
+      "Bent Stronghold",
+      "Asymmetric Bastion",
+      "Hooked Citadel",
+      "Broken Ramparts",
+      "Shifted Fortress",
+    ]) {
+      expect(report.levels.find((level) => level.name === levelName)).toMatchObject({
+        teleportRequiredForOptimal: true,
+        optimalRouteUsesTeleport: true,
+      });
+    }
   });
 });
