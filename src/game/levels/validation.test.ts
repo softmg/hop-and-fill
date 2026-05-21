@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import type { LevelData } from "../Level";
 import { levels } from "./index";
 import { formatLevelsValidationReport, validateLevels } from "./validation";
 
@@ -141,6 +142,29 @@ describe("level validation", () => {
     expect(output).toContain("Hop and Fill level validation");
     expect(output).toContain("L01 Square");
     expect(output).toContain("Warnings: none");
+  });
+
+  it("warns about fragile starts and reused teleport endpoints", () => {
+    const invalidLevel = {
+      name: "Invalid Feature Endpoints",
+      rows: [
+        "SXX",
+        "XXX",
+        "XXX",
+      ],
+      chapter: 1,
+      difficulty: 1,
+      fragileCells: [{ gx: 0, gy: 0 }],
+      teleportPairs: [
+        { from: { gx: 0, gy: 1 }, to: { gx: 2, gy: 2 } },
+        { from: { gx: 0, gy: 1 }, to: { gx: 2, gy: 0 } },
+      ],
+    } satisfies LevelData;
+
+    expect(validateLevels([invalidLevel]).warnings).toEqual(expect.arrayContaining([
+      "L1 Invalid Feature Endpoints: fragile cell is the start tile: 0,0",
+      "L1 Invalid Feature Endpoints: teleport endpoint is reused 2 times: 0,1",
+    ]));
   });
 
   it("keeps shipped teleports structural in representative advanced levels", () => {

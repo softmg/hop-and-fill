@@ -275,7 +275,11 @@ export class PixiGame {
     this.world.addChild(this.player.container);
 
     // Закрашиваем стартовую плитку сразу
-    this.level.get(this.level.startGx, this.level.startGy)?.paint({ immediate: true });
+    const startTile = this.level.get(this.level.startGx, this.level.startGy);
+    startTile?.paint({ immediate: true });
+    if (startTile?.feature === "fragile") {
+      startTile.recordLanding();
+    }
 
     this.hops = 0;
     this.state = "playing";
@@ -356,51 +360,21 @@ export class PixiGame {
     if (this.player.isAnimating) return;
     // Сбрасываем hover, чтобы курсор не "прилипал" к старой плитке
     this.setHover(null);
+    const fromGx = this.player.gx;
+    const fromGy = this.player.gy;
     const { dx, dy } = dirToDelta(dir);
-    const tx = this.player.gx + dx;
-    const ty = this.player.gy + dy;
-    const target = this.level.get(tx, ty);
-    const source = this.level.get(this.player.gx, this.player.gy);
-    if (!target || !target.canLand()) {
-      // За пределы поля ходить нельзя — игнорируем ход без штрафа
+    const tx = fromGx + dx;
+    const ty = fromGy + dy;
+
+    if (this.isReachableFrom(fromGx, fromGy, tx, ty)) {
+      this.commitMove(fromGx, fromGy, tx, ty);
       return;
     }
-    this.lastMove = {
-      fromGx: this.player.gx,
-      fromGy: this.player.gy,
-      toGx: tx,
-      toGy: ty,
-      previousHops: this.hops,
-      destinationWasPainted: target.state === "painted",
-      destinationLandingCount: target.landingCount,
-      sourceWasSealed: source?.isFragileSealed() ?? false,
-    };
-    if (source?.shouldSealAfterDeparture()) source.setFragileSealed(true);
-    target.recordLanding();
-    this.hops++;
-    this.cb.onHopCount(this.hops);
-    this.cb.onHop();
-    this.player.hop(
-      tx, ty,
-      () => {
-        if (target.paint()) {
-          this.cb.onPaint();
-        }
-      },
-      () => {
-        if (this.state !== "playing") return;
 
-        if (this.level.isComplete()) {
-          this.state = "won";
-          this.cb.onWin(this.hops);
-          return;
-        }
-        if (this.moveLimit !== null && this.hops >= this.moveLimit) {
-          this.state = "lost";
-          this.cb.onLose();
-        }
-      },
-    );
+    const teleport = this.level.getTeleportDestination(fromGx, fromGy);
+    if (teleport) {
+      this.commitMove(fromGx, fromGy, teleport.gx, teleport.gy);
+    }
   };
 
   /**

@@ -109,6 +109,9 @@ function validateLevel(level: LevelData, index: number, seenNames: Set<string>) 
     if (!isBoardCell(level, cell.gx, cell.gy)) {
       warnings.push(`fragile cell is outside the board: ${toCellKey(cell.gx, cell.gy)}`);
     }
+    if (parsedGraph.startCellCount > 0 && cell.gx === parsedGraph.startGx && cell.gy === parsedGraph.startGy) {
+      warnings.push(`fragile cell is the start tile: ${toCellKey(cell.gx, cell.gy)}`);
+    }
   }
   const interiorFragileCount = fragileCells.filter(
     (cell) => (parsedGraph.degreeByKey.get(toCellKey(cell.gx, cell.gy)) ?? 0) >= 3,
@@ -118,10 +121,13 @@ function validateLevel(level: LevelData, index: number, seenNames: Set<string>) 
   if (level.chapter >= 3 && teleportPairs.length === 0) {
     warnings.push("chapter requires a teleport pair");
   }
+  const teleportEndpointCounts = new Map<string, number>();
   teleportPairs.forEach((pair, pairIndex) => {
     for (const cell of [pair.from, pair.to]) {
+      const key = toCellKey(cell.gx, cell.gy);
+      teleportEndpointCounts.set(key, (teleportEndpointCounts.get(key) ?? 0) + 1);
       if (!isBoardCell(level, cell.gx, cell.gy)) {
-        warnings.push(`teleport pair ${pairIndex + 1} is outside the board: ${toCellKey(cell.gx, cell.gy)}`);
+        warnings.push(`teleport pair ${pairIndex + 1} is outside the board: ${key}`);
       }
     }
     if (pair.from.gx === pair.to.gx && pair.from.gy === pair.to.gy) {
@@ -131,6 +137,11 @@ function validateLevel(level: LevelData, index: number, seenNames: Set<string>) 
       warnings.push(`teleport pair ${pairIndex + 1} is still adjacent`);
     }
   });
+  for (const [cellKey, count] of teleportEndpointCounts) {
+    if (count > 1) {
+      warnings.push(`teleport endpoint is reused ${count} times: ${cellKey}`);
+    }
+  }
 
   const featureImpact = level.chapter >= 2 ? assessFeatureImpact(level, optimalMoves) : null;
   if (level.chapter >= 2 && !featureImpact?.optimalRoute) {
