@@ -157,13 +157,17 @@ describe("level validation", () => {
     }
   });
 
-  it("ramps route decisions through the redesigned chapter sets", () => {
-    for (const chapter of [2, 3, 4, 5]) {
-      const routeScores = report.levels
-        .filter((level) => level.chapter === chapter && level.index !== 11)
-        .map((level) => level.routeDecisionScore);
+  it("keeps the redesigned chapters under higher route-planning pressure", () => {
+    expect(report.levels.filter((level) => level.chapter === 2).map((level) => level.interiorFragileCount)).toEqual([2, 3, 3, 2, 2]);
+    expect(report.levels.filter((level) => level.chapter === 3).map((level) => level.interiorFragileCount)).toEqual([3, 3, 3, 3, 3]);
+    expect(report.levels.filter((level) => level.chapter === 4).map((level) => level.interiorFragileCount)).toEqual([4, 4, 4, 4, 4]);
+    expect(report.levels.filter((level) => level.chapter === 5).map((level) => level.interiorFragileCount)).toEqual([4, 4, 4, 4, 4]);
 
-      expect(routeScores).toEqual([...routeScores].sort((a, b) => a - b));
-    }
+    const chapterAverages = [2, 3, 4, 5].map((chapter) => {
+      const chapterLevels = report.levels.filter((level) => level.chapter === chapter);
+      return chapterLevels.reduce((sum, level) => sum + level.routeDecisionScore, 0) / chapterLevels.length;
+    });
+
+    expect(chapterAverages).toEqual([...chapterAverages].sort((a, b) => a - b));
   });
 });

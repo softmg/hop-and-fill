@@ -493,41 +493,41 @@ export function planChapterFeatures(level: LevelData): LevelData {
 }
 
 const SHIPPED_FEATURE_PLANS: Record<string, FeaturePlan> = {
-  "Soft Reboot": { mOpt: 20, fragileCells: [{ gx: 5, gy: 2 }] },
+  "Soft Reboot": { mOpt: 20, fragileCells: [{ gx: 5, gy: 2 }, { gx: 3, gy: 2 }] },
   "Broken Bridge": { mOpt: 28, fragileCells: [{ gx: 5, gy: 3 }] },
   "Branching Labyrinth": { mOpt: 33, fragileCells: [{ gx: 2, gy: 5 }] },
-  "Bent Orchard": { mOpt: 23, fragileCells: [{ gx: 3, gy: 4 }] },
-  "Angled Pockets": { mOpt: 29, fragileCells: [{ gx: 3, gy: 2 }] },
-  "Cracked Arcade": { mOpt: 34, fragileCells: [{ gx: 2, gy: 5 }, { gx: 3, gy: 3 }] },
-  "Kite Junction": { mOpt: 37, fragileCells: [{ gx: 3, gy: 3 }, { gx: 1, gy: 3 }] },
+  "Bent Orchard": { mOpt: 23, fragileCells: [{ gx: 3, gy: 4 }, { gx: 4, gy: 5 }] },
+  "Angled Pockets": { mOpt: 29, fragileCells: [{ gx: 3, gy: 2 }, { gx: 6, gy: 5 }] },
+  "Cracked Arcade": { mOpt: 34, fragileCells: [{ gx: 2, gy: 5 }, { gx: 3, gy: 3 }, { gx: 2, gy: 3 }] },
+  "Kite Junction": { mOpt: 37, fragileCells: [{ gx: 3, gy: 3 }, { gx: 1, gy: 3 }, { gx: 1, gy: 1 }] },
   "Sawtooth Gate": {
     mOpt: 46,
-    fragileCells: [{ gx: 2, gy: 6 }, { gx: 4, gy: 7 }],
+    fragileCells: [{ gx: 2, gy: 6 }, { gx: 4, gy: 7 }, { gx: 2, gy: 4 }],
     teleportPairs: [{ from: { gx: 0, gy: 0 }, to: { gx: 7, gy: 8 } }],
   },
   "Broken Switchbacks": {
     mOpt: 29,
-    fragileCells: [{ gx: 1, gy: 5 }],
+    fragileCells: [{ gx: 1, gy: 5 }, { gx: 5, gy: 2 }, { gx: 8, gy: 5 }],
     teleportPairs: [{ from: { gx: 5, gy: 0 }, to: { gx: 9, gy: 5 } }],
   },
   "Hidden Spine": {
     mOpt: 29,
-    fragileCells: [{ gx: 5, gy: 1 }],
+    fragileCells: [{ gx: 5, gy: 1 }, { gx: 7, gy: 1 }, { gx: 6, gy: 0 }],
     teleportPairs: [{ from: { gx: 2, gy: 3 }, to: { gx: 5, gy: 8 } }],
   },
   "Layered Passage": {
     mOpt: 41,
-    fragileCells: [{ gx: 3, gy: 4 }, { gx: 2, gy: 6 }],
+    fragileCells: [{ gx: 3, gy: 4 }, { gx: 2, gy: 6 }, { gx: 3, gy: 5 }],
     teleportPairs: [{ from: { gx: 5, gy: 0 }, to: { gx: 0, gy: 8 } }],
   },
   "Skewed Garden": {
     mOpt: 44,
-    fragileCells: [{ gx: 2, gy: 5 }, { gx: 5, gy: 2 }],
+    fragileCells: [{ gx: 2, gy: 5 }, { gx: 5, gy: 2 }, { gx: 2, gy: 6 }, { gx: 6, gy: 6 }],
     teleportPairs: [{ from: { gx: 0, gy: 7 }, to: { gx: 7, gy: 7 } }],
   },
   "Deep Switchback": {
     mOpt: 43,
-    fragileCells: [{ gx: 5, gy: 5 }, { gx: 4, gy: 2 }],
+    fragileCells: [{ gx: 5, gy: 5 }, { gx: 4, gy: 2 }, { gx: 4, gy: 1 }],
     teleportPairs: [{ from: { gx: 0, gy: 1 }, to: { gx: 8, gy: 7 } }],
   },
   "Gauntlet Return": {
@@ -537,22 +537,22 @@ const SHIPPED_FEATURE_PLANS: Record<string, FeaturePlan> = {
   },
   "Bent Gallery": {
     mOpt: 47,
-    fragileCells: [{ gx: 4, gy: 4 }, { gx: 3, gy: 6 }, { gx: 2, gy: 4 }],
+    fragileCells: [{ gx: 4, gy: 4 }, { gx: 3, gy: 6 }, { gx: 2, gy: 4 }, { gx: 2, gy: 6 }],
     teleportPairs: [{ from: { gx: 0, gy: 0 }, to: { gx: 7, gy: 1 } }],
   },
   "Branchlock Court": {
     mOpt: 53,
-    fragileCells: [{ gx: 5, gy: 4 }, { gx: 5, gy: 2 }, { gx: 7, gy: 4 }],
+    fragileCells: [{ gx: 5, gy: 4 }, { gx: 5, gy: 2 }, { gx: 7, gy: 4 }, { gx: 4, gy: 3 }],
     teleportPairs: [{ from: { gx: 3, gy: 2 }, to: { gx: 0, gy: 2 } }],
   },
   "Twinned Ridges": {
     mOpt: 57,
-    fragileCells: [{ gx: 6, gy: 4 }, { gx: 4, gy: 6 }, { gx: 6, gy: 6 }],
+    fragileCells: [{ gx: 6, gy: 4 }, { gx: 4, gy: 6 }, { gx: 6, gy: 6 }, { gx: 6, gy: 3 }],
     teleportPairs: [{ from: { gx: 7, gy: 0 }, to: { gx: 0, gy: 5 } }],
   },
   "Longhook Maze": {
     mOpt: 61,
-    fragileCells: [{ gx: 5, gy: 5 }, { gx: 5, gy: 3 }, { gx: 7, gy: 5 }],
+    fragileCells: [{ gx: 5, gy: 5 }, { gx: 5, gy: 3 }, { gx: 7, gy: 5 }, { gx: 6, gy: 3 }],
     teleportPairs: [{ from: { gx: 6, gy: 8 }, to: { gx: 8, gy: 3 } }],
   },
   "Bent Stronghold": {
@@ -562,22 +562,22 @@ const SHIPPED_FEATURE_PLANS: Record<string, FeaturePlan> = {
   },
   "Soft Drop": {
     mOpt: 32,
-    fragileCells: [{ gx: 4, gy: 2 }],
+    fragileCells: [{ gx: 4, gy: 2 }, { gx: 5, gy: 2 }, { gx: 5, gy: 3 }, { gx: 2, gy: 1 }],
     teleportPairs: [{ from: { gx: 0, gy: 3 }, to: { gx: 6, gy: 7 } }],
   },
   "Cutout Lane": {
     mOpt: 45,
-    fragileCells: [{ gx: 5, gy: 2 }, { gx: 3, gy: 4 }],
+    fragileCells: [{ gx: 5, gy: 2 }, { gx: 3, gy: 4 }, { gx: 6, gy: 1 }, { gx: 6, gy: 2 }],
     teleportPairs: [{ from: { gx: 2, gy: 0 }, to: { gx: 4, gy: 7 } }],
   },
   "Half-Moon Yard": {
     mOpt: 44,
-    fragileCells: [{ gx: 5, gy: 3 }, { gx: 6, gy: 5 }],
+    fragileCells: [{ gx: 5, gy: 3 }, { gx: 6, gy: 5 }, { gx: 4, gy: 2 }, { gx: 5, gy: 1 }],
     teleportPairs: [{ from: { gx: 0, gy: 2 }, to: { gx: 3, gy: 6 } }],
   },
   "Crooked Reservoir": {
     mOpt: 51,
-    fragileCells: [{ gx: 5, gy: 5 }, { gx: 3, gy: 6 }],
+    fragileCells: [{ gx: 5, gy: 5 }, { gx: 3, gy: 6 }, { gx: 7, gy: 1 }, { gx: 7, gy: 2 }],
     teleportPairs: [{ from: { gx: 6, gy: 0 }, to: { gx: 0, gy: 2 } }],
   },
   "Asymmetric Bastion": {
@@ -602,7 +602,7 @@ const SHIPPED_FEATURE_PLANS: Record<string, FeaturePlan> = {
   },
   "Square Route Crown": {
     mOpt: 85,
-    fragileCells: [{ gx: 10, gy: 6 }, { gx: 2, gy: 2 }],
+    fragileCells: [{ gx: 10, gy: 6 }, { gx: 2, gy: 2 }, { gx: 5, gy: 5 }, { gx: 6, gy: 5 }],
     teleportPairs: [{ from: { gx: 2, gy: 1 }, to: { gx: 10, gy: 11 } }],
   },
 };
