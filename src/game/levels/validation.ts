@@ -23,6 +23,7 @@ export interface LevelValidationRow {
   fragileCellsRaiseOptimal: boolean;
   teleportRequiredForOptimal: boolean;
   optimalRouteUsesTeleport: boolean;
+  routeDecisionScore: number;
   expectedRetryDifficulty: RetryDifficulty;
   warnings: string[];
 }
@@ -43,6 +44,31 @@ function inferRetryDifficulty(row: Omit<LevelValidationRow, "expectedRetryDiffic
   if (score >= 9) return "high";
   if (score >= 5) return "medium";
   return "low";
+}
+
+/**
+ * Tracks route-planning pressure independently from raw board size.
+ */
+function computeRouteDecisionScore(row: Omit<LevelValidationRow, "routeDecisionScore" | "expectedRetryDifficulty" | "warnings">) {
+  const revisitPressure = Math.max(0, row.optimalMoves - Math.max(0, row.tileCount - 1));
+  const teleportPressure = row.teleportRequiredForOptimal
+    ? 9
+    : row.optimalRouteUsesTeleport
+      ? 4
+      : 0;
+
+  return (
+    revisitPressure * 2 +
+    row.deadEndCount * 2 +
+    Math.floor(row.branchingCount / 10) +
+    Math.ceil(row.graphDiameter / 3) +
+    Math.floor(row.optimalMoves / 20) +
+    row.startPenalty +
+    row.difficulty * 2 +
+    row.interiorFragileCount * 3 +
+    (row.fragileCellsRaiseOptimal ? 6 : 0) +
+    teleportPressure
+  );
 }
 
 function isBoardCell(level: LevelData, gx: number, gy: number) {
@@ -136,9 +162,12 @@ function validateLevel(level: LevelData, index: number, seenNames: Set<string>) 
     optimalRouteUsesTeleport: featureImpact?.optimalRouteUsesTeleport ?? false,
   };
 
+  const routeDecisionScore = computeRouteDecisionScore(rowBase);
+
   return {
     ...rowBase,
-    expectedRetryDifficulty: inferRetryDifficulty(rowBase),
+    routeDecisionScore,
+    expectedRetryDifficulty: inferRetryDifficulty({ ...rowBase, routeDecisionScore }),
     warnings,
   } satisfies LevelValidationRow;
 }
@@ -170,6 +199,7 @@ export function formatLevelsValidationReport(report: LevelsValidationReport) {
         `branching=${level.branchingCount}`,
         `diameter=${level.graphDiameter}`,
         `startPenalty=${level.startPenalty}`,
+        `routeDecision=${level.routeDecisionScore}`,
         `fragileInterior=${level.interiorFragileCount}`,
         `fragileImpact=${level.fragileCellsRaiseOptimal ? "raises-optimal" : "-"}`,
         `teleportOptimal=${level.teleportRequiredForOptimal ? "required" : level.optimalRouteUsesTeleport ? "used" : "-"}`,

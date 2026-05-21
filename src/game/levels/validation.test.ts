@@ -35,62 +35,62 @@ describe("level metadata", () => {
       { name: "Zigzag Spine", chapter: 1, theme: "default" },
       { name: "Offset Rooms", chapter: 1, theme: "default" },
       { name: "Asymmetric Gauntlet", chapter: 1, theme: "default" },
-      { name: "Broken Bridge", chapter: 2, theme: "slime" },
-      { name: "Branching Labyrinth", chapter: 2, theme: "slime" },
       { name: "Bent Orchard", chapter: 2, theme: "slime" },
       { name: "Cracked Arcade", chapter: 2, theme: "slime" },
-      { name: "Sawtooth Gate", chapter: 2, theme: "slime" },
+      { name: "Kite Junction", chapter: 2, theme: "slime" },
+      { name: "Soft Reboot", chapter: 2, theme: "slime" },
+      { name: "Angled Pockets", chapter: 2, theme: "slime" },
       { name: "Broken Switchbacks", chapter: 3, theme: "neon" },
-      { name: "Hidden Spine", chapter: 3, theme: "neon" },
-      { name: "Skewed Garden", chapter: 3, theme: "neon" },
       { name: "Deep Switchback", chapter: 3, theme: "neon" },
-      { name: "Gauntlet Return", chapter: 3, theme: "neon" },
+      { name: "Sawtooth Gate", chapter: 3, theme: "neon" },
+      { name: "Layered Passage", chapter: 3, theme: "neon" },
+      { name: "Hidden Spine", chapter: 3, theme: "neon" },
+      { name: "Soft Drop", chapter: 4, theme: "wood" },
       { name: "Bent Gallery", chapter: 4, theme: "wood" },
-      { name: "Branchlock Court", chapter: 4, theme: "wood" },
-      { name: "Twinned Ridges", chapter: 4, theme: "wood" },
-      { name: "Longhook Maze", chapter: 4, theme: "wood" },
-      { name: "Bent Stronghold", chapter: 4, theme: "wood" },
-      { name: "Soft Drop", chapter: 5, theme: "paper" },
-      { name: "Asymmetric Bastion", chapter: 5, theme: "paper" },
-      { name: "Hooked Citadel", chapter: 5, theme: "paper" },
-      { name: "Broken Ramparts", chapter: 5, theme: "paper" },
-      { name: "Shifted Fortress", chapter: 5, theme: "paper" },
+      { name: "Half-Moon Yard", chapter: 4, theme: "wood" },
+      { name: "Skewed Garden", chapter: 4, theme: "wood" },
+      { name: "Cutout Lane", chapter: 4, theme: "wood" },
+      { name: "Crooked Reservoir", chapter: 5, theme: "paper" },
+      { name: "Branchlock Court", chapter: 5, theme: "paper" },
+      { name: "Twinned Ridges", chapter: 5, theme: "paper" },
+      { name: "Longhook Maze", chapter: 5, theme: "paper" },
+      { name: "Square Route Crown", chapter: 5, theme: "paper" },
     ]);
 
     expect(levels[9]).toMatchObject({
-      name: "Sawtooth Gate",
+      name: "Angled Pockets",
       chapter: 2,
-      difficulty: 5,
-      mOpt: 46,
-      starThresholds: { threeStars: 46, twoStars: 48, oneStar: 51 },
+      difficulty: 4,
+      mOpt: 29,
+      starThresholds: { threeStars: 29, twoStars: 31, oneStar: 34 },
     });
     expect(levels[14]).toMatchObject({
-      name: "Gauntlet Return",
+      name: "Hidden Spine",
       chapter: 3,
-      difficulty: 5,
-      mOpt: 50,
-      starThresholds: { threeStars: 50, twoStars: 52, oneStar: 55 },
+      difficulty: 4,
+      mOpt: 29,
+      starThresholds: { threeStars: 29, twoStars: 31, oneStar: 34 },
     });
     expect(levels[19]).toMatchObject({
-      name: "Bent Stronghold",
+      name: "Cutout Lane",
       chapter: 4,
-      difficulty: 5,
-      mOpt: 55,
-      starThresholds: { threeStars: 55, twoStars: 57, oneStar: 60 },
+      difficulty: 4,
+      mOpt: 45,
+      starThresholds: { threeStars: 45, twoStars: 47, oneStar: 50 },
     });
     expect(levels[21]).toMatchObject({
-      name: "Asymmetric Bastion",
+      name: "Branchlock Court",
       chapter: 5,
       difficulty: 5,
-      mOpt: 64,
-      starThresholds: { threeStars: 64, twoStars: 66, oneStar: 69 },
+      mOpt: 53,
+      starThresholds: { threeStars: 53, twoStars: 55, oneStar: 58 },
     });
     expect(levels[24]).toMatchObject({
-      name: "Shifted Fortress",
+      name: "Square Route Crown",
       chapter: 5,
       difficulty: 5,
-      mOpt: 90,
-      starThresholds: { threeStars: 90, twoStars: 92, oneStar: 95 },
+      mOpt: 85,
+      starThresholds: { threeStars: 85, twoStars: 87, oneStar: 90 },
     });
   });
 });
@@ -147,18 +147,23 @@ describe("level validation", () => {
     for (const levelName of [
       "Broken Switchbacks",
       "Hidden Spine",
-      "Gauntlet Return",
+      "Half-Moon Yard",
       "Branchlock Court",
-      "Bent Stronghold",
-      "Asymmetric Bastion",
-      "Hooked Citadel",
-      "Broken Ramparts",
-      "Shifted Fortress",
     ]) {
       expect(report.levels.find((level) => level.name === levelName)).toMatchObject({
         teleportRequiredForOptimal: true,
         optimalRouteUsesTeleport: true,
       });
+    }
+  });
+
+  it("ramps route decisions through the redesigned chapter sets", () => {
+    for (const chapter of [2, 3, 4, 5]) {
+      const routeScores = report.levels
+        .filter((level) => level.chapter === chapter && level.index !== 11)
+        .map((level) => level.routeDecisionScore);
+
+      expect(routeScores).toEqual([...routeScores].sort((a, b) => a - b));
     }
   });
 });

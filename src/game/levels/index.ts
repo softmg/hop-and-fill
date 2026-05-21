@@ -758,10 +758,10 @@ const importedLevels = [
 
 const chapterLevelGroups = [
   { chapter: 1, theme: "default", sourceLevelNumbers: [1, 3, 6, 7, 10] },
-  { chapter: 2, theme: "slime", sourceLevelNumbers: [8, 9, 12, 16, 20] },
-  { chapter: 3, theme: "neon", sourceLevelNumbers: [14, 15, 23, 19, 31] },
-  { chapter: 4, theme: "wood", sourceLevelNumbers: [25, 27, 28, 29, 32] },
-  { chapter: 5, theme: "paper", sourceLevelNumbers: [21, 33, 34, 35, 36] },
+  { chapter: 2, theme: "slime", sourceLevelNumbers: [12, 16, 17, 11, 13] },
+  { chapter: 3, theme: "neon", sourceLevelNumbers: [14, 19, 20, 18, 15] },
+  { chapter: 4, theme: "wood", sourceLevelNumbers: [21, 25, 24, 23, 22] },
+  { chapter: 5, theme: "paper", sourceLevelNumbers: [26, 27, 28, 29, 30] },
 ] satisfies readonly ChapterLevelGroup[];
 
 function fromImportedLevel(level: ImportedLevelDefinition): LevelData {
