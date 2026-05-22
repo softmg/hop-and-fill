@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { LevelData } from "@/game/Level";
 import type { TileTheme } from "@/game/Tile";
-import { deriveChapters, type ChapterMeta } from "@/game/levels/chapters";
+import { deriveChapters, getThemeLabel, type ChapterMeta } from "@/game/levels/chapters";
 import {
   getBestStars,
   getBestTimeMs,
@@ -17,6 +17,7 @@ import {
   type PlayerProgress,
 } from "@/game/progress";
 import { formatDurationMs } from "@/game/time";
+import { useLanguage, useTranslation } from "@/platform/i18n";
 import plushMascot from "@/assets/player.webp";
 import slimeMascot from "@/assets/player-slime.webp";
 import neonMascot from "@/assets/player-neon.webp";
@@ -442,6 +443,8 @@ export const LevelSelect = ({
   onClose,
   onSelectLevel,
 }: LevelSelectProps) => {
+  const t = useTranslation();
+  const language = useLanguage();
   if (!open) return null;
 
   const chapters = deriveChapters(levels);
@@ -527,11 +530,11 @@ export const LevelSelect = ({
               id="level-select-title"
               className="game-title truncate text-2xl leading-none sm:text-4xl"
             >
-              Карта уровней
+              {t("levelMap")}
             </h2>
             {currentChapter && (
               <div className="mt-1 hidden text-xs font-semibold text-[#f0cf9b]/80 sm:block">
-                Глава {currentChapter.chapterIndex} · {currentChapter.themeLabel}
+                {t("chapter")} {currentChapter.chapterIndex} · {getThemeLabel(currentChapter.theme, language)}
               </div>
             )}
           </div>
@@ -542,7 +545,7 @@ export const LevelSelect = ({
             variant="ghost"
             onClick={onClose}
             className="h-10 w-10 shrink-0"
-            aria-label="Закрыть выбор уровня"
+            aria-label={t("closeLevelMap")}
           >
             <X className="h-5 w-5" aria-hidden />
           </Button>
@@ -585,7 +588,7 @@ export const LevelSelect = ({
                     className="game-hud-chip absolute left-3 top-3 px-2 py-1 text-xs font-black text-white/90"
                     style={{ borderColor: visual.accentSoft }}
                   >
-                    Глава {chapter.chapterIndex}
+                    {t("chapter")} {chapter.chapterIndex}
                   </div>
                   {chapter.theme === "neon" && (
                     <div className="absolute left-1/2 top-[45%] h-28 w-28 -translate-x-1/2 rounded-full bg-[#ff28d0]/20 blur-xl" />
@@ -717,8 +720,8 @@ export const LevelSelect = ({
                     node.selected && "animate-pulse",
                   )}
                   style={nodeStyle}
-                  aria-label={`Уровень ${levelNumber}: ${node.level.name}. ${node.stars} из 3 звезд${bestTimeLabel ? `. Лучшее время ${bestTimeLabel}` : ""}${node.raceEarned ? ". Гонка получена" : raceTargetLabel ? `. Гонка за ${raceTargetLabel}` : ""}`}
-                  title={`${node.level.name}${bestTimeLabel ? ` · ${bestTimeLabel}` : ""}${node.raceEarned ? " · гонка получена" : raceTargetLabel ? ` · гонка за ${raceTargetLabel}` : ""}`}
+                  aria-label={`${t("level")} ${levelNumber}: ${node.level.name}. ${t("starsCount", { stars: node.stars })}${bestTimeLabel ? `. ${t("bestTime")} ${bestTimeLabel}` : ""}${node.raceEarned ? `. ${t("raceEarned")}` : raceTargetLabel ? `. ${t("raceTarget", { time: raceTargetLabel })}` : ""}`}
+                  title={`${node.level.name}${bestTimeLabel ? ` · ${bestTimeLabel}` : ""}${node.raceEarned ? ` · ${t("raceEarned")}` : raceTargetLabel ? ` · ${t("raceTarget", { time: raceTargetLabel })}` : ""}`}
                 >
                   <span className="flex h-8 items-center justify-center text-2xl font-black leading-none [text-shadow:0_2px_6px_rgba(0,0,0,0.9)]">
                     {node.unlocked ? levelNumber : <Lock className="h-5 w-5 text-white/65" aria-hidden />}
@@ -812,10 +815,10 @@ export const LevelSelect = ({
                     <div className="relative">
                       <div className="min-w-0">
                         <div className="text-lg font-black leading-tight text-[#ffd291]">
-                          Глава {chapter.chapterIndex}
+                          {t("chapter")} {chapter.chapterIndex}
                         </div>
                         <div className="mt-1 line-clamp-2 text-sm font-semibold leading-tight text-white">
-                          {chapter.themeLabel}
+                          {getThemeLabel(chapter.theme, language)}
                         </div>
                       </div>
                     </div>
@@ -838,12 +841,12 @@ export const LevelSelect = ({
                     </div>
                     <div className="relative mt-1.5 text-[0.72rem] font-medium leading-tight text-white/66">
                       {completed
-                        ? "Глава пройдена"
+                        ? t("chapterComplete")
                         : unlocked
                           ? active
-                            ? "Текущая глава"
-                            : "Перейти к открытому уровню"
-                          : `Откроется после уровня ${chapter.startLevelIndex}`}
+                            ? t("currentChapter")
+                            : t("openedLevel")
+                          : t("opensAfterLevel", { level: chapter.startLevelIndex })}
                     </div>
                   </button>
                 );

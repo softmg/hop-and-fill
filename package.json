@@ -7,10 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "build:yandex": "vite build --mode yandex --outDir dist-yandex --emptyOutDir",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "validate:yandex": "node scripts/validate-yandex-build.js",
+    "package:yandex": "npm run build:yandex && npm run validate:yandex && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-yandex.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-yandex-archive.ps1",
     "validate:levels": "node --experimental-strip-types --experimental-transform-types src/game/levels/validate.ts"
   },
   "dependencies": {

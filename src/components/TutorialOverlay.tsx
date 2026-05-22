@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { FIRST_TUTORIAL_ARROW } from "@/components/tutorialArrow";
+import { useTranslation } from "@/platform/i18n";
 
 interface TutorialOverlayProps {
   /** Текущий индекс уровня (туториал только для levelIdx === 0) */
@@ -38,6 +39,7 @@ type TutorialArrowStyle = CSSProperties & {
  * Прогресс сохраняется вместе с основным Yandex player data.
  */
 export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }: TutorialOverlayProps) => {
+  const t = useTranslation();
   const [step, setStep] = useState<Step>("done");
   const overlayRef = useRef<HTMLDivElement>(null);
   const [highlightRects, setHighlightRects] = useState<HighlightRect[]>([]);
@@ -161,16 +163,16 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
           <div className="tutorial-move-panel pointer-events-auto">
             <div className="game-panel relative px-5 py-4 text-center text-white animate-in fade-in slide-in-from-bottom-4 duration-300">
               <p className="hidden text-sm font-black leading-relaxed text-[#fff0c2] sm:block">
-                Кликни по соседней плитке или используй клавиатуру, чтобы двигаться и закрашивать поле!
+                {t("moveDesktop")}
               </p>
               <p className="text-sm font-black leading-relaxed text-[#fff0c2] sm:hidden">
-                Свайпай, тапай по соседней плитке или тяни джойстик, чтобы двигаться и закрашивать поле!
+                {t("moveMobile")}
               </p>
               <p className="mt-2 hidden text-xs font-semibold text-[#f1d3a0]/80 sm:block">
-                ПК: карта клавиш слева показывает текущие направления. Кнопка поворота меняет ориентацию управления.
+                {t("desktopHint")}
               </p>
               <p className="mt-2 text-xs font-semibold text-[#f1d3a0]/80 sm:hidden">
-                Двигайся только на соседние плитки. Закрась всё поле.
+                {t("mobileHint")}
               </p>
             </div>
           </div>
@@ -200,13 +202,13 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
           >
             <div className="game-panel relative px-5 py-4 text-white animate-in fade-in slide-in-from-top-4 duration-300">
               <p className="text-sm font-black leading-relaxed text-[#fff0c2]">
-                Твоя цель — закрасить всё поле за минимальное количество ходов.
+                {t("goal")}
               </p>
               <p className="mt-2 text-xs font-semibold text-[#f1d3a0]/80">
-                Уложишься в идеальное число — получишь 3 звезды! ★★★
+                {t("goalStars")} ★★★
               </p>
               <Button size="sm" className="w-full mt-3" onClick={finish}>
-                Понятно
+                {t("understood")}
               </Button>
             </div>
           </div>

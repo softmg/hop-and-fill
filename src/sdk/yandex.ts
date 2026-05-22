@@ -61,6 +61,11 @@ interface YsdkLeaderboards {
 }
 
 interface Ysdk {
+  environment?: {
+    i18n?: {
+      lang?: string;
+    };
+  };
   features: YsdkFeatures;
   auth?: {
     openAuthDialog: () => Promise<void>;
@@ -78,6 +83,8 @@ interface Ysdk {
 
 declare global {
   interface Window {
+    __yandexSdkScriptReady?: Promise<void>;
+    initSDK?: () => void;
     YaGames?: { init: (opts?: unknown) => Promise<Ysdk> };
   }
 }
@@ -87,6 +94,11 @@ const MOCK_LEADERBOARD_KEY = "pogo-paint:leaderboards";
 const MOCK_PLAYER_ID = "local-player";
 const MOCK_PLAYER_NAME = "Вы";
 const fullscreenAdListeners = new Set<(active: boolean) => void>();
+
+function getMockLanguage() {
+  const queryLanguage = new URLSearchParams(location.search).get("lang");
+  return queryLanguage || navigator.language || "ru";
+}
 
 function readMockData(): Record<string, unknown> {
   try {
@@ -139,6 +151,11 @@ const mockPlayer: YsdkPlayer = {
 };
 
 const mockSdk: Ysdk = {
+  environment: {
+    i18n: {
+      lang: getMockLanguage(),
+    },
+  },
   features: {
     LoadingAPI: { ready: () => console.info("[ysdk-mock] LoadingAPI.ready()") },
     GameplayAPI: {
@@ -217,28 +234,16 @@ let gameplayCurrentActive: boolean | null = null;
 let gameplaySyncPromise: Promise<void> | null = null;
 let gameplaySyncQueued = false;
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Failed to load Yandex SDK"));
-    document.head.appendChild(s);
-  });
-}
-
 export function initYsdk(): Promise<Ysdk> {
   if (sdkPromise) return sdkPromise;
-  const isYandex = /yandex/i.test(location.hostname) || /games\.s3\.yandex/i.test(location.hostname);
-
   sdkPromise = (async () => {
-    if (!isYandex) {
+    await window.__yandexSdkScriptReady?.catch(() => undefined);
+
+    if (!window.YaGames) {
       console.info("[ysdk] локальная заглушка активна");
       return mockSdk;
     }
     try {
-      await loadScript("https://yandex.ru/games/sdk/v2");
       if (!window.YaGames) throw new Error("YaGames не определён");
       return await window.YaGames.init();
     } catch (e) {
@@ -253,6 +258,13 @@ export function initYsdk(): Promise<Ysdk> {
 export async function ysdkReady() {
   const sdk = await initYsdk();
   sdk.features.LoadingAPI?.ready();
+}
+
+export type GameLanguage = "ru" | "en";
+
+export async function ysdkGetLanguage(): Promise<GameLanguage> {
+  const sdk = await initYsdk();
+  return sdk.environment?.i18n?.lang === "ru" ? "ru" : "en";
 }
 
 async function runGameplaySync(targetActive: boolean) {

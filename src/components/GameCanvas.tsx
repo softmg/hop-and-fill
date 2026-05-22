@@ -6,9 +6,10 @@ import type { Dir } from "@/game/iso";
 import { createGameAudio } from "@/game/audio";
 import { decideInterstitialTrigger, type InterstitialTrigger } from "@/game/interstitials";
 import { levels } from "@/game/levels";
-import { deriveChapters, getChapterForLevel, getChapterTransition, getLevelTheme, type ChapterTransition } from "@/game/levels/chapters";
+import { deriveChapters, getChapterForLevel, getChapterTransition, getLevelTheme, getThemeLabel, type ChapterTransition } from "@/game/levels/chapters";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
-import { subscribeToFullscreenAds, ysdkGameplayStart, ysdkGameplayStop, ysdkReady, ysdkShowAd, ysdkShowRewardedAd } from "@/sdk/yandex";
+import { subscribeToFullscreenAds, ysdkGameplayStart, ysdkGameplayStop, ysdkReady, ysdkShowAd, ysdkShowRewardedAd } from "@/platform/yandexGames";
+import { useLanguage, useTranslation } from "@/platform/i18n";
 import { Button } from "@/components/ui/button";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { LevelSelect } from "@/components/LevelSelect";
@@ -34,7 +35,7 @@ import {
   setAudioMuted,
   type PlayerProgress,
 } from "@/game/progress";
-import { calculateLeaderboardScore, loadLeaderboardSnapshot, saveLeaderboardScore, type LeaderboardRow } from "@/game/leaderboard";
+import { calculateLeaderboardScore, LEADERBOARDS_ENABLED, loadLeaderboardSnapshot, saveLeaderboardScore, type LeaderboardRow } from "@/game/leaderboard";
 import { buildSharedResultUrl, createSharedResult, type SharedResultContext } from "@/game/shareResult";
 import { formatDurationMs } from "@/game/time";
 
@@ -243,6 +244,8 @@ interface FinishedAttempt {
  * Owns the playable game screen, overlays, persistence, audio, and Pixi bridge.
  */
 export const GameCanvas = () => {
+  const t = useTranslation();
+  const language = useLanguage();
   const hostRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<PixiGame | null>(null);
   const audioRef = useRef<ReturnType<typeof createGameAudio> | null>(null);
@@ -517,7 +520,7 @@ export const GameCanvas = () => {
         const didCompleteNewLevel = !baseProgress.completedLevels.includes(wonLevelNumber);
         const nextProgress = completeLevel(baseProgress, wonLevelIdx, wonStars, levels.length, completionTimeMs);
         persistProgress(nextProgress);
-        if (calculateLeaderboardScore(nextProgress) > calculateLeaderboardScore(baseProgress)) {
+        if (LEADERBOARDS_ENABLED && calculateLeaderboardScore(nextProgress) > calculateLeaderboardScore(baseProgress)) {
           void syncLeaderboardResult(nextProgress);
         }
         setFinishedAttempt({
@@ -671,6 +674,7 @@ export const GameCanvas = () => {
   };
 
   const openLeaderboard = () => {
+    if (!LEADERBOARDS_ENABLED) return;
     setLeaderboardOpen(true);
     const baseProgress = progressRef.current;
 
@@ -849,14 +853,14 @@ export const GameCanvas = () => {
   const toggleKeyboardRotation = () => {
     setKeyboardRotation((current) => current === "default" ? "counterclockwise" : "default");
   };
-  const pauseButtonLabel = overlayMode === "paused" ? "Продолжить" : "Пауза";
+  const pauseButtonLabel = overlayMode === "paused" ? t("continue") : t("pause");
   const shareStatusLabel =
     shareStatus === "copied"
-      ? "Ссылка скопирована"
+      ? t("copied")
       : shareStatus === "shared"
-        ? "Ссылка отправлена"
+        ? t("shared")
         : shareStatus === "error"
-          ? "Не удалось скопировать ссылку"
+          ? t("shareError")
           : "";
 
   const getShareContext = (): SharedResultContext => {
@@ -893,8 +897,8 @@ export const GameCanvas = () => {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: "Hop & Fill: результат",
-          text: "Мой результат в Hop & Fill",
+          title: t("shareTitle"),
+          text: t("shareMessage"),
           url: nextShareUrl,
         });
         setShareStatus("shared");
@@ -920,7 +924,7 @@ export const GameCanvas = () => {
         ) : (
           <Share2 className="h-4 w-4" aria-hidden />
         )}
-        Поделиться результатом
+        {t("shareResult")}
       </Button>
       {shareStatusLabel && (
         <div
@@ -933,7 +937,7 @@ export const GameCanvas = () => {
           <span>{shareStatusLabel}</span>
           {shareUrl && (
             <a href={shareUrl} target="_blank" rel="noreferrer" className="ml-2 font-bold text-white underline underline-offset-2">
-              Открыть результат
+              {t("openResult")}
             </a>
           )}
         </div>
@@ -1006,7 +1010,7 @@ export const GameCanvas = () => {
             </div>
             {currentChapter && (
               <div className="game-hud-text whitespace-nowrap">
-                Глава {currentChapter.chapterIndex} · {currentChapter.themeLabel}
+                {t("chapter")} {currentChapter.chapterIndex} · {getThemeLabel(currentChapter.theme, language)}
               </div>
             )}
             <div className="flex items-center gap-3">
@@ -1018,26 +1022,26 @@ export const GameCanvas = () => {
                 className="game-hud-action justify-start"
               >
                 <Map className="h-4 w-4 shrink-0" aria-hidden />
-                Уровень {levelIdx + 1} / {levels.length}
+                {t("level")} {levelIdx + 1} / {levels.length}
               </Button>
               <div
                 className="game-hud-chip game-hud-ideal-pill px-2 py-1 text-xs font-black tabular-nums whitespace-nowrap sm:text-sm"
-                title="Идеальное число ходов"
+                title={t("idealMoves")}
                 data-tutorial-highlight="goal"
               >
                 ★ {optimal}
               </div>
-              <Button
+              {LEADERBOARDS_ENABLED && <Button
                 size="sm"
                 variant="ghost"
                 onClick={openLeaderboard}
                 disabled={isInteractionLocked}
                 className="game-hud-action game-hud-action-cyan"
-                title="Лидеры"
-                aria-label="Лидеры"
+                title={t("leaders")}
+                aria-label={t("leaders")}
               >
                 <Trophy className="h-4 w-4" aria-hidden />
-              </Button>
+              </Button>}
             </div>
           </div>
         </div>
@@ -1045,17 +1049,17 @@ export const GameCanvas = () => {
         <div className="game-timer-cluster pointer-events-auto absolute top-2 flex flex-col items-center gap-1.5 sm:top-3">
           <div
             className="game-hud-chip game-hud-timer flex items-center gap-1 px-2 py-1 text-xs font-black tabular-nums whitespace-nowrap sm:text-sm"
-            title="Время попытки"
+            title={t("attemptTime")}
           >
             <Clock3 className="h-3.5 w-3.5" aria-hidden />
             {formattedElapsedTime}
           </div>
           {(formattedBestTime || formattedRaceTarget) && (
             <div className="game-hud-subpanel">
-              {formattedBestTime && <div>Лучшее: {formattedBestTime}</div>}
+              {formattedBestTime && <div>{t("best")}: {formattedBestTime}</div>}
               {formattedRaceTarget && (
                 <div className={formattedBestTime ? "mt-1" : ""}>
-                  {hasCurrentRaceAward ? "Гонка получена" : `Гонка: ${formattedRaceTarget}`}
+                  {hasCurrentRaceAward ? t("raceEarned") : t("raceTarget", { time: formattedRaceTarget })}
                 </div>
               )}
             </div>
@@ -1078,8 +1082,8 @@ export const GameCanvas = () => {
             variant="secondary"
             onClick={toggleMute}
             className="game-hud-action game-hud-action-stack"
-            title={progress.audioMuted ? "Включить звук" : "Выключить звук"}
-            aria-label={progress.audioMuted ? "Включить звук" : "Выключить звук"}
+            title={progress.audioMuted ? t("unmute") : t("mute")}
+            aria-label={progress.audioMuted ? t("unmute") : t("mute")}
             aria-pressed={progress.audioMuted}
           >
             {progress.audioMuted ? <VolumeX className="h-4 w-4 shrink-0" aria-hidden /> : <Volume2 className="h-4 w-4 shrink-0" aria-hidden />}
@@ -1090,8 +1094,8 @@ export const GameCanvas = () => {
             onClick={restart}
             disabled={isInteractionLocked}
             className="game-hud-action game-hud-action-stack"
-            title="Заново"
-            aria-label="Заново"
+            title={t("restart")}
+            aria-label={t("restart")}
           >
             <RotateCcw className="h-4 w-4 shrink-0" aria-hidden />
           </Button>
@@ -1101,7 +1105,7 @@ export const GameCanvas = () => {
         <div className="mt-2 flex flex-wrap items-center justify-center gap-2 pointer-events-auto">
           {saveState !== "idle" && (
             <div className="game-hud-text hidden whitespace-nowrap sm:block">
-              {saveState === "saving" ? "Сохранение..." : "Не сохранено"}
+              {saveState === "saving" ? t("save") : t("notSaved")}
             </div>
           )}
         </div>
@@ -1140,11 +1144,11 @@ export const GameCanvas = () => {
             {overlayMode === "won" && (
               <div className="relative z-10">
                 {isPerfectWin && <PerfectCelebration />}
-                <h2 className="game-title text-2xl">Уровень пройден!</h2>
+                <h2 className="game-title text-2xl">{t("win")}</h2>
                 {isPerfectWin && (
                   <div className="perfect-win-badge game-hud-text mx-auto mt-3 inline-flex items-center gap-1.5 uppercase text-yellow-100">
                     <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                    Идеально!
+                    {t("perfect")}
                   </div>
                 )}
                 <div className="mt-4 flex flex-col items-center gap-2">
@@ -1155,36 +1159,36 @@ export const GameCanvas = () => {
                   </div>
                   {bestStars > stars && (
                     <div className="text-xs font-medium text-white/65">
-                      Лучший результат: {bestStars} ★
+                      {t("bestResult")}: {bestStars} ★
                     </div>
                   )}
                 </div>
                 <p className="mt-4 text-sm text-white/75">
-                  Ходов: {hops} · идеал: {optimal}
+                  {t("moves")}: {hops} · {t("ideal")}: {optimal}
                 </p>
                 <p className="mt-2 text-sm text-white/75">
-                  Время: {formattedElapsedTime}
-                  {formattedBestTime ? ` · лучшее: ${formattedBestTime}` : ""}
+                  {t("time")}: {formattedElapsedTime}
+                  {formattedBestTime ? ` · ${t("best").toLowerCase()}: ${formattedBestTime}` : ""}
                 </p>
                 {formattedRaceTarget && (
                   <div
                     className={`game-hud-text mx-auto mt-3 inline-flex items-center gap-1.5 ${hasCurrentRaceAward ? "text-cyan-100" : "text-white/78"}`}
                   >
                     <CarFront className="h-3.5 w-3.5 text-cyan-200" aria-hidden />
-                    {hasCurrentRaceAward ? "Гонка получена" : `Гонка за ${formattedRaceTarget}`}
+                    {hasCurrentRaceAward ? t("raceEarned") : t("raceTarget", { time: formattedRaceTarget })}
                   </div>
                 )}
                 <div className="mt-5 flex flex-col gap-2">
                   <Button onClick={continueAfterWin} disabled={isInteractionLocked} className="w-full">
                     {levelIdx === levels.length - 1
-                      ? "К финальному экрану"
+                      ? t("finalScreen")
                       : pendingChapterTransition
-                        ? `Открыть главу ${pendingChapterTransition.toChapter.chapterIndex}`
-                        : "Следующий уровень"}
+                        ? t("openChapter", { chapter: pendingChapterTransition.toChapter.chapterIndex })
+                        : t("nextLevel")}
                   </Button>
                   {shareResultControls}
                   <Button onClick={restart} disabled={isInteractionLocked} variant="secondary" className="w-full">
-                    Сыграть снова
+                    {t("playAgain")}
                   </Button>
                 </div>
               </div>
@@ -1192,29 +1196,29 @@ export const GameCanvas = () => {
 
             {overlayMode === "lost" && (
               <>
-                <h2 className="game-title text-2xl">Ходы закончились</h2>
+                <h2 className="game-title text-2xl">{t("outOfMoves")}</h2>
                 <p className="mt-3 text-sm text-white/75">
-                  Ты исчерпал лимит ходов. Попробуй другой маршрут и уложись в {limit}.
+                  {t("outOfMovesBody")} {limit}.
                 </p>
                 <p className="mt-2 text-sm text-white/65">
-                  Время попытки: {formattedElapsedTime}
+                  {t("attemptTime")}: {formattedElapsedTime}
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
                   {canShowRewardedUndo && (
                     <Button onClick={triggerRewardedUndo} disabled={rewardedUndoState === "loading"} className="w-full">
-                      {rewardedUndoState === "loading" ? "Загрузка награды..." : "Посмотреть рекламу и отменить ход"}
+                      {rewardedUndoState === "loading" ? t("rewardLoading") : t("rewardUndo")}
                     </Button>
                   )}
                   <Button onClick={restart} disabled={isInteractionLocked} className="w-full">
-                    Перезапустить
+                    {t("restartLevel")}
                   </Button>
                   <Button onClick={openLevelSelect} disabled={isInteractionLocked} variant="secondary" className="w-full">
-                    К выбору уровней
+                    {t("levelsMenu")}
                   </Button>
                 </div>
                 {rewardedUndoState === "error" && (
                   <p className="mt-3 text-xs text-white/65">
-                    Награду не удалось получить. Попробуй снова или начни уровень заново.
+                    {t("rewardError")}
                   </p>
                 )}
               </>
@@ -1223,52 +1227,52 @@ export const GameCanvas = () => {
             {overlayMode === "paused" && (
               <>
                 <p className="text-xs font-black uppercase text-[#ffd98e]/75">
-                  Меню
+                  {t("menu")}
                 </p>
-                <h2 className="game-title mt-2 text-2xl">Пауза</h2>
+                <h2 className="game-title mt-2 text-2xl">{t("pause")}</h2>
                 <p className="mt-3 text-sm text-white/75">
-                  Игра остановлена. Продолжай сейчас или открой другой уровень.
+                  {t("pausedBody")}
                 </p>
                 <div className="game-stat-cell mt-4 p-3 text-left">
                   <div className="flex items-center justify-between gap-2 text-xs text-white/70">
-                    <span>Сейчас</span>
+                    <span>{t("now")}</span>
                     <span>
-                      Уровень {levelIdx + 1}
-                      {currentChapter ? ` · глава ${currentChapter.chapterIndex}` : ""}
+                      {t("level")} {levelIdx + 1}
+                      {currentChapter ? ` · ${t("chapter").toLowerCase()} ${currentChapter.chapterIndex}` : ""}
                     </span>
                   </div>
                   <div className="mt-3 grid gap-2 text-xs text-white/75 sm:grid-cols-2">
                     <div className="game-stat-cell px-3 py-2">
                       <div className="font-semibold text-white">ПК</div>
-                      <div className="mt-1">Мышь: клик по соседней плитке</div>
-                      <div className="mt-1">Стрелки: диагонали одним нажатием</div>
-                      <div className="mt-1">WASD: прямые ходы · сочетания WASD: диагонали</div>
+                      <div className="mt-1">{t("mouseMove")}</div>
+                      <div className="mt-1">{t("arrowMove")}</div>
+                      <div className="mt-1">{t("keyboardMove")}</div>
                     </div>
                     <div className="game-stat-cell px-3 py-2">
-                      <div className="font-semibold text-white">Телефон</div>
-                      <div className="mt-1">Свайпай или тяни джойстик в сторону соседней плитки</div>
+                      <div className="font-semibold text-white">{t("phone")}</div>
+                      <div className="mt-1">{t("touchMove")}</div>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/70">
-                    <span className="game-hud-text">Ходы: {hops}/{limit}</span>
-                    <span className="game-hud-text">Лучший результат: {bestStars || "—"} ★</span>
-                    {maxRaces > 0 && <span className="game-hud-text">Гонки: {totalRaces}/{maxRaces}</span>}
-                    <span className="game-hud-text">Время: {formattedElapsedTime}</span>
-                    <span className="game-hud-text">Лучшее время: {formattedBestTime ?? "—"}</span>
+                    <span className="game-hud-text">{t("moves")}: {hops}/{limit}</span>
+                    <span className="game-hud-text">{t("bestResult")}: {bestStars || "—"} ★</span>
+                    {maxRaces > 0 && <span className="game-hud-text">{t("races")}: {totalRaces}/{maxRaces}</span>}
+                    <span className="game-hud-text">{t("time")}: {formattedElapsedTime}</span>
+                    <span className="game-hud-text">{t("bestTime")}: {formattedBestTime ?? "—"}</span>
                   </div>
                 </div>
                 <div className="mt-5 flex flex-col gap-2">
                   <Button onClick={resumeGameplay} className="w-full">
                     <Play className="mr-2 h-4 w-4" aria-hidden />
-                    Продолжить
+                    {t("continue")}
                   </Button>
                   <Button onClick={restart} variant="secondary" className="w-full">
                     <RotateCcw className="mr-2 h-4 w-4" aria-hidden />
-                    Начать заново
+                    {t("restart")}
                   </Button>
                   <Button onClick={openLevelSelect} variant="secondary" className="w-full">
                     <Map className="mr-2 h-4 w-4" aria-hidden />
-                    К выбору уровней
+                    {t("levelsMenu")}
                   </Button>
                 </div>
               </>
@@ -1280,24 +1284,24 @@ export const GameCanvas = () => {
                   <Trophy className="h-5 w-5 text-yellow-300" aria-hidden />
                 </div>
                 <p className="mt-4 text-xs font-black uppercase text-[#ffd98e]/75">
-                  Новая глава
+                  {t("newChapter")}
                 </p>
                 <h2 className="game-title mt-2 text-2xl">
-                  Глава {pendingChapterTransition.toChapter.chapterIndex}
+                  {t("chapter")} {pendingChapterTransition.toChapter.chapterIndex}
                 </h2>
                 <p className="mt-2 text-sm text-white/75">
-                  {pendingChapterTransition.toChapter.themeLabel} · уровни {pendingChapterTransition.toChapter.startLevelIndex + 1}
+                  {getThemeLabel(pendingChapterTransition.toChapter.theme, language)} · {t("levels").toLowerCase()} {pendingChapterTransition.toChapter.startLevelIndex + 1}
                   -{pendingChapterTransition.toChapter.endLevelIndex + 1}
                 </p>
                 <p className="mt-3 text-sm text-white/65">
-                  Палитра меняется после главы {pendingChapterTransition.fromChapter.chapterIndex}. Первый уровень уже готов.
+                  {t("chapterPalette", { chapter: pendingChapterTransition.fromChapter.chapterIndex })}
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
                   <Button onClick={startChapterLevel} className="w-full">
-                    Начать главу
+                    {t("startChapter")}
                   </Button>
                   <Button onClick={openLevelSelect} variant="secondary" className="w-full">
-                    К выбору уровней
+                    {t("levelsMenu")}
                   </Button>
                 </div>
               </>
@@ -1308,21 +1312,25 @@ export const GameCanvas = () => {
                 <div className="game-hud-chip mx-auto flex h-11 w-11 items-center justify-center rounded-full">
                   <Trophy className="h-5 w-5 text-yellow-300" aria-hidden />
                 </div>
-                <h2 className="game-title mt-4 text-2xl">Все главы пройдены</h2>
+                <h2 className="game-title mt-4 text-2xl">{t("finalTitle")}</h2>
                 <p className="mt-3 text-sm text-white/75">
-                  Ты закрыл все {levels.length} уровней и собрал {totalStars} из {maxStars} звёзд
-                  {maxRaces > 0 ? ` и ${totalRaces} из ${maxRaces} гонок` : ""}.
+                  {t("finalSummary", {
+                    levels: levels.length,
+                    stars: totalStars,
+                    maxStars,
+                    races: maxRaces > 0 ? ` ${t("races").toLowerCase()}: ${totalRaces}/${maxRaces}` : "",
+                  })}
                 </p>
                 <p className="mt-2 text-sm text-white/65">
-                  Финал открыт для перепрохождения, а любые уровни доступны через меню выбора.
+                  {t("finalBody")}
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
                   {shareResultControls}
                   <Button onClick={restart} className="w-full">
-                    Переиграть финальный уровень
+                    {t("replayFinal")}
                   </Button>
                   <Button onClick={openLevelSelect} variant="secondary" className="w-full">
-                    К выбору уровней
+                    {t("levelsMenu")}
                   </Button>
                 </div>
               </>

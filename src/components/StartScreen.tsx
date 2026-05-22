@@ -1,6 +1,7 @@
 import { CarFront, Play, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import startScreenBg from "@/assets/start-screen-bg.jpg";
+import { useTranslation } from "@/platform/i18n";
 
 interface StartScreenProps {
   isLoading: boolean;
@@ -23,11 +24,12 @@ export const StartScreen = ({
   maxRaces,
   onStart,
 }: StartScreenProps) => {
-  const buttonLabel = isLoading ? "Загрузка..." : isFirstStart ? "Начать" : "Продолжить";
+  const t = useTranslation();
+  const buttonLabel = isLoading ? t("loading") : isFirstStart ? t("start") : t("continue");
 
   return (
     <section
-      aria-label="Стартовая страница"
+      aria-label="Hop and Fill"
       className="absolute inset-0 z-[70] overflow-hidden bg-black text-white"
       data-testid="start-screen"
     >
@@ -45,7 +47,7 @@ export const StartScreen = ({
         <div className="flex w-full max-w-md flex-col items-center gap-3 px-4 py-4">
           {!isLoading && !isFirstStart && (
             <div className="game-hud-text flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
-              <span>Уровень {currentLevelNumber}</span>
+              <span>{t("level")} {currentLevelNumber}</span>
               <span className="h-1 w-1 rounded-full bg-white/45" aria-hidden />
               <span className="inline-flex items-center gap-1 tabular-nums">
                 <Star className="h-4 w-4 fill-yellow-300 text-yellow-300" aria-hidden />

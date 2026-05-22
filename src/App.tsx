@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound.tsx";
 import { SharedResultPage } from "./pages/SharedResult.tsx";
 
 const queryClient = new QueryClient();
+const yandexBasename = import.meta.env.MODE === "yandex" ? window.location.pathname : undefined;
 
 const AppRoutes = () => {
   const [searchParams] = useSearchParams();
@@ -32,7 +33,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter basename={yandexBasename}>
         <AppRoutes />
       </BrowserRouter>
     </TooltipProvider>

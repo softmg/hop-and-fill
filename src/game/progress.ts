@@ -1,4 +1,4 @@
-import { ysdkLoad, ysdkSave } from "@/sdk/yandex";
+import { ysdkLoad, ysdkSave } from "@/platform/yandexGames";
 
 export const PLAYER_PROGRESS_KEY = "crash-cubes:progress";
 const LEGACY_TUTORIAL_KEY = "hasSeenTutorial";
@@ -107,6 +107,22 @@ function hasLegacyTutorialCompletion() {
 
 function sanitizeAudioMuted(value: unknown) {
   return typeof value === "boolean" ? value : false;
+}
+
+function loadLocalProgress() {
+  try {
+    return JSON.parse(localStorage.getItem(PLAYER_PROGRESS_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalProgress(progress: PlayerProgress) {
+  try {
+    localStorage.setItem(PLAYER_PROGRESS_KEY, JSON.stringify(progress));
+  } catch {
+    // Storage can be blocked by browser privacy settings.
+  }
 }
 
 export function normalizeProgress(raw: unknown, levelCount: number): PlayerProgress {
@@ -266,15 +282,18 @@ export function setAudioMuted(progress: PlayerProgress, muted: boolean, levelCou
 }
 
 export async function loadPlayerProgress(levelCount: number): Promise<PlayerProgress> {
+  const localProgress = loadLocalProgress();
+
   try {
     const data = await ysdkLoad([PLAYER_PROGRESS_KEY]);
-    return normalizeProgress(data[PLAYER_PROGRESS_KEY], levelCount);
+    return normalizeProgress(data[PLAYER_PROGRESS_KEY] ?? localProgress, levelCount);
   } catch (error) {
     console.warn("[progress] failed to load player progress", error);
-    return normalizeProgress(null, levelCount);
+    return normalizeProgress(localProgress, levelCount);
   }
 }
 
 export async function savePlayerProgress(progress: PlayerProgress) {
+  saveLocalProgress(progress);
   await ysdkSave({ [PLAYER_PROGRESS_KEY]: progress });
 }

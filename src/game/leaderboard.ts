@@ -1,9 +1,10 @@
-import { ysdkGetLeaderboardEntries, ysdkSetLeaderboardScore, type YsdkLeaderboardEntry } from "@/sdk/yandex";
+import { ysdkGetLeaderboardEntries, ysdkSetLeaderboardScore, type YsdkLeaderboardEntry } from "@/platform/yandexGames";
 import { hasLeaderboardBackend, loadBackendLeaderboardSnapshot, saveBackendLeaderboardScore } from "./leaderboardBackend";
 import { getTotalStars, type PlayerProgress } from "./progress";
 
 export const DEFAULT_LEADERBOARD_NAME = "crash_cubes_total_stars";
 export const LEADERBOARD_NAME = import.meta.env.VITE_YANDEX_LEADERBOARD_NAME || DEFAULT_LEADERBOARD_NAME;
+export const LEADERBOARDS_ENABLED = import.meta.env.MODE !== "yandex";
 export const LEADERBOARD_TOP_SIZE = 10;
 export const LEADERBOARD_AROUND_SIZE = 3;
 

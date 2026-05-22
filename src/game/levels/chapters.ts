@@ -23,6 +23,18 @@ const THEME_LABELS: Record<TileTheme, string> = {
   paper: "Бумажный замок",
 };
 
+const EN_THEME_LABELS: Record<TileTheme, string> = {
+  default: "Plush Valley",
+  slime: "Slime Marsh",
+  neon: "Neon Matrix",
+  wood: "Wood Workshop",
+  paper: "Paper Castle",
+};
+
+export function getThemeLabel(theme: TileTheme, language: "ru" | "en" = "ru") {
+  return language === "en" ? EN_THEME_LABELS[theme] : THEME_LABELS[theme];
+}
+
 export function getLevelTheme(level: LevelData): TileTheme {
   return level.theme ?? "default";
 }
