@@ -1,4 +1,4 @@
-import { ysdkLoad, ysdkSave } from "@/platform/yandexGames";
+import { ysdkIsPlayerAuthorized, ysdkLoad, ysdkSave } from "@/platform/yandexGames";
 
 export const PLAYER_PROGRESS_KEY = "crash-cubes:progress";
 const LEGACY_TUTORIAL_KEY = "hasSeenTutorial";
@@ -125,9 +125,55 @@ function saveLocalProgress(progress: PlayerProgress) {
   }
 }
 
-export function normalizeProgress(raw: unknown, levelCount: number): PlayerProgress {
+function clearLocalProgress() {
+  try {
+    localStorage.removeItem(PLAYER_PROGRESS_KEY);
+  } catch {
+    // Storage can be blocked by browser privacy settings.
+  }
+}
+
+function mergeBestStars(
+  left: PlayerProgress["bestStarsByLevel"],
+  right: PlayerProgress["bestStarsByLevel"],
+): PlayerProgress["bestStarsByLevel"] {
+  const result = { ...left };
+
+  for (const [key, stars] of Object.entries(right)) {
+    const levelNumber = Number(key);
+    const existingStars = result[levelNumber] ?? 0;
+    result[levelNumber] = Math.max(existingStars, stars) as 1 | 2 | 3;
+  }
+
+  return result;
+}
+
+function mergeBestTimes(
+  left: PlayerProgress["bestTimeMsByLevel"],
+  right: PlayerProgress["bestTimeMsByLevel"],
+): PlayerProgress["bestTimeMsByLevel"] {
+  const result = { ...left };
+
+  for (const [key, timeMs] of Object.entries(right)) {
+    const levelNumber = Number(key);
+    const existingTimeMs = result[levelNumber];
+    result[levelNumber] = existingTimeMs === undefined ? timeMs : Math.min(existingTimeMs, timeMs);
+  }
+
+  return result;
+}
+
+function hasAudioMutedValue(value: unknown) {
+  return Boolean(value && typeof value === "object" && typeof (value as Partial<PlayerProgress>).audioMuted === "boolean");
+}
+
+export function normalizeProgress(
+  raw: unknown,
+  levelCount: number,
+  options: { allowLegacyTutorial?: boolean } = {},
+): PlayerProgress {
   const fallback = createDefaultProgress();
-  const legacyTutorialComplete = hasLegacyTutorialCompletion();
+  const legacyTutorialComplete = options.allowLegacyTutorial === false ? false : hasLegacyTutorialCompletion();
   if (levelCount <= 0) return fallback;
   if (!raw || typeof raw !== "object") {
     return {
@@ -164,6 +210,29 @@ export function normalizeProgress(raw: unknown, levelCount: number): PlayerProgr
     tutorialComplete: Boolean(data.tutorialComplete) || legacyTutorialComplete,
     audioMuted: sanitizeAudioMuted(data.audioMuted),
   };
+}
+
+export function mergeProgress(
+  currentRaw: unknown,
+  storedRaw: unknown,
+  levelCount: number,
+): PlayerProgress {
+  const current = normalizeProgress(currentRaw, levelCount);
+  const stored = normalizeProgress(storedRaw, levelCount);
+
+  return normalizeProgress(
+    {
+      ...stored,
+      unlockedLevel: Math.max(current.unlockedLevel, stored.unlockedLevel),
+      completedLevels: [...current.completedLevels, ...stored.completedLevels],
+      bestStarsByLevel: mergeBestStars(current.bestStarsByLevel, stored.bestStarsByLevel),
+      bestTimeMsByLevel: mergeBestTimes(current.bestTimeMsByLevel, stored.bestTimeMsByLevel),
+      hasStarted: current.hasStarted || stored.hasStarted,
+      tutorialComplete: current.tutorialComplete || stored.tutorialComplete,
+      audioMuted: hasAudioMutedValue(currentRaw) ? current.audioMuted : stored.audioMuted,
+    },
+    levelCount,
+  );
 }
 
 export function isLevelUnlocked(progress: PlayerProgress, levelIndex: number) {
@@ -283,17 +352,47 @@ export function setAudioMuted(progress: PlayerProgress, muted: boolean, levelCou
 
 export async function loadPlayerProgress(levelCount: number): Promise<PlayerProgress> {
   const localProgress = loadLocalProgress();
+  let isAuthorized = false;
+
+  try {
+    isAuthorized = await ysdkIsPlayerAuthorized();
+  } catch (error) {
+    console.warn("[progress] failed to read Yandex authorization state", error);
+    return normalizeProgress(localProgress, levelCount);
+  }
+
+  if (!isAuthorized) {
+    return normalizeProgress(localProgress, levelCount);
+  }
+
+  clearLocalProgress();
 
   try {
     const data = await ysdkLoad([PLAYER_PROGRESS_KEY]);
-    return normalizeProgress(data[PLAYER_PROGRESS_KEY] ?? localProgress, levelCount);
+    return normalizeProgress(data[PLAYER_PROGRESS_KEY], levelCount, { allowLegacyTutorial: false });
   } catch (error) {
-    console.warn("[progress] failed to load player progress", error);
-    return normalizeProgress(localProgress, levelCount);
+    console.warn("[progress] failed to load cloud player progress", error);
+    return createDefaultProgress();
   }
 }
 
 export async function savePlayerProgress(progress: PlayerProgress) {
-  saveLocalProgress(progress);
+  const isAuthorized = await ysdkIsPlayerAuthorized();
+
+  if (!isAuthorized) {
+    saveLocalProgress(progress);
+    return;
+  }
+
+  clearLocalProgress();
   await ysdkSave({ [PLAYER_PROGRESS_KEY]: progress });
+}
+
+export async function migrateGuestProgressToCloud(progress: PlayerProgress, levelCount: number) {
+  const data = await ysdkLoad([PLAYER_PROGRESS_KEY]);
+  const syncedProgress = mergeProgress(progress, data[PLAYER_PROGRESS_KEY], levelCount);
+
+  clearLocalProgress();
+  await ysdkSave({ [PLAYER_PROGRESS_KEY]: syncedProgress });
+  return syncedProgress;
 }

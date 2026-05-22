@@ -229,6 +229,7 @@ const mockSdk: Ysdk = {
 };
 
 let sdkPromise: Promise<Ysdk> | null = null;
+let playerPromise: Promise<YsdkPlayer> | null = null;
 let gameplayTargetActive = false;
 let gameplayCurrentActive: boolean | null = null;
 let gameplaySyncPromise: Promise<void> | null = null;
@@ -410,15 +411,26 @@ export async function ysdkShowRewardedAd(): Promise<RewardedAdResult> {
   });
 }
 
+async function getYsdkPlayer() {
+  if (playerPromise) return playerPromise;
+
+  playerPromise = initYsdk()
+    .then((sdk) => sdk.getPlayer({ scopes: false }))
+    .catch((error) => {
+      playerPromise = null;
+      throw error;
+    });
+
+  return playerPromise;
+}
+
 export async function ysdkSave(data: Record<string, unknown>) {
-  const sdk = await initYsdk();
-  const player = await sdk.getPlayer({ scopes: false });
+  const player = await getYsdkPlayer();
   await player.setData(data, true);
 }
 
 export async function ysdkLoad(keys?: string[]) {
-  const sdk = await initYsdk();
-  const player = await sdk.getPlayer({ scopes: false });
+  const player = await getYsdkPlayer();
   return player.getData(keys);
 }
 
@@ -436,7 +448,7 @@ async function ysdkIsMethodAvailable(methodName: string) {
 
 export async function ysdkRequestAuthorization() {
   const sdk = await initYsdk();
-  let player = await sdk.getPlayer({ scopes: false });
+  let player = await getYsdkPlayer();
 
   if (player.isAuthorized?.() !== false) {
     return true;
@@ -447,7 +459,14 @@ export async function ysdkRequestAuthorization() {
   }
 
   await sdk.auth.openAuthDialog();
+  playerPromise = null;
   player = await sdk.getPlayer({ scopes: false });
+  playerPromise = Promise.resolve(player);
+  return player.isAuthorized?.() !== false;
+}
+
+export async function ysdkIsPlayerAuthorized() {
+  const player = await getYsdkPlayer();
   return player.isAuthorized?.() !== false;
 }
 

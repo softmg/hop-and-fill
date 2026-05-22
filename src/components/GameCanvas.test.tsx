@@ -9,12 +9,15 @@ let onWinCallback: ((hops: number) => void) | null = null;
 let onLoseCallback: (() => void) | null = null;
 
 const mockLoadPlayerProgress = vi.fn();
+const mockMigrateGuestProgressToCloud = vi.fn();
 const mockSavePlayerProgress = vi.fn().mockResolvedValue(undefined);
 const mockYsdkReady = vi.fn().mockResolvedValue(undefined);
 const mockYsdkGameplayStart = vi.fn().mockResolvedValue(undefined);
 const mockYsdkGameplayStop = vi.fn().mockResolvedValue(undefined);
 const mockYsdkShowAd = vi.fn().mockResolvedValue(undefined);
 const mockYsdkShowRewardedAd = vi.fn().mockResolvedValue({ status: "closed" });
+const mockYsdkIsPlayerAuthorized = vi.fn().mockResolvedValue(true);
+const mockYsdkRequestAuthorization = vi.fn().mockResolvedValue(true);
 const mockSubscribeToFullscreenAds = vi.fn(() => () => {});
 const mockYsdkSetLeaderboardScore = vi.fn().mockResolvedValue(undefined);
 const mockYsdkGetLeaderboardEntries = vi.fn().mockResolvedValue({ userRank: 0, entries: [] });
@@ -113,6 +116,8 @@ vi.mock("@/sdk/yandex", () => ({
   ysdkGameplayStop: mockYsdkGameplayStop,
   ysdkShowAd: mockYsdkShowAd,
   ysdkShowRewardedAd: mockYsdkShowRewardedAd,
+  ysdkIsPlayerAuthorized: mockYsdkIsPlayerAuthorized,
+  ysdkRequestAuthorization: mockYsdkRequestAuthorization,
   subscribeToFullscreenAds: mockSubscribeToFullscreenAds,
   ysdkSetLeaderboardScore: mockYsdkSetLeaderboardScore,
   ysdkGetLeaderboardEntries: mockYsdkGetLeaderboardEntries,
@@ -127,6 +132,7 @@ vi.mock("@/game/progress", async () => {
   return {
     ...actual,
     loadPlayerProgress: mockLoadPlayerProgress,
+    migrateGuestProgressToCloud: mockMigrateGuestProgressToCloud,
     savePlayerProgress: mockSavePlayerProgress,
   };
 });
@@ -150,6 +156,7 @@ describe("GameCanvas yandex lifecycle", () => {
       tutorialComplete: true,
       audioMuted: false,
     });
+    mockMigrateGuestProgressToCloud.mockImplementation((progress) => Promise.resolve(progress));
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
       value: "visible",
@@ -271,6 +278,23 @@ describe("GameCanvas yandex lifecycle", () => {
     expect(savedProgress.tutorialComplete).toBe(false);
     expect(screen.getByText(/Свайпай, тапай по соседней плитке/)).toBeInTheDocument();
     expect(mockYsdkGameplayStart).not.toHaveBeenCalled();
+  });
+
+  it("offers Yandex ID cloud saves to guests and syncs after authorization", async () => {
+    mockYsdkIsPlayerAuthorized.mockResolvedValueOnce(false);
+
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await screen.findByText("Войдите в Яндекс ID, чтобы продолжать с этого прогресса на любом устройстве.");
+    fireEvent.click(screen.getByRole("button", { name: "Войти для облачных сохранений" }));
+
+    await waitFor(() => {
+      expect(mockYsdkRequestAuthorization).toHaveBeenCalledTimes(1);
+      expect(mockLoadPlayerProgress).toHaveBeenCalledTimes(1);
+      expect(mockMigrateGuestProgressToCloud).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByRole("button", { name: "Войти для облачных сохранений" })).not.toBeInTheDocument();
   });
 
   it("opens the leaderboard and renders loaded leaders", async () => {

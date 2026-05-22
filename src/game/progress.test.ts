@@ -12,6 +12,7 @@ import {
   hasRaceAward,
   isLevelUnlocked,
   markGameStarted,
+  mergeProgress,
   normalizeProgress,
   setAudioMuted,
 } from "./progress";
@@ -113,6 +114,54 @@ describe("player progress", () => {
     expect(progress.bestTimeMsByLevel).toEqual({ 1: 10_000, 3: 12_345 });
     expect(progress.hasStarted).toBe(true);
     expect(progress.audioMuted).toBe(false);
+  });
+
+  it("merges local and cloud progress without losing the best result", () => {
+    const progress = mergeProgress(
+      {
+        unlockedLevel: 3,
+        completedLevels: [1, 2],
+        bestStarsByLevel: { 1: 2, 2: 3 },
+        bestTimeMsByLevel: { 1: 8_000, 2: 7_000 },
+        hasStarted: true,
+        tutorialComplete: false,
+        audioMuted: true,
+      },
+      {
+        unlockedLevel: 4,
+        completedLevels: [1, 3],
+        bestStarsByLevel: { 1: 3, 3: 1 },
+        bestTimeMsByLevel: { 1: 9_000, 3: 14_000 },
+        hasStarted: true,
+        tutorialComplete: true,
+        audioMuted: false,
+      },
+      5,
+    );
+
+    expect(progress.unlockedLevel).toBe(4);
+    expect(progress.completedLevels).toEqual([1, 2, 3]);
+    expect(progress.bestStarsByLevel).toEqual({ 1: 3, 2: 3, 3: 1 });
+    expect(progress.bestTimeMsByLevel).toEqual({ 1: 8_000, 2: 7_000, 3: 14_000 });
+    expect(progress.tutorialComplete).toBe(true);
+    expect(progress.audioMuted).toBe(true);
+  });
+
+  it("keeps cloud preferences when there is no local progress yet", () => {
+    const progress = mergeProgress(
+      null,
+      {
+        unlockedLevel: 2,
+        completedLevels: [1],
+        hasStarted: true,
+        tutorialComplete: true,
+        audioMuted: true,
+      },
+      5,
+    );
+
+    expect(progress.unlockedLevel).toBe(2);
+    expect(progress.audioMuted).toBe(true);
   });
 
   it("stores tutorial completion in the shared progress object", () => {

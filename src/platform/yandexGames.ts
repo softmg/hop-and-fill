@@ -6,6 +6,7 @@ export {
   ysdkGameplayStop,
   ysdkGetLanguage,
   ysdkLoad,
+  ysdkIsPlayerAuthorized,
   ysdkReady as notifyYandexGameReady,
   ysdkReady,
   ysdkRequestAuthorization,

@@ -1,4 +1,4 @@
-import { CarFront, Play, Star } from "lucide-react";
+import { CarFront, Cloud, LoaderCircle, LogIn, Play, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import startScreenBg from "@/assets/start-screen-bg.jpg";
 import { useTranslation } from "@/platform/i18n";
@@ -11,7 +11,9 @@ interface StartScreenProps {
   maxStars: number;
   totalRaces: number;
   maxRaces: number;
+  cloudSaveState: "checking" | "guest" | "syncing" | "ready" | "error";
   onStart: () => void;
+  onAuthorizeCloudSave: () => void;
 }
 
 export const StartScreen = ({
@@ -22,7 +24,9 @@ export const StartScreen = ({
   maxStars,
   totalRaces,
   maxRaces,
+  cloudSaveState,
   onStart,
+  onAuthorizeCloudSave,
 }: StartScreenProps) => {
   const t = useTranslation();
   const buttonLabel = isLoading ? t("loading") : isFirstStart ? t("start") : t("continue");
@@ -74,6 +78,34 @@ export const StartScreen = ({
             <Play className="h-5 w-5 fill-current" aria-hidden />
             {buttonLabel}
           </Button>
+          {cloudSaveState !== "ready" && (
+            <div className="flex max-w-sm flex-col items-center gap-2 text-center">
+              {cloudSaveState === "guest" && (
+                <p className="game-hud-text text-sm">{t("cloudSaveOffer")}</p>
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={onAuthorizeCloudSave}
+                disabled={cloudSaveState === "checking" || cloudSaveState === "syncing"}
+                className="min-w-48"
+              >
+                {cloudSaveState === "checking" || cloudSaveState === "syncing" ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden />
+                ) : cloudSaveState === "error" ? (
+                  <Cloud className="h-4 w-4" aria-hidden />
+                ) : (
+                  <LogIn className="h-4 w-4" aria-hidden />
+                )}
+                {cloudSaveState === "syncing"
+                  ? t("cloudSaveSyncing")
+                  : cloudSaveState === "error"
+                    ? t("cloudSaveRetry")
+                    : t("cloudSaveSignIn")}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </section>

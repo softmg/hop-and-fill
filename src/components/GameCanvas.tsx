@@ -8,7 +8,16 @@ import { decideInterstitialTrigger, type InterstitialTrigger } from "@/game/inte
 import { levels } from "@/game/levels";
 import { deriveChapters, getChapterForLevel, getChapterTransition, getLevelTheme, getThemeLabel, type ChapterTransition } from "@/game/levels/chapters";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
-import { subscribeToFullscreenAds, ysdkGameplayStart, ysdkGameplayStop, ysdkReady, ysdkShowAd, ysdkShowRewardedAd } from "@/platform/yandexGames";
+import {
+  subscribeToFullscreenAds,
+  ysdkGameplayStart,
+  ysdkGameplayStop,
+  ysdkIsPlayerAuthorized,
+  ysdkReady,
+  ysdkRequestAuthorization,
+  ysdkShowAd,
+  ysdkShowRewardedAd,
+} from "@/platform/yandexGames";
 import { useLanguage, useTranslation } from "@/platform/i18n";
 import { Button } from "@/components/ui/button";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
@@ -31,6 +40,7 @@ import {
   isLevelUnlocked,
   loadPlayerProgress,
   markGameStarted,
+  migrateGuestProgressToCloud,
   savePlayerProgress,
   setAudioMuted,
   type PlayerProgress,
@@ -43,6 +53,7 @@ type OverlayMode = "playing" | "paused" | "won" | "lost" | "chapter" | "final";
 type LeaderboardStatus = "idle" | "loading" | "ready" | "error";
 type LeaderboardSaveStatus = "idle" | "saving" | "saved" | "error" | "skipped";
 type ShareStatus = "idle" | "copied" | "shared" | "error";
+type CloudSaveState = "checking" | "guest" | "syncing" | "ready" | "error";
 type KeyboardCompassKeyStyle = CSSProperties & {
   "--control-from-left"?: string;
   "--control-from-top"?: string;
@@ -278,6 +289,7 @@ export const GameCanvas = () => {
   const [shareUrl, setShareUrl] = useState("");
   const [isInterstitialActive, setInterstitialActive] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
+  const [cloudSaveState, setCloudSaveState] = useState<CloudSaveState>("checking");
   const [rewardedUndoState, setRewardedUndoState] = useState<"idle" | "loading" | "error">("idle");
   const [isDocumentVisible, setDocumentVisible] = useState(() => document.visibilityState !== "hidden");
   const [isFirstSceneRenderable, setFirstSceneRenderable] = useState(false);
@@ -306,6 +318,27 @@ export const GameCanvas = () => {
         console.warn("[progress] failed to save player progress", error);
         setSaveState("error");
       });
+  };
+
+  const authorizeCloudSave = async () => {
+    setCloudSaveState("syncing");
+
+    try {
+      const authorized = await ysdkRequestAuthorization();
+      if (!authorized) {
+        setCloudSaveState("guest");
+        return;
+      }
+
+      const guestProgress = progressRef.current ?? createDefaultProgress();
+      const syncedProgress = await migrateGuestProgressToCloud(guestProgress, levels.length);
+      progressRef.current = syncedProgress;
+      setProgress(syncedProgress);
+      setCloudSaveState("ready");
+    } catch (error) {
+      console.warn("[progress] failed to authorize cloud saves", error);
+      setCloudSaveState("error");
+    }
   };
 
   const clearTimerInterval = useCallback(() => {
@@ -374,6 +407,23 @@ export const GameCanvas = () => {
   useEffect(() => {
     progressRef.current = progress;
   }, [progress]);
+
+  useEffect(() => {
+    let active = true;
+
+    ysdkIsPlayerAuthorized()
+      .then((authorized) => {
+        if (active) setCloudSaveState(authorized ? "ready" : "guest");
+      })
+      .catch((error) => {
+        console.warn("[progress] failed to read Yandex authorization state", error);
+        if (active) setCloudSaveState("error");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const showInterstitial = useCallback(async (reason: InterstitialTrigger) => {
     if (reason === "none" || isInterstitialActiveRef.current) return;
@@ -974,7 +1024,9 @@ export const GameCanvas = () => {
           maxStars={levels.length * 3}
           totalRaces={0}
           maxRaces={getMaxRaces(levels.length)}
+          cloudSaveState={cloudSaveState}
           onStart={() => {}}
+          onAuthorizeCloudSave={() => void authorizeCloudSave()}
         />
       </div>
     );
@@ -1373,7 +1425,9 @@ export const GameCanvas = () => {
           maxStars={maxStars}
           totalRaces={totalRaces}
           maxRaces={maxRaces}
+          cloudSaveState={cloudSaveState}
           onStart={startFromStartScreen}
+          onAuthorizeCloudSave={() => void authorizeCloudSave()}
         />
       )}
     </div>

@@ -75,7 +75,8 @@ Use `http://127.0.0.1:4174/?lang=en` to inspect the English local fallback. On Y
 - Fullscreen and rewarded ad calls stay inside the platform wrapper; rewarded undo remains on the loss screen, and fullscreen interstitials remain at existing scene boundaries.
 - Gameplay pause/resume and audio holds are coordinated around ads and page visibility.
 - `visibilitychange` pauses gameplay timing/input and suspends audio without overriding a user mute setting.
-- Player progress is written to local storage and also attempted through Yandex player data.
+- Player progress is saved through Yandex player data for authorized players and through local storage only for guests.
+- The start screen offers a Yandex ID sign-in action for cloud saves across devices and syncs local progress into the authorized player profile after login.
 
 ## Maintenance notes
 
