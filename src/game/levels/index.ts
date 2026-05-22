@@ -1,4 +1,5 @@
 import type { LevelData, LevelDifficulty, StarThresholds } from "../Level.ts";
+import { applyShippedFeaturePlan } from "./specialFeatures.ts";
 
 interface ImportedLevelDefinition {
   id: number;
@@ -612,7 +613,7 @@ const importedLevels = [
     name: "Gauntlet Return",
     start: { r: 5, c: 5 },
     grid: [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
       [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
       [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0],
       [0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0],
@@ -620,7 +621,7 @@ const importedLevels = [
       [0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0],
       [0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0],
       [0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0],
-      [0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0],
+      [1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0],
       [0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     ],
@@ -657,7 +658,7 @@ const importedLevels = [
     name: "Asymmetric Bastion",
     start: { r: 5, c: 6 },
     grid: [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
       [0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
       [0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0],
@@ -668,7 +669,7 @@ const importedLevels = [
       [0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0],
       [0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0],
       [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
     ],
     mOpt: 62,
     starThresholds: { threeStars: 62, twoStars: 64, oneStar: 67 },
@@ -757,10 +758,10 @@ const importedLevels = [
 
 const chapterLevelGroups = [
   { chapter: 1, theme: "default", sourceLevelNumbers: [1, 3, 6, 7, 10] },
-  { chapter: 2, theme: "slime", sourceLevelNumbers: [8, 9, 12, 16, 20] },
-  { chapter: 3, theme: "neon", sourceLevelNumbers: [14, 15, 23, 19, 31] },
-  { chapter: 4, theme: "wood", sourceLevelNumbers: [25, 27, 28, 29, 32] },
-  { chapter: 5, theme: "paper", sourceLevelNumbers: [21, 33, 34, 35, 36] },
+  { chapter: 2, theme: "slime", sourceLevelNumbers: [12, 16, 17, 11, 13] },
+  { chapter: 3, theme: "neon", sourceLevelNumbers: [14, 19, 20, 18, 15] },
+  { chapter: 4, theme: "wood", sourceLevelNumbers: [21, 25, 24, 23, 22] },
+  { chapter: 5, theme: "paper", sourceLevelNumbers: [26, 27, 28, 29, 30] },
 ] satisfies readonly ChapterLevelGroup[];
 
 function fromImportedLevel(level: ImportedLevelDefinition): LevelData {
@@ -794,10 +795,12 @@ function getImportedLevelByNumber(levelNumber: number) {
 
 export const levels: LevelData[] = chapterLevelGroups.flatMap(({ chapter, theme, sourceLevelNumbers }) =>
   sourceLevelNumbers.map((sourceLevelNumber) =>
-    fromImportedLevel({
-      ...getImportedLevelByNumber(sourceLevelNumber),
-      chapter,
-      theme,
-    }),
+    applyShippedFeaturePlan(
+      fromImportedLevel({
+        ...getImportedLevelByNumber(sourceLevelNumber),
+        chapter,
+        theme,
+      }),
+    ),
   ),
 );

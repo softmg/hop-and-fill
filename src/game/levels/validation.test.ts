@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import type { LevelData } from "../Level";
 import { levels } from "./index";
 import { formatLevelsValidationReport, validateLevels } from "./validation";
 
@@ -15,6 +16,18 @@ describe("level metadata", () => {
       expect(level.starThresholds?.threeStars).toBe(level.mOpt);
       expect(level.starThresholds?.twoStars).toBeGreaterThanOrEqual(level.starThresholds?.threeStars ?? 0);
       expect(level.starThresholds?.oneStar).toBeGreaterThanOrEqual(level.starThresholds?.twoStars ?? 0);
+
+      if (level.chapter >= 2) {
+        expect(level.fragileCells?.length).toBeGreaterThanOrEqual(1);
+      } else {
+        expect(level.fragileCells).toBeUndefined();
+      }
+
+      if (level.chapter >= 3) {
+        expect(level.teleportPairs?.length).toBeGreaterThanOrEqual(1);
+      } else {
+        expect(level.teleportPairs).toBeUndefined();
+      }
     }
 
     expect(levels.map((level) => ({ name: level.name, chapter: level.chapter, theme: level.theme ?? "default" }))).toEqual([
@@ -23,70 +36,74 @@ describe("level metadata", () => {
       { name: "Zigzag Spine", chapter: 1, theme: "default" },
       { name: "Offset Rooms", chapter: 1, theme: "default" },
       { name: "Asymmetric Gauntlet", chapter: 1, theme: "default" },
-      { name: "Broken Bridge", chapter: 2, theme: "slime" },
-      { name: "Branching Labyrinth", chapter: 2, theme: "slime" },
       { name: "Bent Orchard", chapter: 2, theme: "slime" },
       { name: "Cracked Arcade", chapter: 2, theme: "slime" },
-      { name: "Sawtooth Gate", chapter: 2, theme: "slime" },
+      { name: "Kite Junction", chapter: 2, theme: "slime" },
+      { name: "Soft Reboot", chapter: 2, theme: "slime" },
+      { name: "Angled Pockets", chapter: 2, theme: "slime" },
       { name: "Broken Switchbacks", chapter: 3, theme: "neon" },
-      { name: "Hidden Spine", chapter: 3, theme: "neon" },
-      { name: "Skewed Garden", chapter: 3, theme: "neon" },
       { name: "Deep Switchback", chapter: 3, theme: "neon" },
-      { name: "Gauntlet Return", chapter: 3, theme: "neon" },
+      { name: "Sawtooth Gate", chapter: 3, theme: "neon" },
+      { name: "Layered Passage", chapter: 3, theme: "neon" },
+      { name: "Hidden Spine", chapter: 3, theme: "neon" },
+      { name: "Soft Drop", chapter: 4, theme: "wood" },
       { name: "Bent Gallery", chapter: 4, theme: "wood" },
-      { name: "Branchlock Court", chapter: 4, theme: "wood" },
-      { name: "Twinned Ridges", chapter: 4, theme: "wood" },
-      { name: "Longhook Maze", chapter: 4, theme: "wood" },
-      { name: "Bent Stronghold", chapter: 4, theme: "wood" },
-      { name: "Soft Drop", chapter: 5, theme: "paper" },
-      { name: "Asymmetric Bastion", chapter: 5, theme: "paper" },
-      { name: "Hooked Citadel", chapter: 5, theme: "paper" },
-      { name: "Broken Ramparts", chapter: 5, theme: "paper" },
-      { name: "Shifted Fortress", chapter: 5, theme: "paper" },
+      { name: "Half-Moon Yard", chapter: 4, theme: "wood" },
+      { name: "Skewed Garden", chapter: 4, theme: "wood" },
+      { name: "Cutout Lane", chapter: 4, theme: "wood" },
+      { name: "Crooked Reservoir", chapter: 5, theme: "paper" },
+      { name: "Branchlock Court", chapter: 5, theme: "paper" },
+      { name: "Twinned Ridges", chapter: 5, theme: "paper" },
+      { name: "Longhook Maze", chapter: 5, theme: "paper" },
+      { name: "Square Route Crown", chapter: 5, theme: "paper" },
     ]);
 
     expect(levels[9]).toMatchObject({
-      name: "Sawtooth Gate",
+      name: "Angled Pockets",
       chapter: 2,
-      difficulty: 5,
-      mOpt: 46,
-      starThresholds: { threeStars: 46, twoStars: 48, oneStar: 51 },
+      difficulty: 4,
+      mOpt: 29,
+      starThresholds: { threeStars: 29, twoStars: 31, oneStar: 34 },
     });
     expect(levels[14]).toMatchObject({
-      name: "Gauntlet Return",
+      name: "Hidden Spine",
       chapter: 3,
-      difficulty: 5,
-      mOpt: 57,
-      starThresholds: { threeStars: 57, twoStars: 59, oneStar: 62 },
+      difficulty: 4,
+      mOpt: 29,
+      starThresholds: { threeStars: 29, twoStars: 31, oneStar: 34 },
     });
     expect(levels[19]).toMatchObject({
-      name: "Bent Stronghold",
+      name: "Cutout Lane",
       chapter: 4,
-      difficulty: 5,
-      mOpt: 65,
-      starThresholds: { threeStars: 65, twoStars: 67, oneStar: 70 },
+      difficulty: 4,
+      mOpt: 45,
+      starThresholds: { threeStars: 45, twoStars: 47, oneStar: 50 },
     });
     expect(levels[21]).toMatchObject({
-      name: "Asymmetric Bastion",
+      name: "Branchlock Court",
       chapter: 5,
       difficulty: 5,
-      mOpt: 62,
-      starThresholds: { threeStars: 62, twoStars: 64, oneStar: 67 },
+      mOpt: 53,
+      starThresholds: { threeStars: 53, twoStars: 55, oneStar: 58 },
     });
     expect(levels[24]).toMatchObject({
-      name: "Shifted Fortress",
+      name: "Square Route Crown",
       chapter: 5,
       difficulty: 5,
-      mOpt: 103,
-      starThresholds: { threeStars: 103, twoStars: 105, oneStar: 108 },
+      mOpt: 85,
+      starThresholds: { threeStars: 85, twoStars: 87, oneStar: 90 },
     });
   });
 });
 
 describe("level validation", () => {
-  it("produces stable metrics for representative current levels", () => {
-    const report = validateLevels(levels);
+  let report: ReturnType<typeof validateLevels>;
 
+  beforeAll(() => {
+    report = validateLevels(levels);
+  }, 30_000);
+
+  it("produces stable metrics for representative current levels", () => {
     expect(report.warnings).toEqual([]);
     expect(report.levels[0]).toMatchObject({
       index: 1,
@@ -120,10 +137,61 @@ describe("level validation", () => {
   });
 
   it("formats the report as readable line output", () => {
-    const output = formatLevelsValidationReport(validateLevels(levels));
+    const output = formatLevelsValidationReport(report);
 
     expect(output).toContain("Hop and Fill level validation");
     expect(output).toContain("L01 Square");
     expect(output).toContain("Warnings: none");
+  });
+
+  it("warns about fragile starts and reused teleport endpoints", () => {
+    const invalidLevel = {
+      name: "Invalid Feature Endpoints",
+      rows: [
+        "SXX",
+        "XXX",
+        "XXX",
+      ],
+      chapter: 1,
+      difficulty: 1,
+      fragileCells: [{ gx: 0, gy: 0 }],
+      teleportPairs: [
+        { from: { gx: 0, gy: 1 }, to: { gx: 2, gy: 2 } },
+        { from: { gx: 0, gy: 1 }, to: { gx: 2, gy: 0 } },
+      ],
+    } satisfies LevelData;
+
+    expect(validateLevels([invalidLevel]).warnings).toEqual(expect.arrayContaining([
+      "L1 Invalid Feature Endpoints: fragile cell is the start tile: 0,0",
+      "L1 Invalid Feature Endpoints: teleport endpoint is reused 2 times: 0,1",
+    ]));
+  });
+
+  it("keeps shipped teleports structural in representative advanced levels", () => {
+    for (const levelName of [
+      "Broken Switchbacks",
+      "Hidden Spine",
+      "Half-Moon Yard",
+      "Branchlock Court",
+    ]) {
+      expect(report.levels.find((level) => level.name === levelName)).toMatchObject({
+        teleportRequiredForOptimal: true,
+        optimalRouteUsesTeleport: true,
+      });
+    }
+  });
+
+  it("keeps the redesigned chapters under higher route-planning pressure", () => {
+    expect(report.levels.filter((level) => level.chapter === 2).map((level) => level.interiorFragileCount)).toEqual([2, 3, 3, 2, 2]);
+    expect(report.levels.filter((level) => level.chapter === 3).map((level) => level.interiorFragileCount)).toEqual([3, 3, 3, 3, 3]);
+    expect(report.levels.filter((level) => level.chapter === 4).map((level) => level.interiorFragileCount)).toEqual([4, 4, 4, 4, 4]);
+    expect(report.levels.filter((level) => level.chapter === 5).map((level) => level.interiorFragileCount)).toEqual([4, 4, 4, 4, 4]);
+
+    const chapterAverages = [2, 3, 4, 5].map((chapter) => {
+      const chapterLevels = report.levels.filter((level) => level.chapter === chapter);
+      return chapterLevels.reduce((sum, level) => sum + level.routeDecisionScore, 0) / chapterLevels.length;
+    });
+
+    expect(chapterAverages).toEqual([...chapterAverages].sort((a, b) => a - b));
   });
 });

@@ -30,6 +30,8 @@ interface MoveSnapshot {
   toGy: number;
   previousHops: number;
   destinationWasPainted: boolean;
+  destinationLandingCount: number;
+  sourceWasSealed: boolean;
 }
 
 /**
@@ -171,21 +173,6 @@ export class PixiGame {
     return { gx: Math.round(gx), gy: Math.round(gy) };
   }
 
-  // Возвращает направление, если (gx, gy) — одна из 8 соседних плиток, иначе null
-  private dirToNeighbor(gx: number, gy: number): Dir | null {
-    const dx = gx - this.player.gx;
-    const dy = gy - this.player.gy;
-    if (dx === -1 && dy === -1) return "NW";
-    if (dx === 1 && dy === 1) return "SE";
-    if (dx === 1 && dy === -1) return "NE";
-    if (dx === -1 && dy === 1) return "SW";
-    if (dx === 0 && dy === -1) return "N";
-    if (dx === 1 && dy === 0) return "E";
-    if (dx === 0 && dy === 1) return "S";
-    if (dx === -1 && dy === 0) return "W";
-    return null;
-  }
-
   private setHover(target: { gx: number; gy: number } | null) {
     if (this.hoveredTile && (!target || this.hoveredTile.gx !== target.gx || this.hoveredTile.gy !== target.gy)) {
       const prev = this.level.get(this.hoveredTile.gx, this.hoveredTile.gy);
@@ -196,8 +183,7 @@ export class PixiGame {
     if (target) {
       const t = this.level.get(target.gx, target.gy);
       if (!t) return;
-      const dir = this.dirToNeighbor(target.gx, target.gy);
-      if (!dir) return;
+      if (!this.isReachableTarget(target.gx, target.gy)) return;
       t.setHovered(true);
       this.hoveredTile = target;
       this.host.style.cursor = "pointer";
@@ -232,9 +218,8 @@ export class PixiGame {
 
     if (!this.canShowJumpTargets()) return;
 
-    for (const dir of JUMP_TARGET_DIRECTIONS) {
-      const { dx, dy } = dirToDelta(dir);
-      this.level.get(this.player.gx + dx, this.player.gy + dy)?.setJumpAvailable(true);
+    for (const target of this.getReachableTargets()) {
+      this.level.get(target.gx, target.gy)?.setJumpAvailable(true);
     }
   }
 
@@ -255,8 +240,9 @@ export class PixiGame {
   private onPointerUp = (e: FederatedPointerEvent) => {
     if (!this.ready || this.isPaused || this.state !== "playing") return;
     const { gx, gy } = this.screenPointToGrid(e.global.x, e.global.y);
-    const dir = this.dirToNeighbor(gx, gy);
-    if (dir) this.handlePointerDir(dir);
+    if (this.isReachableTarget(gx, gy)) {
+      this.commitMove(this.player.gx, this.player.gy, gx, gy);
+    }
   };
 
   /**
@@ -289,7 +275,9 @@ export class PixiGame {
     this.world.addChild(this.player.container);
 
     // Закрашиваем стартовую плитку сразу
-    this.level.get(this.level.startGx, this.level.startGy)?.paint({ immediate: true });
+    const startTile = this.level.get(this.level.startGx, this.level.startGy);
+    startTile?.paint({ immediate: true });
+    startTile?.recordLanding();
 
     this.hops = 0;
     this.state = "playing";
@@ -336,6 +324,8 @@ export class PixiGame {
     this.setHover(null);
     this.player.snapTo(move.fromGx, move.fromGy);
     this.level.setTileState(move.toGx, move.toGy, move.destinationWasPainted ? "painted" : "unpainted");
+    this.level.get(move.toGx, move.toGy)?.setLandingCount(move.destinationLandingCount);
+    this.level.get(move.fromGx, move.fromGy)?.setFragileSealed(move.sourceWasSealed);
     this.hops = move.previousHops;
     this.state = "playing";
     this.lastMove = null;
@@ -368,65 +358,21 @@ export class PixiGame {
     if (this.player.isAnimating) return;
     // Сбрасываем hover, чтобы курсор не "прилипал" к старой плитке
     this.setHover(null);
-    const { dx, dy } = dirToDelta(dir);
-    const tx = this.player.gx + dx;
-    const ty = this.player.gy + dy;
-    const target = this.level.get(tx, ty);
-    if (!target) {
-      // За пределы поля ходить нельзя — игнорируем ход без штрафа
-      return;
-    }
-    this.lastMove = {
-      fromGx: this.player.gx,
-      fromGy: this.player.gy,
-      toGx: tx,
-      toGy: ty,
-      previousHops: this.hops,
-      destinationWasPainted: target.state === "painted",
-    };
-    this.hops++;
-    this.cb.onHopCount(this.hops);
-    this.cb.onHop();
-    this.player.hop(
-      tx, ty,
-      () => {
-        if (target.paint()) {
-          this.cb.onPaint();
-        }
-      },
-      () => {
-        if (this.state !== "playing") return;
-
-        if (this.level.isComplete()) {
-          this.state = "won";
-          this.cb.onWin(this.hops);
-          return;
-        }
-        if (this.moveLimit !== null && this.hops >= this.moveLimit) {
-          this.state = "lost";
-          this.cb.onLose();
-        }
-      },
-    );
-  };
-
-  /**
-   * Handles pointer-click movement without waiting for the player to settle.
-   */
-  private handlePointerDir = (dir: Parameters<Input["emit"]>[0]) => {
-    if (!this.ready) return;
-    if (this.isPaused) return;
-    if (this.state !== "playing") return;
-    this.setHover(null);
-    const { dx, dy } = dirToDelta(dir);
     const fromGx = this.player.gx;
     const fromGy = this.player.gy;
+    const { dx, dy } = dirToDelta(dir);
     const tx = fromGx + dx;
     const ty = fromGy + dy;
-    const target = this.level.get(tx, ty);
-    if (!target) return;
 
-    this.commitMove(fromGx, fromGy, tx, ty);
+    if (this.isReachableFrom(fromGx, fromGy, tx, ty)) {
+      this.commitMove(fromGx, fromGy, tx, ty);
+      return;
+    }
+
+    const teleport = this.level.getTeleportDestination(fromGx, fromGy);
+    if (teleport) {
+      this.commitMove(fromGx, fromGy, teleport.gx, teleport.gy);
+    }
   };
 
   /**
@@ -438,7 +384,8 @@ export class PixiGame {
     if (this.state !== "playing") return;
 
     const target = this.level.get(toGx, toGy);
-    if (!target) return;
+    const source = this.level.get(fromGx, fromGy);
+    if (!target || !this.isReachableFrom(fromGx, fromGy, toGx, toGy)) return;
 
     this.lastMove = {
       fromGx,
@@ -447,7 +394,11 @@ export class PixiGame {
       toGy,
       previousHops: this.hops,
       destinationWasPainted: target.state === "painted",
+      destinationLandingCount: target.landingCount,
+      sourceWasSealed: source?.isFragileSealed() ?? false,
     };
+    if (source?.shouldSealAfterDeparture()) source.setFragileSealed(true);
+    target.recordLanding();
     this.hops++;
     this.cb.onHopCount(this.hops);
     this.cb.onHop();
@@ -478,6 +429,38 @@ export class PixiGame {
       },
       () => {},
     );
+  }
+
+  private getReachableTargets() {
+    const targets = JUMP_TARGET_DIRECTIONS.map((dir) => {
+      const { dx, dy } = dirToDelta(dir);
+      return { gx: this.player.gx + dx, gy: this.player.gy + dy };
+    });
+    const teleport = this.level.getTeleportDestination(this.player.gx, this.player.gy);
+    if (teleport) targets.push(teleport);
+
+    return targets.filter((target, index, allTargets) => {
+      const tile = this.level.get(target.gx, target.gy);
+      return (
+        tile?.canLand() === true &&
+        allTargets.findIndex((other) => other.gx === target.gx && other.gy === target.gy) === index
+      );
+    });
+  }
+
+  private isReachableTarget(gx: number, gy: number) {
+    return this.getReachableTargets().some((target) => target.gx === gx && target.gy === gy);
+  }
+
+  private isReachableFrom(fromGx: number, fromGy: number, toGx: number, toGy: number) {
+    const dx = Math.abs(toGx - fromGx);
+    const dy = Math.abs(toGy - fromGy);
+    if ((dx <= 1 && dy <= 1) && (dx !== 0 || dy !== 0)) {
+      return this.level.get(toGx, toGy)?.canLand() === true;
+    }
+
+    const teleport = this.level.getTeleportDestination(fromGx, fromGy);
+    return teleport?.gx === toGx && teleport.gy === toGy && this.level.get(toGx, toGy)?.canLand() === true;
   }
 
   private layout = () => {
