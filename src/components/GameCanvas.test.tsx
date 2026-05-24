@@ -35,6 +35,7 @@ const mockDestroy = vi.fn();
 const mockReset = vi.fn();
 const mockSetLevel = vi.fn();
 const mockSetMoveLimit = vi.fn();
+const mockContinueAfterLoss = vi.fn().mockReturnValue(true);
 const mockTriggerDir = vi.fn();
 const mockPause = vi.fn();
 const mockResume = vi.fn();
@@ -86,6 +87,10 @@ vi.mock("@/game/PixiGame", () => ({
 
     setMoveLimit(limit: number | null) {
       mockSetMoveLimit(limit);
+    }
+
+    continueAfterLoss(limit: number) {
+      return mockContinueAfterLoss(limit);
     }
 
     triggerDir(dir: unknown) {
@@ -388,7 +393,7 @@ describe("GameCanvas yandex lifecycle", () => {
     });
   });
 
-  it("reenables loss overlay actions after the automatic interstitial finishes", async () => {
+  it("requests a loss interstitial only after the player chooses restart", async () => {
     let finishAd!: () => void;
     mockYsdkShowAd.mockReturnValueOnce(new Promise<void>((resolve) => {
       finishAd = resolve;
@@ -407,6 +412,9 @@ describe("GameCanvas yandex lifecycle", () => {
     const restartButton = await screen.findByRole("button", { name: "Перезапустить" });
     const levelSelectButton = screen.getByRole("button", { name: "К выбору уровней" });
 
+    expect(mockYsdkShowAd).not.toHaveBeenCalled();
+    fireEvent.click(restartButton);
+
     await waitFor(() => {
       expect(mockYsdkShowAd).toHaveBeenCalledTimes(1);
     });
@@ -419,9 +427,31 @@ describe("GameCanvas yandex lifecycle", () => {
     });
 
     await waitFor(() => {
-      expect(restartButton).toBeEnabled();
-      expect(levelSelectButton).toBeEnabled();
+      expect(mockReset).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("continues a lost attempt with ten additional moves after a rewarded view", async () => {
+    mockYsdkShowRewardedAd.mockResolvedValueOnce({ status: "rewarded" });
+
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await screen.findByText(/Уровень 1 \/ /);
+    await startFromStartScreen();
+
+    await act(async () => {
+      onLoseCallback?.();
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: /10 ходов/ }));
+
+    await waitFor(() => {
+      expect(mockYsdkShowRewardedAd).toHaveBeenCalledTimes(1);
+      expect(mockContinueAfterLoss).toHaveBeenCalledWith(expect.any(Number));
+      expect(screen.queryByText("Ходы закончились")).not.toBeInTheDocument();
+    });
+    expect(mockYsdkShowAd).not.toHaveBeenCalled();
   });
 
   it("ignores a late win callback after game over", async () => {

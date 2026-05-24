@@ -311,6 +311,17 @@ export class PixiGame {
     this.moveLimit = limit;
   }
 
+  /**
+   * Resumes an exhausted attempt after an external reward expands its limit.
+   */
+  continueAfterLoss(moveLimit: number) {
+    if (!this.ready || this.state !== "lost") return false;
+
+    this.moveLimit = moveLimit;
+    this.state = "playing";
+    return true;
+  }
+
   canUndoLastMove() {
     return this.ready && !this.isPaused && !this.player.isAnimating && this.lastMove !== null;
   }

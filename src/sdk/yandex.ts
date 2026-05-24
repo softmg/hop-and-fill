@@ -16,7 +16,7 @@ interface YsdkFeatures {
 }
 
 interface YsdkAdCallbacks {
-  onClose?: () => void;
+  onClose?: (wasShown: boolean) => void;
   onError?: (error: unknown) => void;
 }
 
@@ -27,7 +27,7 @@ interface YsdkRewardedCallbacks extends YsdkAdCallbacks {
 
 export interface YsdkFullscreenAdCallbacks {
   onOpen?: () => void;
-  onClose?: () => void;
+  onClose?: (wasShown: boolean) => void;
   onError?: () => void;
 }
 
@@ -72,7 +72,12 @@ interface Ysdk {
   };
   adv: {
     showFullscreenAdv: (opts?: {
-      callbacks?: Partial<Record<"onClose" | "onError" | "onOffline" | "onOpen", () => void>>;
+      callbacks?: {
+        onOpen?: () => void;
+        onClose?: (wasShown: boolean) => void;
+        onError?: (error: unknown) => void;
+        onOffline?: () => void;
+      };
     }) => void;
     showRewardedVideo?: (opts?: { callbacks?: YsdkRewardedCallbacks }) => void;
   };
@@ -168,7 +173,7 @@ const mockSdk: Ysdk = {
       console.info("[ysdk-mock] showFullscreenAdv");
       opts?.callbacks?.onOpen?.();
       queueMicrotask(() => {
-        opts?.callbacks?.onClose?.();
+        opts?.callbacks?.onClose?.(true);
       });
     },
     showRewardedVideo: (opts) => {
@@ -176,7 +181,7 @@ const mockSdk: Ysdk = {
       queueMicrotask(() => {
         opts?.callbacks?.onOpen?.();
         opts?.callbacks?.onRewarded?.();
-        opts?.callbacks?.onClose?.();
+        opts?.callbacks?.onClose?.(true);
       });
     },
   },
@@ -357,7 +362,7 @@ export async function ysdkShowAd(callbacks?: YsdkFullscreenAdCallbacks) {
             }
             callbacks?.onOpen?.();
           },
-          onClose: () => settle(callbacks?.onClose),
+          onClose: (wasShown) => settle(() => callbacks?.onClose?.(wasShown)),
           onError: () => settle(callbacks?.onError),
           onOffline: () => settle(callbacks?.onError),
         },
@@ -383,17 +388,26 @@ export async function ysdkShowRewardedAd(): Promise<RewardedAdResult> {
 
   return new Promise((resolve) => {
     let rewarded = false;
+    let active = false;
     let settled = false;
 
     const settle = (result: RewardedAdResult) => {
       if (settled) return;
       settled = true;
+      if (active) {
+        active = false;
+        notifyFullscreenAdState(false);
+      }
       resolve(result);
     };
 
     try {
       sdk.adv.showRewardedVideo({
         callbacks: {
+          onOpen: () => {
+            active = true;
+            notifyFullscreenAdState(true);
+          },
           onRewarded: () => {
             rewarded = true;
           },
