@@ -2,9 +2,10 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, CarFront, Clock3, Home, Star, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ParallaxBackground } from "@/components/ParallaxBackground";
+import { getLevelName } from "@/game/levels";
 import { decodeSharedResult } from "@/game/shareResult";
 import { formatDurationMs } from "@/game/time";
-import { useTranslation } from "@/platform/i18n";
+import { useLanguage, useTranslation } from "@/platform/i18n";
 
 interface SharedResultPageProps {
   token: string | null;
@@ -31,6 +32,7 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
 
 export const SharedResultPage = ({ token }: SharedResultPageProps) => {
   const t = useTranslation();
+  const language = useLanguage();
   const result = decodeSharedResult(token);
 
   return (
@@ -62,7 +64,7 @@ export const SharedResultPage = ({ token }: SharedResultPageProps) => {
                 <Trophy className="h-6 w-6 text-yellow-300" aria-hidden />
               </div>
               <p className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-white/55">
-                Hop &amp; Fill
+                {t("gameTitle")}
               </p>
               <h1 className="mt-2 text-2xl font-black">
                 {result.kind === "final"
@@ -74,7 +76,7 @@ export const SharedResultPage = ({ token }: SharedResultPageProps) => {
 
               {result.level && (
                 <div className="mt-4">
-                  <div className="text-sm font-semibold text-white/75">{result.level.name}</div>
+                  <div className="text-sm font-semibold text-white/75">{getLevelName(result.level.name, language)}</div>
                   <div className="mt-3">
                     <ResultStars count={result.level.stars} label={t("starsCount", { stars: result.level.stars })} />
                   </div>

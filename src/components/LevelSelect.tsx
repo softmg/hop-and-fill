@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { LevelData } from "@/game/Level";
 import type { TileTheme } from "@/game/Tile";
+import { getLevelName } from "@/game/levels";
 import { deriveChapters, getThemeLabel, type ChapterMeta } from "@/game/levels/chapters";
 import {
   getBestStars,
@@ -686,6 +687,7 @@ export const LevelSelect = ({
 
             {levelNodes.map((node) => {
               const levelNumber = node.index + 1;
+              const levelName = getLevelName(node.level.name, language);
               const theme = getChapterTheme(node.chapter);
               const visual = getChapterVisual(theme);
               const bestTimeLabel = node.bestTimeMs === null ? null : formatDurationMs(node.bestTimeMs);
@@ -720,8 +722,8 @@ export const LevelSelect = ({
                     node.selected && "animate-pulse",
                   )}
                   style={nodeStyle}
-                  aria-label={`${t("level")} ${levelNumber}: ${node.level.name}. ${t("starsCount", { stars: node.stars })}${bestTimeLabel ? `. ${t("bestTime")} ${bestTimeLabel}` : ""}${node.raceEarned ? `. ${t("raceEarned")}` : raceTargetLabel ? `. ${t("raceTarget", { time: raceTargetLabel })}` : ""}`}
-                  title={`${node.level.name}${bestTimeLabel ? ` · ${bestTimeLabel}` : ""}${node.raceEarned ? ` · ${t("raceEarned")}` : raceTargetLabel ? ` · ${t("raceTarget", { time: raceTargetLabel })}` : ""}`}
+                  aria-label={`${t("level")} ${levelNumber}: ${levelName}. ${t("starsCount", { stars: node.stars })}${bestTimeLabel ? `. ${t("bestTime")} ${bestTimeLabel}` : ""}${node.raceEarned ? `. ${t("raceEarned")}` : raceTargetLabel ? `. ${t("raceTarget", { time: raceTargetLabel })}` : ""}`}
+                  title={`${levelName}${bestTimeLabel ? ` · ${bestTimeLabel}` : ""}${node.raceEarned ? ` · ${t("raceEarned")}` : raceTargetLabel ? ` · ${t("raceTarget", { time: raceTargetLabel })}` : ""}`}
                 >
                   <span className="flex h-8 items-center justify-center text-2xl font-black leading-none [text-shadow:0_2px_6px_rgba(0,0,0,0.9)]">
                     {node.unlocked ? levelNumber : <Lock className="h-5 w-5 text-white/65" aria-hidden />}

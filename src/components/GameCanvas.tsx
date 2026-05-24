@@ -5,7 +5,7 @@ import { rotateKeyboardDir, type KeyboardRotation } from "@/game/Input";
 import type { Dir } from "@/game/iso";
 import { createGameAudio } from "@/game/audio";
 import { decideInterstitialTrigger, type InterstitialTrigger } from "@/game/interstitials";
-import { levels } from "@/game/levels";
+import { getLevelName, levels } from "@/game/levels";
 import { deriveChapters, getChapterForLevel, getChapterTransition, getLevelTheme, getThemeLabel, type ChapterTransition } from "@/game/levels/chapters";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
 import {
@@ -904,6 +904,7 @@ export const GameCanvas = () => {
     setKeyboardRotation((current) => current === "default" ? "counterclockwise" : "default");
   };
   const pauseButtonLabel = overlayMode === "paused" ? t("continue") : t("pause");
+  const currentLevelName = getLevelName(currentLevel.name, language);
   const shareStatusLabel =
     shareStatus === "copied"
       ? t("copied")
@@ -920,7 +921,7 @@ export const GameCanvas = () => {
       return {
         kind: "level",
         levelNumber: levelIdx + 1,
-        levelName: currentLevel.name,
+        levelName: currentLevelName,
         stars: resultStars,
         hops,
         optimalMoves: optimal,
@@ -1054,10 +1055,10 @@ export const GameCanvas = () => {
           <div className="pointer-events-auto flex min-w-0 flex-col items-start gap-3">
             <div className="flex min-w-0 items-baseline gap-1.5">
               <h1 className="game-title truncate text-lg sm:text-2xl">
-                Hop &amp; Fill
+                {t("gameTitle")}
               </h1>
               <span className="game-hud-text hidden truncate sm:inline">
-                · {currentLevel.name}
+                · {currentLevelName}
               </span>
             </div>
             {currentChapter && (

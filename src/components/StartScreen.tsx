@@ -33,7 +33,7 @@ export const StartScreen = ({
 
   return (
     <section
-      aria-label="Hop and Fill"
+      aria-label={t("gameTitle")}
       className="absolute inset-0 z-[70] overflow-hidden bg-black text-white"
       data-testid="start-screen"
     >
@@ -45,7 +45,17 @@ export const StartScreen = ({
         draggable={false}
       />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_43%,transparent_0%,rgba(0,0,0,0.04)_40%,rgba(0,0,0,0.62)_100%)]" />
+      <div
+        className="absolute inset-x-0 top-[31%] h-[42%] bg-[linear-gradient(180deg,rgba(18,8,4,0)_0%,#120804_18%,#120804_82%,rgba(18,8,4,0)_100%)]"
+        aria-hidden
+      />
       <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#120804] via-[#120804]/74 to-transparent" />
+
+      <div className="absolute inset-x-0 top-[35%] flex justify-center px-4 text-center sm:top-[34%]">
+        <h1 className="game-title max-w-5xl text-4xl leading-[0.94] [text-wrap:balance] sm:text-6xl lg:text-8xl">
+          {t("gameTitle")}
+        </h1>
+      </div>
 
       <div className="absolute inset-x-0 bottom-0 flex justify-center px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(2.25rem+env(safe-area-inset-bottom))]">
         <div className="flex w-full max-w-md flex-col items-center gap-3 px-4 py-4">

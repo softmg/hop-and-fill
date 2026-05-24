@@ -1,5 +1,6 @@
 import type { LevelData, LevelDifficulty, StarThresholds } from "../Level.ts";
 import { applyShippedFeaturePlan } from "./specialFeatures.ts";
+import type { GameLanguage } from "@/sdk/yandex";
 
 interface ImportedLevelDefinition {
   id: number;
@@ -763,6 +764,49 @@ const chapterLevelGroups = [
   { chapter: 4, theme: "wood", sourceLevelNumbers: [21, 25, 24, 23, 22] },
   { chapter: 5, theme: "paper", sourceLevelNumbers: [26, 27, 28, 29, 30] },
 ] satisfies readonly ChapterLevelGroup[];
+
+const RU_LEVEL_NAMES: Record<string, string> = {
+  Square: "Квадрат",
+  "L Shape": "Г-образный путь",
+  "T Shape": "Т-образный путь",
+  "Forked Pass": "Развилка",
+  Cross: "Крест",
+  "Zigzag Spine": "Зигзаг",
+  "Offset Rooms": "Смещенные комнаты",
+  "Broken Bridge": "Разбитый мост",
+  "Branching Labyrinth": "Ветвистый лабиринт",
+  "Asymmetric Gauntlet": "Асимметричное испытание",
+  "Soft Reboot": "Мягкий перезапуск",
+  "Bent Orchard": "Изогнутый сад",
+  "Angled Pockets": "Угловые карманы",
+  "Broken Switchbacks": "Ломаные повороты",
+  "Hidden Spine": "Скрытый хребет",
+  "Cracked Arcade": "Треснувшая аркада",
+  "Kite Junction": "Воздушная развязка",
+  "Layered Passage": "Ярусный проход",
+  "Deep Switchback": "Глубокий вираж",
+  "Sawtooth Gate": "Зубчатые ворота",
+  "Soft Drop": "Плавный спуск",
+  "Cutout Lane": "Прорезанная тропа",
+  "Skewed Garden": "Косой сад",
+  "Half-Moon Yard": "Двор полумесяца",
+  "Bent Gallery": "Изогнутая галерея",
+  "Crooked Reservoir": "Кривой резервуар",
+  "Branchlock Court": "Двор ветвлений",
+  "Twinned Ridges": "Парные гребни",
+  "Longhook Maze": "Лабиринт с длинным крюком",
+  "Square Route Crown": "Корона квадратного пути",
+  "Gauntlet Return": "Возвращение испытания",
+  "Bent Stronghold": "Изогнутая крепость",
+  "Asymmetric Bastion": "Асимметричный бастион",
+  "Hooked Citadel": "Крюкастая цитадель",
+  "Broken Ramparts": "Разбитые бастионы",
+  "Shifted Fortress": "Сдвинутая крепость",
+};
+
+export function getLevelName(levelName: string, language: GameLanguage) {
+  return language === "ru" ? RU_LEVEL_NAMES[levelName] ?? levelName : levelName;
+}
 
 function fromImportedLevel(level: ImportedLevelDefinition): LevelData {
   if (level.grid[level.start.r]?.[level.start.c] !== 1) {

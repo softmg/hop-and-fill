@@ -5,6 +5,7 @@ type TranslationValue = string | ((vars: Record<string, string | number>) => str
 
 const text = {
   ru: {
+    gameTitle: "Прыгай и закрашивай",
     loading: "Загрузка...",
     start: "Начать",
     continue: "Продолжить",
@@ -85,8 +86,8 @@ const text = {
     races: "Гонки",
     openResult: "Открыть результат",
     shareResult: "Поделиться результатом",
-    shareTitle: "Hop & Fill: результат",
-    shareMessage: "Мой результат в Hop & Fill",
+    shareTitle: "Прыгай и закрашивай: результат",
+    shareMessage: "Мой результат в игре Прыгай и закрашивай",
     finalSummary: ({ levels, stars, maxStars, races }) =>
       `Ты закрыл все ${levels} уровней и собрал ${stars} из ${maxStars} звёзд${races}.`,
     finalBody: "Финал открыт для перепрохождения, а любые уровни доступны через меню выбора.",
@@ -99,6 +100,7 @@ const text = {
     stars: "Звезды",
   },
   en: {
+    gameTitle: "Hop & Fill",
     loading: "Loading...",
     start: "Start",
     continue: "Continue",
