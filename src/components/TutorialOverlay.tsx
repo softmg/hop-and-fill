@@ -36,7 +36,7 @@ type TutorialArrowStyle = CSSProperties & {
  * Интерактивный онбординг для первого уровня.
  * - Шаг 1: подсказка про управление + пульсирующая стрелка над персонажем.
  * - Шаг 2: подсветка верхнего HUD (ходы / звёзды).
- * Прогресс сохраняется вместе с основным Yandex player data.
+ * Прогресс сохраняется вместе с основным player data.
  */
 export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }: TutorialOverlayProps) => {
   const t = useTranslation();
@@ -80,7 +80,7 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
   const limitPanelStyle: TutorialPanelStyle | undefined = goalRect
     ? {
         "--tutorial-panel-left": `clamp(0.75rem, ${goalRect.left}px, calc(100% - 22rem))`,
-        "--tutorial-panel-top": `${goalRect.top + goalRect.height + 18}px`,
+        "--tutorial-panel-top": `clamp(0.75rem, ${goalRect.top + goalRect.height + 18}px, calc(100% - 11rem - env(safe-area-inset-bottom)))`,
       }
     : undefined;
 
@@ -186,8 +186,8 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
               key={rect.key}
               className="absolute rounded-xl ring-2 ring-yellow-300/85 tutorial-glow pointer-events-none"
               style={{
-                left: rect.left - 6,
-                top: rect.top - 6,
+                left: Math.max(0, rect.left - 6),
+                top: Math.max(0, rect.top - 6),
                 width: rect.width + 12,
                 height: rect.height + 12,
               }}
@@ -197,7 +197,7 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
 
           {/* Подсказка рядом со звёздами HUD */}
           <div
-            className="tutorial-limit-panel pointer-events-auto w-[min(21rem,calc(100%-1.5rem))]"
+            className="tutorial-limit-panel pointer-events-auto w-[min(21rem,calc(100%_-_1.5rem))]"
             style={limitPanelStyle}
           >
             <div className="game-panel relative px-5 py-4 text-white animate-in fade-in slide-in-from-top-4 duration-300">

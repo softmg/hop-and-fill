@@ -316,16 +316,25 @@ export class PixiGame {
    */
   continueAfterLoss(moveLimit: number) {
     if (!this.ready || this.state !== "lost") return false;
+    if (moveLimit <= this.hops) return false;
 
     this.moveLimit = moveLimit;
     this.state = "playing";
+    this.lastMove = null;
+    this.setHover(null);
     return true;
   }
 
+  /**
+   * Reports whether the latest committed move can be reverted.
+   */
   canUndoLastMove() {
     return this.ready && !this.isPaused && !this.player.isAnimating && this.lastMove !== null;
   }
 
+  /**
+   * Reverts the latest committed move and clears its undo snapshot.
+   */
   undoLastMove() {
     if (!this.canUndoLastMove()) return false;
 

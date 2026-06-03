@@ -1,4 +1,4 @@
-import { createContext, useContext, type PropsWithChildren } from "react";
+import { createContext, useCallback, useContext, type PropsWithChildren } from "react";
 import type { GameLanguage } from "@/sdk/yandex";
 
 type TranslationValue = string | ((vars: Record<string, string | number>) => string);
@@ -75,10 +75,6 @@ const text = {
     shareError: "Не удалось поделиться",
     save: "Сохранение...",
     notSaved: "Не сохранено",
-    cloudSaveOffer: "Войдите в Яндекс ID, чтобы продолжать с этого прогресса на любом устройстве.",
-    cloudSaveSignIn: "Войти для облачных сохранений",
-    cloudSaveSyncing: "Синхронизация...",
-    cloudSaveRetry: "Повторить вход в Яндекс ID",
     leaders: "Лидеры",
     best: "Лучшее",
     idealMoves: "Идеальное число ходов",
@@ -167,10 +163,6 @@ const text = {
     shareError: "Share failed",
     save: "Saving...",
     notSaved: "Not saved",
-    cloudSaveOffer: "Sign in with Yandex ID to continue this progress on any device.",
-    cloudSaveSignIn: "Sign in for cloud saves",
-    cloudSaveSyncing: "Syncing...",
-    cloudSaveRetry: "Retry Yandex ID sign-in",
     leaders: "Leaders",
     best: "Best",
     idealMoves: "Ideal move count",
@@ -198,6 +190,7 @@ type Translate = (key: TranslationKey, vars?: Record<string, string | number>) =
 
 const LanguageContext = createContext<GameLanguage>("ru");
 
+/** Provides the platform-selected game language to translated UI. */
 export const LanguageProvider = ({
   language,
   children,
@@ -205,15 +198,17 @@ export const LanguageProvider = ({
   <LanguageContext.Provider value={language}>{children}</LanguageContext.Provider>
 );
 
+/** Reads the current game language from context. */
 export function useLanguage() {
   return useContext(LanguageContext);
 }
 
+/** Returns a stable translator for the current game language. */
 export function useTranslation(): Translate {
   const language = useLanguage();
 
-  return (key, vars = {}) => {
+  return useCallback((key, vars = {}) => {
     const value = text[language][key] ?? text.en[key];
     return typeof value === "function" ? value(vars) : value;
-  };
+  }, [language]);
 }

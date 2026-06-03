@@ -285,21 +285,15 @@ describe("GameCanvas yandex lifecycle", () => {
     expect(mockYsdkGameplayStart).not.toHaveBeenCalled();
   });
 
-  it("offers Yandex ID cloud saves to guests and syncs after authorization", async () => {
+  it("does not show manual third-party authorization controls to guests", async () => {
     mockYsdkIsPlayerAuthorized.mockResolvedValueOnce(false);
 
     const { GameCanvas } = await import("./GameCanvas");
     render(<GameCanvas />);
-
-    await screen.findByText("Войдите в Яндекс ID, чтобы продолжать с этого прогресса на любом устройстве.");
-    fireEvent.click(screen.getByRole("button", { name: "Войти для облачных сохранений" }));
-
-    await waitFor(() => {
-      expect(mockYsdkRequestAuthorization).toHaveBeenCalledTimes(1);
-      expect(mockLoadPlayerProgress).toHaveBeenCalledTimes(1);
-      expect(mockMigrateGuestProgressToCloud).toHaveBeenCalledTimes(1);
-    });
-    expect(screen.queryByRole("button", { name: "Войти для облачных сохранений" })).not.toBeInTheDocument();
+    await screen.findByTestId("start-screen");
+    expect(screen.queryByText(/Yandex|Яндекс/i)).not.toBeInTheDocument();
+    expect(mockYsdkRequestAuthorization).not.toHaveBeenCalled();
+    expect(mockMigrateGuestProgressToCloud).not.toHaveBeenCalled();
   });
 
   it("opens the leaderboard and renders loaded leaders", async () => {

@@ -12,7 +12,7 @@ describe("ysdkShowRewardedAd", () => {
   });
 
   it("resolves rewarded in local mock mode", async () => {
-    vi.stubGlobal("location", new URL("https://example.com/"));
+    vi.stubGlobal("location", new URL("http://localhost:5173/"));
 
     const { ysdkShowRewardedAd } = await import("./yandex");
 

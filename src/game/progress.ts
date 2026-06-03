@@ -2,6 +2,7 @@ import { ysdkIsPlayerAuthorized, ysdkLoad, ysdkSave } from "@/platform/yandexGam
 
 export const PLAYER_PROGRESS_KEY = "crash-cubes:progress";
 const LEGACY_TUTORIAL_KEY = "hasSeenTutorial";
+let saveQueue: Promise<void> = Promise.resolve();
 
 export const RACE_TIME_LIMITS_SECONDS = [
   5,
@@ -43,6 +44,7 @@ export interface PlayerProgress {
   audioMuted: boolean;
 }
 
+/** Creates the canonical empty progress record for a fresh player. */
 export function createDefaultProgress(): PlayerProgress {
   return {
     version: 1,
@@ -167,6 +169,7 @@ function hasAudioMutedValue(value: unknown) {
   return Boolean(value && typeof value === "object" && typeof (value as Partial<PlayerProgress>).audioMuted === "boolean");
 }
 
+/** Normalizes untrusted persisted data into a bounded PlayerProgress value. */
 export function normalizeProgress(
   raw: unknown,
   levelCount: number,
@@ -212,6 +215,7 @@ export function normalizeProgress(
   };
 }
 
+/** Merges guest and stored progress by keeping the best unlocked, star, and time records. */
 export function mergeProgress(
   currentRaw: unknown,
   storedRaw: unknown,
@@ -235,35 +239,42 @@ export function mergeProgress(
   );
 }
 
+/** Returns whether a zero-based level index can be selected by the player. */
 export function isLevelUnlocked(progress: PlayerProgress, levelIndex: number) {
   const levelNumber = levelIndex + 1;
   return levelNumber <= progress.unlockedLevel || progress.completedLevels.includes(levelNumber);
 }
 
+/** Returns the best star result for a zero-based level index. */
 export function getBestStars(progress: PlayerProgress, levelIndex: number) {
   return progress.bestStarsByLevel[levelIndex + 1] ?? 0;
 }
 
+/** Returns the best completion time for a zero-based level index, if one exists. */
 export function getBestTimeMs(progress: PlayerProgress, levelIndex: number) {
   return progress.bestTimeMsByLevel[levelIndex + 1] ?? null;
 }
 
+/** Returns the race award time limit for a zero-based level index, if configured. */
 export function getRaceTimeLimitMs(levelIndex: number) {
   const seconds = RACE_TIME_LIMITS_SECONDS[levelIndex];
   return seconds === undefined ? null : seconds * 1000;
 }
 
+/** Returns the number of levels that can currently award race medals. */
 export function getMaxRaces(levelCount: number) {
   if (!Number.isFinite(levelCount) || levelCount <= 0) return 0;
   return Math.min(Math.trunc(levelCount), MAX_RACE_AWARDS);
 }
 
+/** Returns whether the saved best time qualifies for the race award. */
 export function hasRaceAward(progress: PlayerProgress, levelIndex: number) {
   const timeLimitMs = getRaceTimeLimitMs(levelIndex);
   const bestTimeMs = getBestTimeMs(progress, levelIndex);
   return timeLimitMs !== null && bestTimeMs !== null && bestTimeMs <= timeLimitMs;
 }
 
+/** Counts race awards across the configured level range. */
 export function getTotalRaces(progress: PlayerProgress, levelCount: number = MAX_RACE_AWARDS) {
   const maxRaces = getMaxRaces(levelCount);
   let total = 0;
@@ -275,10 +286,12 @@ export function getTotalRaces(progress: PlayerProgress, levelCount: number = MAX
   return total;
 }
 
+/** Counts all saved stars across completed levels. */
 export function getTotalStars(progress: PlayerProgress) {
   return Object.values(progress.bestStarsByLevel).reduce((sum, stars) => sum + stars, 0);
 }
 
+/** Applies a level completion result and unlocks the next level when available. */
 export function completeLevel(
   progress: PlayerProgress,
   levelIndex: number,
@@ -319,6 +332,7 @@ export function completeLevel(
   );
 }
 
+/** Marks tutorial onboarding as completed. */
 export function completeTutorial(progress: PlayerProgress, levelCount: number): PlayerProgress {
   return normalizeProgress(
     {
@@ -330,6 +344,7 @@ export function completeTutorial(progress: PlayerProgress, levelCount: number): 
   );
 }
 
+/** Marks that the player has started the game at least once. */
 export function markGameStarted(progress: PlayerProgress, levelCount: number): PlayerProgress {
   return normalizeProgress(
     {
@@ -340,6 +355,7 @@ export function markGameStarted(progress: PlayerProgress, levelCount: number): P
   );
 }
 
+/** Updates the saved audio preference without changing gameplay progress. */
 export function setAudioMuted(progress: PlayerProgress, muted: boolean, levelCount: number): PlayerProgress {
   return normalizeProgress(
     {
@@ -350,6 +366,7 @@ export function setAudioMuted(progress: PlayerProgress, muted: boolean, levelCou
   );
 }
 
+/** Loads progress from cloud storage when authorized, falling back to local guest data on any SDK failure. */
 export async function loadPlayerProgress(levelCount: number): Promise<PlayerProgress> {
   const localProgress = loadLocalProgress();
   let isAuthorized = false;
@@ -365,34 +382,61 @@ export async function loadPlayerProgress(levelCount: number): Promise<PlayerProg
     return normalizeProgress(localProgress, levelCount);
   }
 
-  clearLocalProgress();
-
   try {
     const data = await ysdkLoad([PLAYER_PROGRESS_KEY]);
-    return normalizeProgress(data[PLAYER_PROGRESS_KEY], levelCount, { allowLegacyTutorial: false });
+    const progress = mergeProgress(localProgress, data[PLAYER_PROGRESS_KEY], levelCount);
+    clearLocalProgress();
+    return normalizeProgress(progress, levelCount, { allowLegacyTutorial: false });
   } catch (error) {
     console.warn("[progress] failed to load cloud player progress", error);
-    return createDefaultProgress();
+    return normalizeProgress(localProgress, levelCount);
   }
 }
 
-export async function savePlayerProgress(progress: PlayerProgress) {
-  const isAuthorized = await ysdkIsPlayerAuthorized();
+/** Saves progress to cloud storage when authorized, preserving a local copy when cloud writes fail. */
+async function savePlayerProgressNow(progress: PlayerProgress) {
+  let isAuthorized = false;
+  try {
+    isAuthorized = await ysdkIsPlayerAuthorized();
+  } catch (error) {
+    console.warn("[progress] failed to read Yandex authorization state", error);
+    saveLocalProgress(progress);
+    return;
+  }
 
   if (!isAuthorized) {
     saveLocalProgress(progress);
     return;
   }
 
-  clearLocalProgress();
-  await ysdkSave({ [PLAYER_PROGRESS_KEY]: progress });
+  try {
+    await ysdkSave({ [PLAYER_PROGRESS_KEY]: progress });
+    clearLocalProgress();
+  } catch (error) {
+    console.warn("[progress] failed to save cloud player progress", error);
+    saveLocalProgress(progress);
+  }
 }
 
-export async function migrateGuestProgressToCloud(progress: PlayerProgress, levelCount: number) {
-  const data = await ysdkLoad([PLAYER_PROGRESS_KEY]);
-  const syncedProgress = mergeProgress(progress, data[PLAYER_PROGRESS_KEY], levelCount);
+/** Queues progress writes so cloud storage requests never overlap. */
+export async function savePlayerProgress(progress: PlayerProgress) {
+  const task = saveQueue.catch(() => undefined).then(() => savePlayerProgressNow(progress));
+  saveQueue = task.catch(() => undefined);
+  return task;
+}
 
-  clearLocalProgress();
-  await ysdkSave({ [PLAYER_PROGRESS_KEY]: syncedProgress });
-  return syncedProgress;
+/** Merges guest progress into cloud storage and keeps local data if migration cannot complete. */
+export async function migrateGuestProgressToCloud(progress: PlayerProgress, levelCount: number) {
+  try {
+    const data = await ysdkLoad([PLAYER_PROGRESS_KEY]);
+    const syncedProgress = mergeProgress(progress, data[PLAYER_PROGRESS_KEY], levelCount);
+
+    await ysdkSave({ [PLAYER_PROGRESS_KEY]: syncedProgress });
+    clearLocalProgress();
+    return syncedProgress;
+  } catch (error) {
+    console.warn("[progress] failed to migrate guest progress to cloud", error);
+    saveLocalProgress(progress);
+    return normalizeProgress(progress, levelCount);
+  }
 }

@@ -57,6 +57,11 @@ For an archive uploaded to Yandex hosting:
 - serialize gameplay transitions and suppress duplicate target states;
 - derive portal locale from `ysdk.environment.i18n.lang` when localization is
   implemented;
+- do not show manual sign-in buttons, sign-in prompts, or player-facing text
+  that names Yandex, Yandex ID, or any third-party company; if the player is
+  already externally authorized, cloud saves should work automatically,
+  otherwise the game should continue without manual authorization UI;
+- prevent text selection and the browser context menu across the playable UI;
 - emit release asset URLs that resolve inside the uploaded archive;
 - place `index.html` at ZIP root;
 - write ZIP entry names with `/`, never Windows `\`;
@@ -83,13 +88,16 @@ Audit and implement only the modules the game actually uses:
 ## Flag Explicitly
 
 - obsolete SDK URLs such as `https://yandex.ru/games/sdk/v2`;
-- archive builds missing `/sdk.js`;
+- HTML entry points missing the documented `/sdk.js` loader;
 - SDK methods called before initialization;
 - hosted SDK failures silently converted into local mocks;
 - `LoadingAPI.ready()` before the game is interactive;
 - duplicate or overlapping gameplay transitions;
 - gameplay left active during pause, menu, hidden-tab, or ad states;
 - repeated uncached `ysdk.getPlayer()` calls;
+- manual authorization UI, login retry UI, or player-facing third-party brand
+  mentions in game screens;
+- selectable game UI text or an enabled right-click context menu;
 - overlapping or unbounded cloud writes;
 - locale based only on browser language when portal locale is required;
 - rewards granted before rewarded-ad confirmation;

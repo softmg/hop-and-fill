@@ -403,22 +403,22 @@ function getTimeBadgePlacements(nodes: Array<{ point: Point; bestTimeMs: number 
 function getTimeBadgePlacementClass(placement: TimeBadgePlacement) {
   switch (placement) {
     case "left":
-      return "right-[calc(100%+0.42rem)] top-1/2 -translate-y-1/2 before:-right-[0.58rem] before:top-1/2 before:-translate-y-1/2";
+      return "right-[calc(100%_+_0.42rem)] top-1/2 -translate-y-1/2 before:-right-[0.58rem] before:top-1/2 before:-translate-y-1/2";
     case "right-up":
-      return "left-[calc(100%+0.42rem)] bottom-1/2 mb-1 before:-left-[0.58rem] before:bottom-0 before:translate-y-1/2";
+      return "left-[calc(100%_+_0.42rem)] bottom-1/2 mb-1 before:-left-[0.58rem] before:bottom-0 before:translate-y-1/2";
     case "right-down":
-      return "left-[calc(100%+0.42rem)] top-1/2 mt-1 before:-left-[0.58rem] before:top-0 before:-translate-y-1/2";
+      return "left-[calc(100%_+_0.42rem)] top-1/2 mt-1 before:-left-[0.58rem] before:top-0 before:-translate-y-1/2";
     case "left-up":
-      return "right-[calc(100%+0.42rem)] bottom-1/2 mb-1 before:-right-[0.58rem] before:bottom-0 before:translate-y-1/2";
+      return "right-[calc(100%_+_0.42rem)] bottom-1/2 mb-1 before:-right-[0.58rem] before:bottom-0 before:translate-y-1/2";
     case "left-down":
-      return "right-[calc(100%+0.42rem)] top-1/2 mt-1 before:-right-[0.58rem] before:top-0 before:-translate-y-1/2";
+      return "right-[calc(100%_+_0.42rem)] top-1/2 mt-1 before:-right-[0.58rem] before:top-0 before:-translate-y-1/2";
     case "above":
-      return "bottom-[calc(100%+0.42rem)] left-1/2 -translate-x-1/2 before:left-1/2 before:-bottom-[0.58rem] before:-translate-x-1/2";
+      return "bottom-[calc(100%_+_0.42rem)] left-1/2 -translate-x-1/2 before:left-1/2 before:-bottom-[0.58rem] before:-translate-x-1/2";
     case "below":
-      return "left-1/2 top-[calc(100%+0.42rem)] -translate-x-1/2 before:left-1/2 before:-top-[0.58rem] before:-translate-x-1/2";
+      return "left-1/2 top-[calc(100%_+_0.42rem)] -translate-x-1/2 before:left-1/2 before:-top-[0.58rem] before:-translate-x-1/2";
     case "right":
     default:
-      return "left-[calc(100%+0.42rem)] top-1/2 -translate-y-1/2 before:-left-[0.58rem] before:top-1/2 before:-translate-y-1/2";
+      return "left-[calc(100%_+_0.42rem)] top-1/2 -translate-y-1/2 before:-left-[0.58rem] before:top-1/2 before:-translate-y-1/2";
   }
 }
 
@@ -495,23 +495,23 @@ export const LevelSelect = ({
     : null;
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#110c08]/82 px-2 py-2 backdrop-blur-[2px] sm:px-4 sm:py-4">
+    <div className="absolute inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#110c08]/82 px-[max(0.5rem,env(safe-area-inset-left))] py-[calc(0.5rem_+_env(safe-area-inset-top))] backdrop-blur-[2px] sm:px-[max(1rem,env(safe-area-inset-left))] sm:py-[calc(1rem_+_env(safe-area-inset-top))]">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="level-select-title"
-        className="game-panel relative flex h-[min(94svh,60rem)] w-full max-w-[112rem] flex-col overflow-hidden text-white"
+        className="game-panel relative flex h-[min(94svh,60rem)] max-h-[calc(100svh_-_1rem_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] w-full max-w-[112rem] min-w-0 flex-col overflow-hidden text-white"
       >
-        <div className="relative z-20 flex items-center justify-between gap-3 border-b-[3px] border-[#6b3716]/75 bg-[linear-gradient(180deg,rgba(92,52,24,0.92),rgba(36,20,10,0.92))] px-3 py-2.5 shadow-[0_6px_14px_rgba(0,0,0,0.22)] sm:px-5 sm:py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="game-hud-chip inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-black sm:text-base">
+        <div className="relative z-20 flex min-w-0 items-center justify-between gap-2 border-b-[3px] border-[#6b3716]/75 bg-[linear-gradient(180deg,rgba(92,52,24,0.92),rgba(36,20,10,0.92))] px-2 py-2 shadow-[0_6px_14px_rgba(0,0,0,0.22)] sm:gap-3 sm:px-5 sm:py-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+            <div className="game-hud-chip inline-flex items-center gap-1 px-2 py-1 text-sm font-black sm:gap-1.5 sm:px-2.5 sm:text-base">
               <Star className="h-4 w-4 fill-[#ffcc45] text-[#ffcc45]" aria-hidden />
               <span className="tabular-nums">
                 {totalStars}/{maxStars}
               </span>
             </div>
             {maxRaces > 0 && (
-                <div className="game-hud-chip inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-black text-cyan-100 sm:text-base">
+                <div className="game-hud-chip inline-flex items-center gap-1 px-2 py-1 text-sm font-black text-cyan-100 sm:gap-1.5 sm:px-2.5 sm:text-base">
                 <CarFront className="h-4 w-4 text-cyan-200" aria-hidden />
                 <span className="tabular-nums">
                   {totalRaces}/{maxRaces}
@@ -526,10 +526,10 @@ export const LevelSelect = ({
             </div>
           </div>
 
-          <div className="min-w-0 text-center">
+          <div className="min-w-0 flex-1 text-center">
             <h2
               id="level-select-title"
-              className="game-title truncate text-2xl leading-none sm:text-4xl"
+              className="game-title truncate text-xl leading-none sm:text-4xl"
             >
               {t("levelMap")}
             </h2>

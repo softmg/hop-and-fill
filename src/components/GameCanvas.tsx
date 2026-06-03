@@ -12,9 +12,7 @@ import {
   subscribeToFullscreenAds,
   ysdkGameplayStart,
   ysdkGameplayStop,
-  ysdkIsPlayerAuthorized,
   ysdkReady,
-  ysdkRequestAuthorization,
   ysdkShowAd,
   ysdkShowRewardedAd,
 } from "@/platform/yandexGames";
@@ -40,7 +38,6 @@ import {
   isLevelUnlocked,
   loadPlayerProgress,
   markGameStarted,
-  migrateGuestProgressToCloud,
   savePlayerProgress,
   setAudioMuted,
   type PlayerProgress,
@@ -53,7 +50,6 @@ type OverlayMode = "playing" | "paused" | "won" | "lost" | "chapter" | "final";
 type LeaderboardStatus = "idle" | "loading" | "ready" | "error";
 type LeaderboardSaveStatus = "idle" | "saving" | "saved" | "error" | "skipped";
 type ShareStatus = "idle" | "copied" | "shared" | "error";
-type CloudSaveState = "checking" | "guest" | "syncing" | "ready" | "error";
 type KeyboardCompassKeyStyle = CSSProperties & {
   "--control-from-left"?: string;
   "--control-from-top"?: string;
@@ -282,7 +278,6 @@ export const GameCanvas = () => {
   const [isInterstitialActive, setInterstitialActive] = useState(false);
   const [rewardedExtraMoves, setRewardedExtraMoves] = useState(0);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
-  const [cloudSaveState, setCloudSaveState] = useState<CloudSaveState>("checking");
   const [rewardedUndoState, setRewardedUndoState] = useState<"idle" | "loading" | "error">("idle");
   const [isDocumentVisible, setDocumentVisible] = useState(() => document.visibilityState !== "hidden");
   const [isFirstSceneRenderable, setFirstSceneRenderable] = useState(false);
@@ -311,27 +306,6 @@ export const GameCanvas = () => {
         console.warn("[progress] failed to save player progress", error);
         setSaveState("error");
       });
-  };
-
-  const authorizeCloudSave = async () => {
-    setCloudSaveState("syncing");
-
-    try {
-      const authorized = await ysdkRequestAuthorization();
-      if (!authorized) {
-        setCloudSaveState("guest");
-        return;
-      }
-
-      const guestProgress = progressRef.current ?? createDefaultProgress();
-      const syncedProgress = await migrateGuestProgressToCloud(guestProgress, levels.length);
-      progressRef.current = syncedProgress;
-      setProgress(syncedProgress);
-      setCloudSaveState("ready");
-    } catch (error) {
-      console.warn("[progress] failed to authorize cloud saves", error);
-      setCloudSaveState("error");
-    }
   };
 
   const clearTimerInterval = useCallback(() => {
@@ -400,23 +374,6 @@ export const GameCanvas = () => {
   useEffect(() => {
     progressRef.current = progress;
   }, [progress]);
-
-  useEffect(() => {
-    let active = true;
-
-    ysdkIsPlayerAuthorized()
-      .then((authorized) => {
-        if (active) setCloudSaveState(authorized ? "ready" : "guest");
-      })
-      .catch((error) => {
-        console.warn("[progress] failed to read Yandex authorization state", error);
-        if (active) setCloudSaveState("error");
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const showInterstitial = useCallback(async (reason: InterstitialTrigger) => {
     if (reason === "none" || isInterstitialActiveRef.current) return;
@@ -503,6 +460,17 @@ export const GameCanvas = () => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const blockContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+
+    document.addEventListener("contextmenu", blockContextMenu);
+    return () => {
+      document.removeEventListener("contextmenu", blockContextMenu);
     };
   }, []);
 
@@ -976,7 +944,7 @@ export const GameCanvas = () => {
 
   if (!progress) {
     return (
-      <div className="relative h-full w-full overflow-hidden">
+      <div className="relative h-full w-full overflow-hidden" onContextMenu={(event) => event.preventDefault()}>
         <StartScreen
           isLoading
           isFirstStart
@@ -985,16 +953,14 @@ export const GameCanvas = () => {
           maxStars={levels.length * 3}
           totalRaces={0}
           maxRaces={getMaxRaces(levels.length)}
-          cloudSaveState={cloudSaveState}
           onStart={() => {}}
-          onAuthorizeCloudSave={() => void authorizeCloudSave()}
         />
       </div>
     );
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden touch-none select-none">
+    <div className="relative h-full w-full overflow-hidden touch-none select-none" onContextMenu={(event) => event.preventDefault()}>
       <ParallaxBackground theme={bgTheme} />
       <div ref={hostRef} className="absolute inset-0" />
 
@@ -1010,9 +976,9 @@ export const GameCanvas = () => {
 
 
       {/* HUD */}
-      <header className="absolute left-0 right-0 top-0 px-2 py-2 pr-[4rem] pointer-events-none sm:px-4 sm:py-3 sm:pr-[4.75rem]">
+      <header className="game-hud-header absolute left-0 right-0 top-0 px-[max(0.5rem,env(safe-area-inset-left))] py-2 pr-[calc(3.45rem_+_env(safe-area-inset-right))] pointer-events-none sm:px-[max(1rem,env(safe-area-inset-left))] sm:py-3 sm:pr-[calc(4.75rem_+_env(safe-area-inset-right))]">
         <div className="flex items-start justify-between gap-2">
-          <div className="pointer-events-auto flex min-w-0 flex-col items-start gap-3">
+          <div className="pointer-events-auto flex min-w-0 max-w-[calc(100vw_-_4.75rem_-_env(safe-area-inset-left)_-_env(safe-area-inset-right))] flex-col items-start gap-2 sm:max-w-[calc(100vw_-_6rem_-_env(safe-area-inset-left)_-_env(safe-area-inset-right))] sm:gap-3">
             <div className="flex min-w-0 items-baseline gap-1.5">
               <h1 className="game-title truncate text-lg sm:text-2xl">
                 {t("gameTitle")}
@@ -1026,16 +992,16 @@ export const GameCanvas = () => {
                 {t("chapter")} {currentChapter.chapterIndex} · {getThemeLabel(currentChapter.theme, language)}
               </div>
             )}
-            <div className="flex items-center gap-3">
+            <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3">
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={openLevelSelect}
                 disabled={isInteractionLocked}
-                className="game-hud-action justify-start"
+                className="game-hud-action max-w-[8.75rem] justify-start overflow-hidden sm:max-w-none"
               >
                 <Map className="h-4 w-4 shrink-0" aria-hidden />
-                {t("level")} {levelIdx + 1} / {levels.length}
+                <span className="truncate">{t("level")} {levelIdx + 1} / {levels.length}</span>
               </Button>
               <div
                 className="game-hud-chip game-hud-ideal-pill px-2 py-1 text-xs font-black tabular-nums whitespace-nowrap sm:text-sm"
@@ -1152,8 +1118,8 @@ export const GameCanvas = () => {
 
       {/* Оверлеи */}
       {overlayMode !== "playing" && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#120804]/70 px-4 backdrop-blur-[2px]">
-          <div className={`game-panel relative w-full max-w-sm overflow-hidden p-5 text-center text-white sm:p-6 ${isPerfectWin ? "perfect-win-panel" : ""}`}>
+        <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-[#120804]/70 px-[max(0.75rem,env(safe-area-inset-left))] py-[calc(0.75rem_+_env(safe-area-inset-top))] backdrop-blur-[2px]">
+          <div className={`game-panel relative max-h-[calc(100svh_-_1.5rem_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] w-full max-w-sm overflow-y-auto overflow-x-hidden p-4 text-center text-white sm:p-6 ${isPerfectWin ? "perfect-win-panel" : ""}`}>
             {overlayMode === "won" && (
               <div className="relative z-10">
                 {isPerfectWin && <PerfectCelebration />}
@@ -1218,7 +1184,11 @@ export const GameCanvas = () => {
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
                   {canShowRewardedExtraMoves && (
-                    <Button onClick={triggerRewardedExtraMoves} disabled={rewardedUndoState === "loading"} className="w-full">
+                    <Button
+                      onClick={triggerRewardedExtraMoves}
+                      disabled={rewardedUndoState === "loading"}
+                      className="h-auto min-h-12 w-full whitespace-normal px-3 py-2 text-center text-[clamp(0.82rem,3.7vw,1rem)] leading-tight"
+                    >
                       {rewardedUndoState === "loading" ? t("rewardLoading") : t("rewardUndo")}
                     </Button>
                   )}
@@ -1386,9 +1356,7 @@ export const GameCanvas = () => {
           maxStars={maxStars}
           totalRaces={totalRaces}
           maxRaces={maxRaces}
-          cloudSaveState={cloudSaveState}
           onStart={startFromStartScreen}
-          onAuthorizeCloudSave={() => void authorizeCloudSave()}
         />
       )}
     </div>
