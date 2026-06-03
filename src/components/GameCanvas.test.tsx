@@ -9,12 +9,15 @@ let onWinCallback: ((hops: number) => void) | null = null;
 let onLoseCallback: (() => void) | null = null;
 
 const mockLoadPlayerProgress = vi.fn();
+const mockMigrateGuestProgressToCloud = vi.fn();
 const mockSavePlayerProgress = vi.fn().mockResolvedValue(undefined);
 const mockYsdkReady = vi.fn().mockResolvedValue(undefined);
 const mockYsdkGameplayStart = vi.fn().mockResolvedValue(undefined);
 const mockYsdkGameplayStop = vi.fn().mockResolvedValue(undefined);
 const mockYsdkShowAd = vi.fn().mockResolvedValue(undefined);
 const mockYsdkShowRewardedAd = vi.fn().mockResolvedValue({ status: "closed" });
+const mockYsdkIsPlayerAuthorized = vi.fn().mockResolvedValue(true);
+const mockYsdkRequestAuthorization = vi.fn().mockResolvedValue(true);
 const mockSubscribeToFullscreenAds = vi.fn(() => () => {});
 const mockYsdkSetLeaderboardScore = vi.fn().mockResolvedValue(undefined);
 const mockYsdkGetLeaderboardEntries = vi.fn().mockResolvedValue({ userRank: 0, entries: [] });
@@ -32,6 +35,7 @@ const mockDestroy = vi.fn();
 const mockReset = vi.fn();
 const mockSetLevel = vi.fn();
 const mockSetMoveLimit = vi.fn();
+const mockContinueAfterLoss = vi.fn().mockReturnValue(true);
 const mockTriggerDir = vi.fn();
 const mockPause = vi.fn();
 const mockResume = vi.fn();
@@ -85,6 +89,10 @@ vi.mock("@/game/PixiGame", () => ({
       mockSetMoveLimit(limit);
     }
 
+    continueAfterLoss(limit: number) {
+      return mockContinueAfterLoss(limit);
+    }
+
     triggerDir(dir: unknown) {
       mockTriggerDir(dir);
     }
@@ -113,6 +121,8 @@ vi.mock("@/sdk/yandex", () => ({
   ysdkGameplayStop: mockYsdkGameplayStop,
   ysdkShowAd: mockYsdkShowAd,
   ysdkShowRewardedAd: mockYsdkShowRewardedAd,
+  ysdkIsPlayerAuthorized: mockYsdkIsPlayerAuthorized,
+  ysdkRequestAuthorization: mockYsdkRequestAuthorization,
   subscribeToFullscreenAds: mockSubscribeToFullscreenAds,
   ysdkSetLeaderboardScore: mockYsdkSetLeaderboardScore,
   ysdkGetLeaderboardEntries: mockYsdkGetLeaderboardEntries,
@@ -127,6 +137,7 @@ vi.mock("@/game/progress", async () => {
   return {
     ...actual,
     loadPlayerProgress: mockLoadPlayerProgress,
+    migrateGuestProgressToCloud: mockMigrateGuestProgressToCloud,
     savePlayerProgress: mockSavePlayerProgress,
   };
 });
@@ -150,6 +161,7 @@ describe("GameCanvas yandex lifecycle", () => {
       tutorialComplete: true,
       audioMuted: false,
     });
+    mockMigrateGuestProgressToCloud.mockImplementation((progress) => Promise.resolve(progress));
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
       value: "visible",
@@ -273,6 +285,17 @@ describe("GameCanvas yandex lifecycle", () => {
     expect(mockYsdkGameplayStart).not.toHaveBeenCalled();
   });
 
+  it("does not show manual third-party authorization controls to guests", async () => {
+    mockYsdkIsPlayerAuthorized.mockResolvedValueOnce(false);
+
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+    await screen.findByTestId("start-screen");
+    expect(screen.queryByText(/Yandex|Яндекс/i)).not.toBeInTheDocument();
+    expect(mockYsdkRequestAuthorization).not.toHaveBeenCalled();
+    expect(mockMigrateGuestProgressToCloud).not.toHaveBeenCalled();
+  });
+
   it("opens the leaderboard and renders loaded leaders", async () => {
     mockLoadPlayerProgress.mockResolvedValue({
       version: 1,
@@ -364,7 +387,7 @@ describe("GameCanvas yandex lifecycle", () => {
     });
   });
 
-  it("reenables loss overlay actions after the automatic interstitial finishes", async () => {
+  it("requests a loss interstitial only after the player chooses restart", async () => {
     let finishAd!: () => void;
     mockYsdkShowAd.mockReturnValueOnce(new Promise<void>((resolve) => {
       finishAd = resolve;
@@ -383,6 +406,9 @@ describe("GameCanvas yandex lifecycle", () => {
     const restartButton = await screen.findByRole("button", { name: "Перезапустить" });
     const levelSelectButton = screen.getByRole("button", { name: "К выбору уровней" });
 
+    expect(mockYsdkShowAd).not.toHaveBeenCalled();
+    fireEvent.click(restartButton);
+
     await waitFor(() => {
       expect(mockYsdkShowAd).toHaveBeenCalledTimes(1);
     });
@@ -395,9 +421,31 @@ describe("GameCanvas yandex lifecycle", () => {
     });
 
     await waitFor(() => {
-      expect(restartButton).toBeEnabled();
-      expect(levelSelectButton).toBeEnabled();
+      expect(mockReset).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("continues a lost attempt with ten additional moves after a rewarded view", async () => {
+    mockYsdkShowRewardedAd.mockResolvedValueOnce({ status: "rewarded" });
+
+    const { GameCanvas } = await import("./GameCanvas");
+    render(<GameCanvas />);
+
+    await screen.findByText(/Уровень 1 \/ /);
+    await startFromStartScreen();
+
+    await act(async () => {
+      onLoseCallback?.();
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: /10 ходов/ }));
+
+    await waitFor(() => {
+      expect(mockYsdkShowRewardedAd).toHaveBeenCalledTimes(1);
+      expect(mockContinueAfterLoss).toHaveBeenCalledWith(expect.any(Number));
+      expect(screen.queryByText("Ходы закончились")).not.toBeInTheDocument();
+    });
+    expect(mockYsdkShowAd).not.toHaveBeenCalled();
   });
 
   it("ignores a late win callback after game over", async () => {

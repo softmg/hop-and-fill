@@ -16,7 +16,7 @@ interface YsdkFeatures {
 }
 
 interface YsdkAdCallbacks {
-  onClose?: () => void;
+  onClose?: (wasShown: boolean) => void;
   onError?: (error: unknown) => void;
 }
 
@@ -27,7 +27,7 @@ interface YsdkRewardedCallbacks extends YsdkAdCallbacks {
 
 export interface YsdkFullscreenAdCallbacks {
   onOpen?: () => void;
-  onClose?: () => void;
+  onClose?: (wasShown: boolean) => void;
   onError?: () => void;
 }
 
@@ -61,13 +61,23 @@ interface YsdkLeaderboards {
 }
 
 interface Ysdk {
+  environment?: {
+    i18n?: {
+      lang?: string;
+    };
+  };
   features: YsdkFeatures;
   auth?: {
     openAuthDialog: () => Promise<void>;
   };
   adv: {
     showFullscreenAdv: (opts?: {
-      callbacks?: Partial<Record<"onClose" | "onError" | "onOffline" | "onOpen", () => void>>;
+      callbacks?: {
+        onOpen?: () => void;
+        onClose?: (wasShown: boolean) => void;
+        onError?: (error: unknown) => void;
+        onOffline?: () => void;
+      };
     }) => void;
     showRewardedVideo?: (opts?: { callbacks?: YsdkRewardedCallbacks }) => void;
   };
@@ -78,6 +88,8 @@ interface Ysdk {
 
 declare global {
   interface Window {
+    __yandexSdkScriptReady?: Promise<void>;
+    initSDK?: () => void;
     YaGames?: { init: (opts?: unknown) => Promise<Ysdk> };
   }
 }
@@ -86,7 +98,23 @@ const STORAGE_KEY = "pogo-paint:player-data";
 const MOCK_LEADERBOARD_KEY = "pogo-paint:leaderboards";
 const MOCK_PLAYER_ID = "local-player";
 const MOCK_PLAYER_NAME = "Вы";
+const SDK_READY_TIMEOUT_MS = 3000;
 const fullscreenAdListeners = new Set<(active: boolean) => void>();
+
+function getMockLanguage() {
+  const queryLanguage = new URLSearchParams(location.search).get("lang");
+  return queryLanguage || navigator.language || "ru";
+}
+
+/** Returns true only for local development hosts where SDK mocks are intentional. */
+function canUseLocalMockSdk() {
+  return (
+    location.protocol === "file:" ||
+    location.hostname === "localhost" ||
+    location.hostname === "127.0.0.1" ||
+    location.hostname === "::1"
+  );
+}
 
 function readMockData(): Record<string, unknown> {
   try {
@@ -139,6 +167,11 @@ const mockPlayer: YsdkPlayer = {
 };
 
 const mockSdk: Ysdk = {
+  environment: {
+    i18n: {
+      lang: getMockLanguage(),
+    },
+  },
   features: {
     LoadingAPI: { ready: () => console.info("[ysdk-mock] LoadingAPI.ready()") },
     GameplayAPI: {
@@ -151,7 +184,7 @@ const mockSdk: Ysdk = {
       console.info("[ysdk-mock] showFullscreenAdv");
       opts?.callbacks?.onOpen?.();
       queueMicrotask(() => {
-        opts?.callbacks?.onClose?.();
+        opts?.callbacks?.onClose?.(true);
       });
     },
     showRewardedVideo: (opts) => {
@@ -159,7 +192,7 @@ const mockSdk: Ysdk = {
       queueMicrotask(() => {
         opts?.callbacks?.onOpen?.();
         opts?.callbacks?.onRewarded?.();
-        opts?.callbacks?.onClose?.();
+        opts?.callbacks?.onClose?.(true);
       });
     },
   },
@@ -212,36 +245,42 @@ const mockSdk: Ysdk = {
 };
 
 let sdkPromise: Promise<Ysdk> | null = null;
+let playerPromise: Promise<YsdkPlayer> | null = null;
 let gameplayTargetActive = false;
 let gameplayCurrentActive: boolean | null = null;
 let gameplaySyncPromise: Promise<void> | null = null;
 let gameplaySyncQueued = false;
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Failed to load Yandex SDK"));
-    document.head.appendChild(s);
-  });
+/**
+ * Waits for the platform SDK loader without letting a stalled request block rendering forever.
+ */
+async function waitForSdkLoader() {
+  const ready = window.__yandexSdkScriptReady;
+  if (!ready) return;
+
+  await Promise.race([
+    ready.catch(() => undefined),
+    new Promise<void>((resolve) => {
+      window.setTimeout(resolve, SDK_READY_TIMEOUT_MS);
+    }),
+  ]);
 }
 
+/** Initializes the platform SDK once and falls back to local mocks outside the hosted environment. */
 export function initYsdk(): Promise<Ysdk> {
   if (sdkPromise) return sdkPromise;
-  const isYandex = /yandex/i.test(location.hostname) || /games\.s3\.yandex/i.test(location.hostname);
-
   sdkPromise = (async () => {
-    if (!isYandex) {
+    await waitForSdkLoader();
+
+    if (!window.YaGames && canUseLocalMockSdk()) {
       console.info("[ysdk] локальная заглушка активна");
       return mockSdk;
     }
     try {
-      await loadScript("https://yandex.ru/games/sdk/v2");
       if (!window.YaGames) throw new Error("YaGames не определён");
       return await window.YaGames.init();
     } catch (e) {
+      if (!canUseLocalMockSdk()) throw e;
       console.warn("[ysdk] не удалось инициализировать, используем заглушку", e);
       return mockSdk;
     }
@@ -250,9 +289,18 @@ export function initYsdk(): Promise<Ysdk> {
   return sdkPromise;
 }
 
+/** Notifies the platform that the game is interactive. */
 export async function ysdkReady() {
   const sdk = await initYsdk();
   sdk.features.LoadingAPI?.ready();
+}
+
+export type GameLanguage = "ru" | "en";
+
+/** Reads the platform locale and maps unsupported languages to English. */
+export async function ysdkGetLanguage(): Promise<GameLanguage> {
+  const sdk = await initYsdk();
+  return sdk.environment?.i18n?.lang === "ru" ? "ru" : "en";
 }
 
 async function runGameplaySync(targetActive: boolean) {
@@ -292,11 +340,13 @@ function queueGameplaySync() {
   return gameplaySyncPromise;
 }
 
+/** Requests platform gameplay-active state and serializes the SDK transition. */
 export function ysdkGameplayStart() {
   gameplayTargetActive = true;
   return queueGameplaySync();
 }
 
+/** Requests platform gameplay-inactive state and serializes the SDK transition. */
 export function ysdkGameplayStop() {
   gameplayTargetActive = false;
   return queueGameplaySync();
@@ -308,6 +358,7 @@ function notifyFullscreenAdState(active: boolean) {
   }
 }
 
+/** Subscribes to fullscreen ad activity so gameplay and audio can pause around ads. */
 export function subscribeToFullscreenAds(listener: (active: boolean) => void) {
   fullscreenAdListeners.add(listener);
   return () => {
@@ -315,6 +366,7 @@ export function subscribeToFullscreenAds(listener: (active: boolean) => void) {
   };
 }
 
+/** Shows a fullscreen ad and always settles after provider callbacks or a timeout. */
 export async function ysdkShowAd(callbacks?: YsdkFullscreenAdCallbacks) {
   const sdk = await initYsdk();
   await new Promise<void>((resolve) => {
@@ -344,7 +396,7 @@ export async function ysdkShowAd(callbacks?: YsdkFullscreenAdCallbacks) {
             }
             callbacks?.onOpen?.();
           },
-          onClose: () => settle(callbacks?.onClose),
+          onClose: (wasShown) => settle(() => callbacks?.onClose?.(wasShown)),
           onError: () => settle(callbacks?.onError),
           onOffline: () => settle(callbacks?.onError),
         },
@@ -361,6 +413,7 @@ export type RewardedAdResult =
   | { status: "closed" }
   | { status: "error"; error: unknown };
 
+/** Shows a rewarded ad and resolves only after the provider reports the reward outcome. */
 export async function ysdkShowRewardedAd(): Promise<RewardedAdResult> {
   const sdk = await initYsdk();
 
@@ -370,17 +423,26 @@ export async function ysdkShowRewardedAd(): Promise<RewardedAdResult> {
 
   return new Promise((resolve) => {
     let rewarded = false;
+    let active = false;
     let settled = false;
 
     const settle = (result: RewardedAdResult) => {
       if (settled) return;
       settled = true;
+      if (active) {
+        active = false;
+        notifyFullscreenAdState(false);
+      }
       resolve(result);
     };
 
     try {
       sdk.adv.showRewardedVideo({
         callbacks: {
+          onOpen: () => {
+            active = true;
+            notifyFullscreenAdState(true);
+          },
           onRewarded: () => {
             rewarded = true;
           },
@@ -398,15 +460,28 @@ export async function ysdkShowRewardedAd(): Promise<RewardedAdResult> {
   });
 }
 
+async function getYsdkPlayer() {
+  if (playerPromise) return playerPromise;
+
+  playerPromise = initYsdk()
+    .then((sdk) => sdk.getPlayer({ scopes: false }))
+    .catch((error) => {
+      playerPromise = null;
+      throw error;
+    });
+
+  return playerPromise;
+}
+
+/** Persists player data through the platform player storage API. */
 export async function ysdkSave(data: Record<string, unknown>) {
-  const sdk = await initYsdk();
-  const player = await sdk.getPlayer({ scopes: false });
+  const player = await getYsdkPlayer();
   await player.setData(data, true);
 }
 
+/** Loads player data from the platform player storage API. */
 export async function ysdkLoad(keys?: string[]) {
-  const sdk = await initYsdk();
-  const player = await sdk.getPlayer({ scopes: false });
+  const player = await getYsdkPlayer();
   return player.getData(keys);
 }
 
@@ -422,9 +497,10 @@ async function ysdkIsMethodAvailable(methodName: string) {
   }
 }
 
+/** Requests platform authorization when available and refreshes the cached player object. */
 export async function ysdkRequestAuthorization() {
   const sdk = await initYsdk();
-  let player = await sdk.getPlayer({ scopes: false });
+  let player = await getYsdkPlayer();
 
   if (player.isAuthorized?.() !== false) {
     return true;
@@ -435,10 +511,19 @@ export async function ysdkRequestAuthorization() {
   }
 
   await sdk.auth.openAuthDialog();
+  playerPromise = null;
   player = await sdk.getPlayer({ scopes: false });
+  playerPromise = Promise.resolve(player);
   return player.isAuthorized?.() !== false;
 }
 
+/** Reports whether the cached platform player is already externally authorized. */
+export async function ysdkIsPlayerAuthorized() {
+  const player = await getYsdkPlayer();
+  return player.isAuthorized?.() !== false;
+}
+
+/** Sends a leaderboard score after checking platform API availability. */
 export async function ysdkSetLeaderboardScore(
   leaderboardName: string,
   score: number,
@@ -466,6 +551,7 @@ export async function ysdkSetLeaderboardScore(
   await sdk.leaderboards.setScore(leaderboardName, score, extraData);
 }
 
+/** Loads leaderboard entries after checking platform API availability. */
 export async function ysdkGetLeaderboardEntries(
   leaderboardName: string,
   options?: {

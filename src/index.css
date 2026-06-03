@@ -1,5 +1,3 @@
-@import "https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap";
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -116,8 +114,40 @@ All colors MUST be HSL.
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
   * {
     @apply border-border;
+
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  img,
+  svg,
+  canvas {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
   }
 
   body {
@@ -263,6 +293,7 @@ All colors MUST be HSL.
 
   .game-panel {
     position: relative;
+    max-width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 1rem);
     border: 3px solid rgb(211 151 77 / 0.72);
     border-radius: 1rem;
     background:
@@ -319,6 +350,10 @@ All colors MUST be HSL.
   }
 
   @media (max-width: 640px) {
+    .game-hud-header .game-title {
+      max-width: calc(100vw - 5rem - env(safe-area-inset-left) - env(safe-area-inset-right));
+    }
+
     .game-hud-chip {
       min-width: 4.95rem;
       min-height: 2.55rem;
@@ -368,6 +403,66 @@ All colors MUST be HSL.
 
     .game-hud-action-stack {
       width: 2.85rem;
+    }
+  }
+
+  @media (max-width: 420px), (max-height: 420px) {
+    .game-hud-header {
+      padding-top: calc(0.35rem + env(safe-area-inset-top)) !important;
+    }
+
+    .game-hud-header .game-title,
+    .game-hud-header .game-hud-text {
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+
+    .game-hud-chip {
+      min-width: 3.65rem;
+      min-height: 2.2rem;
+      padding: 0 0.42rem !important;
+      font-size: 0.82rem !important;
+    }
+
+    .game-hud-ideal-pill {
+      width: 3.1rem !important;
+      height: 2.35rem !important;
+      min-width: 3.1rem;
+      min-height: 2.35rem;
+      flex-basis: 3.1rem !important;
+    }
+
+    .game-hud-timer {
+      width: 5.95rem !important;
+      height: 1.82rem !important;
+      max-height: 1.82rem !important;
+      min-width: 5.95rem;
+      min-height: 1.82rem !important;
+      flex-basis: 5.95rem !important;
+      font-size: 0.78rem !important;
+    }
+
+    .game-hud-subpanel {
+      min-width: 5.95rem;
+      max-width: 5.95rem;
+      padding: 0.28rem 0.4rem;
+      font-size: 0.62rem;
+    }
+
+    .game-timer-cluster {
+      right: 3.35rem;
+    }
+
+    .game-hud-action {
+      height: 2.35rem !important;
+      min-width: 2.35rem;
+      padding-left: 0.58rem !important;
+      padding-right: 0.58rem !important;
+      font-size: 0.82rem !important;
+    }
+
+    .game-hud-action-stack {
+      width: 2.35rem;
     }
   }
 }
@@ -463,6 +558,8 @@ All colors MUST be HSL.
   position: absolute;
   left: var(--tutorial-panel-left, 0.75rem);
   top: var(--tutorial-panel-top, 5rem);
+  max-height: calc(100% - 1.5rem - env(safe-area-inset-bottom));
+  overflow: auto;
 }
 
 @keyframes tutorial-glow {

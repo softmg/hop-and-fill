@@ -4,11 +4,19 @@ import { PixiGame } from "@/game/PixiGame";
 import { rotateKeyboardDir, type KeyboardRotation } from "@/game/Input";
 import type { Dir } from "@/game/iso";
 import { createGameAudio } from "@/game/audio";
-import { decideInterstitialTrigger, type InterstitialTrigger } from "@/game/interstitials";
-import { levels } from "@/game/levels";
-import { deriveChapters, getChapterForLevel, getChapterTransition, getLevelTheme, type ChapterTransition } from "@/game/levels/chapters";
+import { canRequestInterstitial, type InterstitialTrigger } from "@/game/interstitials";
+import { getLevelName, levels } from "@/game/levels";
+import { deriveChapters, getChapterForLevel, getChapterTransition, getLevelTheme, getThemeLabel, type ChapterTransition } from "@/game/levels/chapters";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
-import { subscribeToFullscreenAds, ysdkGameplayStart, ysdkGameplayStop, ysdkReady, ysdkShowAd, ysdkShowRewardedAd } from "@/sdk/yandex";
+import {
+  subscribeToFullscreenAds,
+  ysdkGameplayStart,
+  ysdkGameplayStop,
+  ysdkReady,
+  ysdkShowAd,
+  ysdkShowRewardedAd,
+} from "@/platform/yandexGames";
+import { useLanguage, useTranslation } from "@/platform/i18n";
 import { Button } from "@/components/ui/button";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
 import { LevelSelect } from "@/components/LevelSelect";
@@ -34,7 +42,7 @@ import {
   setAudioMuted,
   type PlayerProgress,
 } from "@/game/progress";
-import { calculateLeaderboardScore, loadLeaderboardSnapshot, saveLeaderboardScore, type LeaderboardRow } from "@/game/leaderboard";
+import { calculateLeaderboardScore, LEADERBOARDS_ENABLED, loadLeaderboardSnapshot, saveLeaderboardScore, type LeaderboardRow } from "@/game/leaderboard";
 import { buildSharedResultUrl, createSharedResult, type SharedResultContext } from "@/game/shareResult";
 import { formatDurationMs } from "@/game/time";
 
@@ -51,6 +59,7 @@ type KeyboardCompassKeyStyle = CSSProperties & {
 };
 
 const chapters = deriveChapters(levels);
+const REWARDED_EXTRA_MOVES = 10;
 
 type PerfectParticleStyle = CSSProperties & Record<`--perfect-${string}`, string>;
 
@@ -196,15 +205,6 @@ const KeyboardCompassControl = ({
   </div>
 );
 
-const getNextLevelContext = (fromLevelIdx: number) => {
-  const nextLevelIdx = fromLevelIdx + 1;
-  if (nextLevelIdx >= levels.length) {
-    return { nextLevelIdx: null, nextLevel: null };
-  }
-
-  return { nextLevelIdx, nextLevel: levels[nextLevelIdx] };
-};
-
 const getTimerNowMs = () => performance.now();
 
 /**
@@ -243,6 +243,8 @@ interface FinishedAttempt {
  * Owns the playable game screen, overlays, persistence, audio, and Pixi bridge.
  */
 export const GameCanvas = () => {
+  const t = useTranslation();
+  const language = useLanguage();
   const hostRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<PixiGame | null>(null);
   const audioRef = useRef<ReturnType<typeof createGameAudio> | null>(null);
@@ -250,7 +252,7 @@ export const GameCanvas = () => {
   const progressRef = useRef<PlayerProgress | null>(null);
   const attemptIdRef = useRef(0);
   const isInterstitialActiveRef = useRef(false);
-  const handledInterstitialAttemptRef = useRef<number | null>(null);
+  const lastInterstitialRequestAtRef = useRef<number | null>(null);
   const timerStartMsRef = useRef<number | null>(null);
   const timerElapsedMsRef = useRef(0);
   const timerIntervalRef = useRef<number | null>(null);
@@ -274,6 +276,7 @@ export const GameCanvas = () => {
   const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
   const [shareUrl, setShareUrl] = useState("");
   const [isInterstitialActive, setInterstitialActive] = useState(false);
+  const [rewardedExtraMoves, setRewardedExtraMoves] = useState(0);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
   const [rewardedUndoState, setRewardedUndoState] = useState<"idle" | "loading" | "error">("idle");
   const [isDocumentVisible, setDocumentVisible] = useState(() => document.visibilityState !== "hidden");
@@ -285,7 +288,7 @@ export const GameCanvas = () => {
 
   const currentLevel = levels[levelIdx];
   const optimal = computeOptimalMoves(currentLevel);
-  const limit = moveLimit(currentLevel);
+  const limit = moveLimit(currentLevel) + rewardedExtraMoves;
   const progressReady = progress !== null;
   const isStartScreenBlocking = isStartScreenOpen;
 
@@ -375,6 +378,9 @@ export const GameCanvas = () => {
   const showInterstitial = useCallback(async (reason: InterstitialTrigger) => {
     if (reason === "none" || isInterstitialActiveRef.current) return;
 
+    const requestedAt = Date.now();
+    if (!canRequestInterstitial(lastInterstitialRequestAtRef.current, requestedAt)) return;
+    lastInterstitialRequestAtRef.current = requestedAt;
     isInterstitialActiveRef.current = true;
     setInterstitialActive(true);
 
@@ -458,6 +464,17 @@ export const GameCanvas = () => {
   }, []);
 
   useEffect(() => {
+    const blockContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+
+    document.addEventListener("contextmenu", blockContextMenu);
+    return () => {
+      document.removeEventListener("contextmenu", blockContextMenu);
+    };
+  }, []);
+
+  useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -517,7 +534,7 @@ export const GameCanvas = () => {
         const didCompleteNewLevel = !baseProgress.completedLevels.includes(wonLevelNumber);
         const nextProgress = completeLevel(baseProgress, wonLevelIdx, wonStars, levels.length, completionTimeMs);
         persistProgress(nextProgress);
-        if (calculateLeaderboardScore(nextProgress) > calculateLeaderboardScore(baseProgress)) {
+        if (LEADERBOARDS_ENABLED && calculateLeaderboardScore(nextProgress) > calculateLeaderboardScore(baseProgress)) {
           void syncLeaderboardResult(nextProgress);
         }
         setFinishedAttempt({
@@ -581,44 +598,18 @@ export const GameCanvas = () => {
     if (!gameRef.current) return;
     attemptOutcomeRef.current = "playing";
     gameRef.current.setLevel(currentLevel);
-    gameRef.current.setMoveLimit(limit);
-    handledInterstitialAttemptRef.current = null;
+    gameRef.current.setMoveLimit(moveLimit(currentLevel));
+    setRewardedExtraMoves(0);
     setFinishedAttempt(null);
     setRewardedUndoState("idle");
     setPlayerHudPosition(null);
     resetAttemptTimer();
     setHops(0);
-  }, [levelIdx, currentLevel, limit, progressReady, resetAttemptTimer]);
+  }, [levelIdx, currentLevel, progressReady, resetAttemptTimer]);
 
   useEffect(() => {
     gameRef.current?.setKeyboardRotation(keyboardRotation);
   }, [keyboardRotation]);
-
-  useEffect(() => {
-    if (overlayMode === "playing") {
-      handledInterstitialAttemptRef.current = null;
-      return;
-    }
-
-    if (!finishedAttempt) return;
-    if (handledInterstitialAttemptRef.current === finishedAttempt.id) return;
-    handledInterstitialAttemptRef.current = finishedAttempt.id;
-
-    const { nextLevelIdx, nextLevel } = getNextLevelContext(finishedAttempt.levelIdx);
-    const reason = decideInterstitialTrigger({
-      outcome: finishedAttempt.outcome,
-      completedLevelsCount: finishedAttempt.completedLevelsCount,
-      didCompleteNewLevel: finishedAttempt.didCompleteNewLevel,
-      currentLevelIndex: finishedAttempt.levelIdx,
-      nextLevelIndex: nextLevelIdx,
-      currentTheme: levels[finishedAttempt.levelIdx]?.theme,
-      nextTheme: nextLevel?.theme,
-    });
-
-    if (reason === "after-loss" || reason === "periodic-win") {
-      void showInterstitial(reason);
-    }
-  }, [finishedAttempt, overlayMode, showInterstitial]);
 
   useEffect(() => {
     const game = gameRef.current;
@@ -639,6 +630,7 @@ export const GameCanvas = () => {
     if (nextLevelIdx === levelIdx) {
       gameRef.current?.setLevel(levels[nextLevelIdx]);
       gameRef.current?.setMoveLimit(moveLimit(levels[nextLevelIdx]));
+      setRewardedExtraMoves(0);
       resetAttemptTimer();
       setHops(0);
     }
@@ -650,11 +642,12 @@ export const GameCanvas = () => {
     setOverlayMode("playing");
   };
 
-  const restart = () => {
-    if (isInterstitialActiveRef.current) return;
+  const resetCurrentAttempt = () => {
+    setRewardedExtraMoves(0);
     attemptOutcomeRef.current = "playing";
     setFinishedAttempt(null);
     gameRef.current?.reset();
+    gameRef.current?.setMoveLimit(moveLimit(currentLevel));
     setPendingChapterTransition(null);
     setRewardedUndoState("idle");
     resetAttemptTimer();
@@ -662,8 +655,22 @@ export const GameCanvas = () => {
     setHops(0);
   };
 
+  const restart = () => {
+    if (isInterstitialActiveRef.current) return;
+    void (async () => {
+      await showInterstitial("restart");
+      resetCurrentAttempt();
+    })();
+  };
+
   const openLevelSelect = () => {
-    setLevelSelectOpen(true);
+    if (isInterstitialActiveRef.current) return;
+    void (async () => {
+      if (overlayMode === "lost") {
+        await showInterstitial("after-loss");
+      }
+      setLevelSelectOpen(true);
+    })();
   };
 
   const closeLevelSelect = () => {
@@ -671,6 +678,7 @@ export const GameCanvas = () => {
   };
 
   const openLeaderboard = () => {
+    if (!LEADERBOARDS_ENABLED) return;
     setLeaderboardOpen(true);
     const baseProgress = progressRef.current;
 
@@ -735,14 +743,18 @@ export const GameCanvas = () => {
     }
   };
 
-  const triggerRewardedUndo = async () => {
+  const triggerRewardedExtraMoves = async () => {
     const game = gameRef.current;
-    if (!game || rewardedUndoState === "loading" || !game.canUndoLastMove()) return;
+    if (!game || rewardedUndoState === "loading" || overlayMode !== "lost") return;
 
     setRewardedUndoState("loading");
 
     const result = await ysdkShowRewardedAd();
-    if (result.status === "rewarded" && game.undoLastMove()) {
+    const nextLimit = limit + REWARDED_EXTRA_MOVES;
+    if (result.status === "rewarded" && game.continueAfterLoss(nextLimit)) {
+      setRewardedExtraMoves((current) => current + REWARDED_EXTRA_MOVES);
+      attemptOutcomeRef.current = "playing";
+      setFinishedAttempt(null);
       setRewardedUndoState("idle");
       setOverlayMode("playing");
       startAttemptTimer();
@@ -755,25 +767,14 @@ export const GameCanvas = () => {
   const continueAfterWin = () => {
     if (isInterstitialActiveRef.current || !progress) return;
     const nextLevelIdx = levelIdx + 1;
-    if (nextLevelIdx >= levels.length) {
-      setPendingChapterTransition(null);
-      setOverlayMode("final");
-      return;
-    }
-
-    const reason = decideInterstitialTrigger({
-      outcome: "win",
-      completedLevelsCount: progress.completedLevels.length,
-      didCompleteNewLevel: finishedAttempt?.didCompleteNewLevel ?? true,
-      currentLevelIndex: levelIdx,
-      nextLevelIndex: nextLevelIdx,
-      currentTheme: currentLevel.theme,
-      nextTheme: levels[nextLevelIdx]?.theme,
-    });
 
     const continueFlow = async () => {
-      if (reason === "chapter-boundary") {
-        await showInterstitial(reason);
+      await showInterstitial("after-win");
+
+      if (nextLevelIdx >= levels.length) {
+        setPendingChapterTransition(null);
+        setOverlayMode("final");
+        return;
       }
 
       if (pendingChapterTransition) {
@@ -810,27 +811,8 @@ export const GameCanvas = () => {
   const formattedRaceTarget = raceTimeLimitMs === null ? null : formatDurationMs(raceTimeLimitMs);
   const hasCurrentRaceAward = progress ? hasRaceAward(progress, levelIdx) : false;
   const currentLeaderboardScore = progress ? calculateLeaderboardScore(progress) : 0;
-  const canPlayNext = Boolean(progress && levelIdx < levels.length - 1 && isLevelUnlocked(progress, levelIdx + 1));
-  const finishedAttemptLevelContext = finishedAttempt ? getNextLevelContext(finishedAttempt.levelIdx) : null;
-  const overlayInterstitialTrigger =
-    overlayMode === "playing" || !finishedAttempt
-      ? "none"
-      : decideInterstitialTrigger({
-          outcome: finishedAttempt.outcome,
-          completedLevelsCount: finishedAttempt.completedLevelsCount,
-          didCompleteNewLevel: finishedAttempt.didCompleteNewLevel,
-          currentLevelIndex: finishedAttempt.levelIdx,
-          nextLevelIndex: finishedAttemptLevelContext?.nextLevelIdx ?? null,
-          currentTheme: levels[finishedAttempt.levelIdx]?.theme,
-          nextTheme: finishedAttemptLevelContext?.nextLevel?.theme,
-        });
-  const isAutoInterstitialTrigger =
-    overlayInterstitialTrigger === "after-loss" || overlayInterstitialTrigger === "periodic-win";
-  const hasHandledOverlayInterstitial =
-    finishedAttempt !== null && handledInterstitialAttemptRef.current === finishedAttempt.id;
-  const isAutoInterstitialPending = isAutoInterstitialTrigger && !hasHandledOverlayInterstitial;
-  const isInteractionLocked = isStartScreenBlocking || isInterstitialActive || isAutoInterstitialPending;
-  const canShowRewardedUndo = overlayMode === "lost" && Boolean(gameRef.current?.canUndoLastMove());
+  const isInteractionLocked = isStartScreenBlocking || isInterstitialActive;
+  const canShowRewardedExtraMoves = overlayMode === "lost";
   const isTutorialBlocking = levelIdx === 0 && progress !== null && !progress.tutorialComplete;
   const isGameplayActive = progressReady
     && isFirstSceneRenderable
@@ -849,14 +831,15 @@ export const GameCanvas = () => {
   const toggleKeyboardRotation = () => {
     setKeyboardRotation((current) => current === "default" ? "counterclockwise" : "default");
   };
-  const pauseButtonLabel = overlayMode === "paused" ? "Продолжить" : "Пауза";
+  const pauseButtonLabel = overlayMode === "paused" ? t("continue") : t("pause");
+  const currentLevelName = getLevelName(currentLevel.name, language);
   const shareStatusLabel =
     shareStatus === "copied"
-      ? "Ссылка скопирована"
+      ? t("copied")
       : shareStatus === "shared"
-        ? "Ссылка отправлена"
+        ? t("shared")
         : shareStatus === "error"
-          ? "Не удалось скопировать ссылку"
+          ? t("shareError")
           : "";
 
   const getShareContext = (): SharedResultContext => {
@@ -866,7 +849,7 @@ export const GameCanvas = () => {
       return {
         kind: "level",
         levelNumber: levelIdx + 1,
-        levelName: currentLevel.name,
+        levelName: currentLevelName,
         stars: resultStars,
         hops,
         optimalMoves: optimal,
@@ -893,8 +876,8 @@ export const GameCanvas = () => {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: "Hop & Fill: результат",
-          text: "Мой результат в Hop & Fill",
+          title: t("shareTitle"),
+          text: t("shareMessage"),
           url: nextShareUrl,
         });
         setShareStatus("shared");
@@ -920,7 +903,7 @@ export const GameCanvas = () => {
         ) : (
           <Share2 className="h-4 w-4" aria-hidden />
         )}
-        Поделиться результатом
+        {t("shareResult")}
       </Button>
       {shareStatusLabel && (
         <div
@@ -933,7 +916,7 @@ export const GameCanvas = () => {
           <span>{shareStatusLabel}</span>
           {shareUrl && (
             <a href={shareUrl} target="_blank" rel="noreferrer" className="ml-2 font-bold text-white underline underline-offset-2">
-              Открыть результат
+              {t("openResult")}
             </a>
           )}
         </div>
@@ -961,7 +944,7 @@ export const GameCanvas = () => {
 
   if (!progress) {
     return (
-      <div className="relative h-full w-full overflow-hidden">
+      <div className="relative h-full w-full overflow-hidden" onContextMenu={(event) => event.preventDefault()}>
         <StartScreen
           isLoading
           isFirstStart
@@ -977,7 +960,7 @@ export const GameCanvas = () => {
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden touch-none select-none">
+    <div className="relative h-full w-full overflow-hidden touch-none select-none" onContextMenu={(event) => event.preventDefault()}>
       <ParallaxBackground theme={bgTheme} />
       <div ref={hostRef} className="absolute inset-0" />
 
@@ -993,51 +976,51 @@ export const GameCanvas = () => {
 
 
       {/* HUD */}
-      <header className="absolute left-0 right-0 top-0 px-2 py-2 pr-[4rem] pointer-events-none sm:px-4 sm:py-3 sm:pr-[4.75rem]">
+      <header className="game-hud-header absolute left-0 right-0 top-0 px-[max(0.5rem,env(safe-area-inset-left))] py-2 pr-[calc(3.45rem_+_env(safe-area-inset-right))] pointer-events-none sm:px-[max(1rem,env(safe-area-inset-left))] sm:py-3 sm:pr-[calc(4.75rem_+_env(safe-area-inset-right))]">
         <div className="flex items-start justify-between gap-2">
-          <div className="pointer-events-auto flex min-w-0 flex-col items-start gap-3">
+          <div className="pointer-events-auto flex min-w-0 max-w-[calc(100vw_-_4.75rem_-_env(safe-area-inset-left)_-_env(safe-area-inset-right))] flex-col items-start gap-2 sm:max-w-[calc(100vw_-_6rem_-_env(safe-area-inset-left)_-_env(safe-area-inset-right))] sm:gap-3">
             <div className="flex min-w-0 items-baseline gap-1.5">
               <h1 className="game-title truncate text-lg sm:text-2xl">
-                Hop &amp; Fill
+                {t("gameTitle")}
               </h1>
               <span className="game-hud-text hidden truncate sm:inline">
-                · {currentLevel.name}
+                · {currentLevelName}
               </span>
             </div>
             {currentChapter && (
               <div className="game-hud-text whitespace-nowrap">
-                Глава {currentChapter.chapterIndex} · {currentChapter.themeLabel}
+                {t("chapter")} {currentChapter.chapterIndex} · {getThemeLabel(currentChapter.theme, language)}
               </div>
             )}
-            <div className="flex items-center gap-3">
+            <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3">
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={openLevelSelect}
                 disabled={isInteractionLocked}
-                className="game-hud-action justify-start"
+                className="game-hud-action max-w-[8.75rem] justify-start overflow-hidden sm:max-w-none"
               >
                 <Map className="h-4 w-4 shrink-0" aria-hidden />
-                Уровень {levelIdx + 1} / {levels.length}
+                <span className="truncate">{t("level")} {levelIdx + 1} / {levels.length}</span>
               </Button>
               <div
                 className="game-hud-chip game-hud-ideal-pill px-2 py-1 text-xs font-black tabular-nums whitespace-nowrap sm:text-sm"
-                title="Идеальное число ходов"
+                title={t("idealMoves")}
                 data-tutorial-highlight="goal"
               >
                 ★ {optimal}
               </div>
-              <Button
+              {LEADERBOARDS_ENABLED && <Button
                 size="sm"
                 variant="ghost"
                 onClick={openLeaderboard}
                 disabled={isInteractionLocked}
                 className="game-hud-action game-hud-action-cyan"
-                title="Лидеры"
-                aria-label="Лидеры"
+                title={t("leaders")}
+                aria-label={t("leaders")}
               >
                 <Trophy className="h-4 w-4" aria-hidden />
-              </Button>
+              </Button>}
             </div>
           </div>
         </div>
@@ -1045,17 +1028,17 @@ export const GameCanvas = () => {
         <div className="game-timer-cluster pointer-events-auto absolute top-2 flex flex-col items-center gap-1.5 sm:top-3">
           <div
             className="game-hud-chip game-hud-timer flex items-center gap-1 px-2 py-1 text-xs font-black tabular-nums whitespace-nowrap sm:text-sm"
-            title="Время попытки"
+            title={t("attemptTime")}
           >
             <Clock3 className="h-3.5 w-3.5" aria-hidden />
             {formattedElapsedTime}
           </div>
           {(formattedBestTime || formattedRaceTarget) && (
             <div className="game-hud-subpanel">
-              {formattedBestTime && <div>Лучшее: {formattedBestTime}</div>}
+              {formattedBestTime && <div>{t("best")}: {formattedBestTime}</div>}
               {formattedRaceTarget && (
                 <div className={formattedBestTime ? "mt-1" : ""}>
-                  {hasCurrentRaceAward ? "Гонка получена" : `Гонка: ${formattedRaceTarget}`}
+                  {hasCurrentRaceAward ? t("raceEarned") : t("raceTarget", { time: formattedRaceTarget })}
                 </div>
               )}
             </div>
@@ -1078,8 +1061,8 @@ export const GameCanvas = () => {
             variant="secondary"
             onClick={toggleMute}
             className="game-hud-action game-hud-action-stack"
-            title={progress.audioMuted ? "Включить звук" : "Выключить звук"}
-            aria-label={progress.audioMuted ? "Включить звук" : "Выключить звук"}
+            title={progress.audioMuted ? t("unmute") : t("mute")}
+            aria-label={progress.audioMuted ? t("unmute") : t("mute")}
             aria-pressed={progress.audioMuted}
           >
             {progress.audioMuted ? <VolumeX className="h-4 w-4 shrink-0" aria-hidden /> : <Volume2 className="h-4 w-4 shrink-0" aria-hidden />}
@@ -1090,8 +1073,8 @@ export const GameCanvas = () => {
             onClick={restart}
             disabled={isInteractionLocked}
             className="game-hud-action game-hud-action-stack"
-            title="Заново"
-            aria-label="Заново"
+            title={t("restart")}
+            aria-label={t("restart")}
           >
             <RotateCcw className="h-4 w-4 shrink-0" aria-hidden />
           </Button>
@@ -1101,7 +1084,7 @@ export const GameCanvas = () => {
         <div className="mt-2 flex flex-wrap items-center justify-center gap-2 pointer-events-auto">
           {saveState !== "idle" && (
             <div className="game-hud-text hidden whitespace-nowrap sm:block">
-              {saveState === "saving" ? "Сохранение..." : "Не сохранено"}
+              {saveState === "saving" ? t("save") : t("notSaved")}
             </div>
           )}
         </div>
@@ -1135,16 +1118,16 @@ export const GameCanvas = () => {
 
       {/* Оверлеи */}
       {overlayMode !== "playing" && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#120804]/70 px-4 backdrop-blur-[2px]">
-          <div className={`game-panel relative w-full max-w-sm overflow-hidden p-5 text-center text-white sm:p-6 ${isPerfectWin ? "perfect-win-panel" : ""}`}>
+        <div className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-[#120804]/70 px-[max(0.75rem,env(safe-area-inset-left))] py-[calc(0.75rem_+_env(safe-area-inset-top))] backdrop-blur-[2px]">
+          <div className={`game-panel relative max-h-[calc(100svh_-_1.5rem_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] w-full max-w-sm overflow-y-auto overflow-x-hidden p-4 text-center text-white sm:p-6 ${isPerfectWin ? "perfect-win-panel" : ""}`}>
             {overlayMode === "won" && (
               <div className="relative z-10">
                 {isPerfectWin && <PerfectCelebration />}
-                <h2 className="game-title text-2xl">Уровень пройден!</h2>
+                <h2 className="game-title text-2xl">{t("win")}</h2>
                 {isPerfectWin && (
                   <div className="perfect-win-badge game-hud-text mx-auto mt-3 inline-flex items-center gap-1.5 uppercase text-yellow-100">
                     <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                    Идеально!
+                    {t("perfect")}
                   </div>
                 )}
                 <div className="mt-4 flex flex-col items-center gap-2">
@@ -1155,36 +1138,36 @@ export const GameCanvas = () => {
                   </div>
                   {bestStars > stars && (
                     <div className="text-xs font-medium text-white/65">
-                      Лучший результат: {bestStars} ★
+                      {t("bestResult")}: {bestStars} ★
                     </div>
                   )}
                 </div>
                 <p className="mt-4 text-sm text-white/75">
-                  Ходов: {hops} · идеал: {optimal}
+                  {t("moves")}: {hops} · {t("ideal")}: {optimal}
                 </p>
                 <p className="mt-2 text-sm text-white/75">
-                  Время: {formattedElapsedTime}
-                  {formattedBestTime ? ` · лучшее: ${formattedBestTime}` : ""}
+                  {t("time")}: {formattedElapsedTime}
+                  {formattedBestTime ? ` · ${t("best").toLowerCase()}: ${formattedBestTime}` : ""}
                 </p>
                 {formattedRaceTarget && (
                   <div
                     className={`game-hud-text mx-auto mt-3 inline-flex items-center gap-1.5 ${hasCurrentRaceAward ? "text-cyan-100" : "text-white/78"}`}
                   >
                     <CarFront className="h-3.5 w-3.5 text-cyan-200" aria-hidden />
-                    {hasCurrentRaceAward ? "Гонка получена" : `Гонка за ${formattedRaceTarget}`}
+                    {hasCurrentRaceAward ? t("raceEarned") : t("raceTarget", { time: formattedRaceTarget })}
                   </div>
                 )}
                 <div className="mt-5 flex flex-col gap-2">
                   <Button onClick={continueAfterWin} disabled={isInteractionLocked} className="w-full">
                     {levelIdx === levels.length - 1
-                      ? "К финальному экрану"
+                      ? t("finalScreen")
                       : pendingChapterTransition
-                        ? `Открыть главу ${pendingChapterTransition.toChapter.chapterIndex}`
-                        : "Следующий уровень"}
+                        ? t("openChapter", { chapter: pendingChapterTransition.toChapter.chapterIndex })
+                        : t("nextLevel")}
                   </Button>
                   {shareResultControls}
                   <Button onClick={restart} disabled={isInteractionLocked} variant="secondary" className="w-full">
-                    Сыграть снова
+                    {t("playAgain")}
                   </Button>
                 </div>
               </div>
@@ -1192,29 +1175,33 @@ export const GameCanvas = () => {
 
             {overlayMode === "lost" && (
               <>
-                <h2 className="game-title text-2xl">Ходы закончились</h2>
+                <h2 className="game-title text-2xl">{t("outOfMoves")}</h2>
                 <p className="mt-3 text-sm text-white/75">
-                  Ты исчерпал лимит ходов. Попробуй другой маршрут и уложись в {limit}.
+                  {t("outOfMovesBody")} {limit}.
                 </p>
                 <p className="mt-2 text-sm text-white/65">
-                  Время попытки: {formattedElapsedTime}
+                  {t("attemptTime")}: {formattedElapsedTime}
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
-                  {canShowRewardedUndo && (
-                    <Button onClick={triggerRewardedUndo} disabled={rewardedUndoState === "loading"} className="w-full">
-                      {rewardedUndoState === "loading" ? "Загрузка награды..." : "Посмотреть рекламу и отменить ход"}
+                  {canShowRewardedExtraMoves && (
+                    <Button
+                      onClick={triggerRewardedExtraMoves}
+                      disabled={rewardedUndoState === "loading"}
+                      className="h-auto min-h-12 w-full whitespace-normal px-3 py-2 text-center text-[clamp(0.82rem,3.7vw,1rem)] leading-tight"
+                    >
+                      {rewardedUndoState === "loading" ? t("rewardLoading") : t("rewardUndo")}
                     </Button>
                   )}
                   <Button onClick={restart} disabled={isInteractionLocked} className="w-full">
-                    Перезапустить
+                    {t("restartLevel")}
                   </Button>
                   <Button onClick={openLevelSelect} disabled={isInteractionLocked} variant="secondary" className="w-full">
-                    К выбору уровней
+                    {t("levelsMenu")}
                   </Button>
                 </div>
                 {rewardedUndoState === "error" && (
                   <p className="mt-3 text-xs text-white/65">
-                    Награду не удалось получить. Попробуй снова или начни уровень заново.
+                    {t("rewardError")}
                   </p>
                 )}
               </>
@@ -1223,52 +1210,52 @@ export const GameCanvas = () => {
             {overlayMode === "paused" && (
               <>
                 <p className="text-xs font-black uppercase text-[#ffd98e]/75">
-                  Меню
+                  {t("menu")}
                 </p>
-                <h2 className="game-title mt-2 text-2xl">Пауза</h2>
+                <h2 className="game-title mt-2 text-2xl">{t("pause")}</h2>
                 <p className="mt-3 text-sm text-white/75">
-                  Игра остановлена. Продолжай сейчас или открой другой уровень.
+                  {t("pausedBody")}
                 </p>
                 <div className="game-stat-cell mt-4 p-3 text-left">
                   <div className="flex items-center justify-between gap-2 text-xs text-white/70">
-                    <span>Сейчас</span>
+                    <span>{t("now")}</span>
                     <span>
-                      Уровень {levelIdx + 1}
-                      {currentChapter ? ` · глава ${currentChapter.chapterIndex}` : ""}
+                      {t("level")} {levelIdx + 1}
+                      {currentChapter ? ` · ${t("chapter").toLowerCase()} ${currentChapter.chapterIndex}` : ""}
                     </span>
                   </div>
                   <div className="mt-3 grid gap-2 text-xs text-white/75 sm:grid-cols-2">
                     <div className="game-stat-cell px-3 py-2">
                       <div className="font-semibold text-white">ПК</div>
-                      <div className="mt-1">Мышь: клик по соседней плитке</div>
-                      <div className="mt-1">Стрелки: диагонали одним нажатием</div>
-                      <div className="mt-1">WASD: прямые ходы · сочетания WASD: диагонали</div>
+                      <div className="mt-1">{t("mouseMove")}</div>
+                      <div className="mt-1">{t("arrowMove")}</div>
+                      <div className="mt-1">{t("keyboardMove")}</div>
                     </div>
                     <div className="game-stat-cell px-3 py-2">
-                      <div className="font-semibold text-white">Телефон</div>
-                      <div className="mt-1">Свайпай или тяни джойстик в сторону соседней плитки</div>
+                      <div className="font-semibold text-white">{t("phone")}</div>
+                      <div className="mt-1">{t("touchMove")}</div>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/70">
-                    <span className="game-hud-text">Ходы: {hops}/{limit}</span>
-                    <span className="game-hud-text">Лучший результат: {bestStars || "—"} ★</span>
-                    {maxRaces > 0 && <span className="game-hud-text">Гонки: {totalRaces}/{maxRaces}</span>}
-                    <span className="game-hud-text">Время: {formattedElapsedTime}</span>
-                    <span className="game-hud-text">Лучшее время: {formattedBestTime ?? "—"}</span>
+                    <span className="game-hud-text">{t("moves")}: {hops}/{limit}</span>
+                    <span className="game-hud-text">{t("bestResult")}: {bestStars || "—"} ★</span>
+                    {maxRaces > 0 && <span className="game-hud-text">{t("races")}: {totalRaces}/{maxRaces}</span>}
+                    <span className="game-hud-text">{t("time")}: {formattedElapsedTime}</span>
+                    <span className="game-hud-text">{t("bestTime")}: {formattedBestTime ?? "—"}</span>
                   </div>
                 </div>
                 <div className="mt-5 flex flex-col gap-2">
                   <Button onClick={resumeGameplay} className="w-full">
                     <Play className="mr-2 h-4 w-4" aria-hidden />
-                    Продолжить
+                    {t("continue")}
                   </Button>
                   <Button onClick={restart} variant="secondary" className="w-full">
                     <RotateCcw className="mr-2 h-4 w-4" aria-hidden />
-                    Начать заново
+                    {t("restart")}
                   </Button>
                   <Button onClick={openLevelSelect} variant="secondary" className="w-full">
                     <Map className="mr-2 h-4 w-4" aria-hidden />
-                    К выбору уровней
+                    {t("levelsMenu")}
                   </Button>
                 </div>
               </>
@@ -1280,24 +1267,24 @@ export const GameCanvas = () => {
                   <Trophy className="h-5 w-5 text-yellow-300" aria-hidden />
                 </div>
                 <p className="mt-4 text-xs font-black uppercase text-[#ffd98e]/75">
-                  Новая глава
+                  {t("newChapter")}
                 </p>
                 <h2 className="game-title mt-2 text-2xl">
-                  Глава {pendingChapterTransition.toChapter.chapterIndex}
+                  {t("chapter")} {pendingChapterTransition.toChapter.chapterIndex}
                 </h2>
                 <p className="mt-2 text-sm text-white/75">
-                  {pendingChapterTransition.toChapter.themeLabel} · уровни {pendingChapterTransition.toChapter.startLevelIndex + 1}
+                  {getThemeLabel(pendingChapterTransition.toChapter.theme, language)} · {t("levels").toLowerCase()} {pendingChapterTransition.toChapter.startLevelIndex + 1}
                   -{pendingChapterTransition.toChapter.endLevelIndex + 1}
                 </p>
                 <p className="mt-3 text-sm text-white/65">
-                  Палитра меняется после главы {pendingChapterTransition.fromChapter.chapterIndex}. Первый уровень уже готов.
+                  {t("chapterPalette", { chapter: pendingChapterTransition.fromChapter.chapterIndex })}
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
                   <Button onClick={startChapterLevel} className="w-full">
-                    Начать главу
+                    {t("startChapter")}
                   </Button>
                   <Button onClick={openLevelSelect} variant="secondary" className="w-full">
-                    К выбору уровней
+                    {t("levelsMenu")}
                   </Button>
                 </div>
               </>
@@ -1308,21 +1295,25 @@ export const GameCanvas = () => {
                 <div className="game-hud-chip mx-auto flex h-11 w-11 items-center justify-center rounded-full">
                   <Trophy className="h-5 w-5 text-yellow-300" aria-hidden />
                 </div>
-                <h2 className="game-title mt-4 text-2xl">Все главы пройдены</h2>
+                <h2 className="game-title mt-4 text-2xl">{t("finalTitle")}</h2>
                 <p className="mt-3 text-sm text-white/75">
-                  Ты закрыл все {levels.length} уровней и собрал {totalStars} из {maxStars} звёзд
-                  {maxRaces > 0 ? ` и ${totalRaces} из ${maxRaces} гонок` : ""}.
+                  {t("finalSummary", {
+                    levels: levels.length,
+                    stars: totalStars,
+                    maxStars,
+                    races: maxRaces > 0 ? ` ${t("races").toLowerCase()}: ${totalRaces}/${maxRaces}` : "",
+                  })}
                 </p>
                 <p className="mt-2 text-sm text-white/65">
-                  Финал открыт для перепрохождения, а любые уровни доступны через меню выбора.
+                  {t("finalBody")}
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
                   {shareResultControls}
                   <Button onClick={restart} className="w-full">
-                    Переиграть финальный уровень
+                    {t("replayFinal")}
                   </Button>
                   <Button onClick={openLevelSelect} variant="secondary" className="w-full">
-                    К выбору уровней
+                    {t("levelsMenu")}
                   </Button>
                 </div>
               </>

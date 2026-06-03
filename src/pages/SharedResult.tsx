@@ -2,15 +2,17 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, CarFront, Clock3, Home, Star, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ParallaxBackground } from "@/components/ParallaxBackground";
+import { getLevelName } from "@/game/levels";
 import { decodeSharedResult } from "@/game/shareResult";
 import { formatDurationMs } from "@/game/time";
+import { useLanguage, useTranslation } from "@/platform/i18n";
 
 interface SharedResultPageProps {
   token: string | null;
 }
 
-const ResultStars = ({ count }: { count: number }) => (
-  <div className="flex justify-center gap-1" aria-label={`${count} из 3 звёзд`}>
+const ResultStars = ({ count, label }: { count: number; label: string }) => (
+  <div className="flex justify-center gap-1" aria-label={label}>
     {[0, 1, 2].map((index) => (
       <Star
         key={index}
@@ -29,6 +31,8 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
 );
 
 export const SharedResultPage = ({ token }: SharedResultPageProps) => {
+  const t = useTranslation();
+  const language = useLanguage();
   const result = decodeSharedResult(token);
 
   return (
@@ -43,14 +47,14 @@ export const SharedResultPage = ({ token }: SharedResultPageProps) => {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-400/15 ring-1 ring-red-200/25">
                 <AlertTriangle className="h-6 w-6 text-red-100" aria-hidden />
               </div>
-              <h1 className="mt-4 text-2xl font-black">Ссылка не открылась</h1>
+              <h1 className="mt-4 text-2xl font-black">{t("sharedLinkError")}</h1>
               <p className="mt-3 text-sm text-white/70">
-                Данные результата повреждены или ссылка была обрезана.
+                {t("sharedLinkErrorBody")}
               </p>
               <Button asChild className="mt-5 w-full">
                 <Link to="/">
                   <Home className="h-4 w-4" aria-hidden />
-                  Играть
+                  {t("play")}
                 </Link>
               </Button>
             </>
@@ -60,29 +64,29 @@ export const SharedResultPage = ({ token }: SharedResultPageProps) => {
                 <Trophy className="h-6 w-6 text-yellow-300" aria-hidden />
               </div>
               <p className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-white/55">
-                Hop &amp; Fill
+                {t("gameTitle")}
               </p>
               <h1 className="mt-2 text-2xl font-black">
                 {result.kind === "final"
-                  ? "Финальный результат"
+                  ? t("finalResult")
                   : result.level
-                    ? `Уровень ${result.level.number} пройден`
-                    : "Результат игрока"}
+                    ? t("levelComplete", { level: result.level.number })
+                    : t("playerResult")}
               </h1>
 
               {result.level && (
                 <div className="mt-4">
-                  <div className="text-sm font-semibold text-white/75">{result.level.name}</div>
+                  <div className="text-sm font-semibold text-white/75">{getLevelName(result.level.name, language)}</div>
                   <div className="mt-3">
-                    <ResultStars count={result.level.stars} />
+                    <ResultStars count={result.level.stars} label={t("starsCount", { stars: result.level.stars })} />
                   </div>
                   <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs text-white/70">
                     <span className="rounded-md bg-white/[0.08] px-2.5 py-1">
-                      Ходы: {result.level.hops} / {result.level.optimalMoves}
+                      {t("moves")}: {result.level.hops} / {result.level.optimalMoves}
                     </span>
                     {result.level.timeMs !== null && (
                       <span className="rounded-md bg-white/[0.08] px-2.5 py-1">
-                        Время: {formatDurationMs(result.level.timeMs)}
+                        {t("time")}: {formatDurationMs(result.level.timeMs)}
                       </span>
                     )}
                   </div>
@@ -90,11 +94,11 @@ export const SharedResultPage = ({ token }: SharedResultPageProps) => {
               )}
 
               <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-left">
-                <Stat label="Уровни" value={`${result.completedLevels}/${result.levelCount}`} />
-                <Stat label="Звёзды" value={`${result.totalStars}/${result.maxStars}`} />
-                {result.maxRaces > 0 && <Stat label="Гонки" value={`${result.totalRaces}/${result.maxRaces}`} />}
+                <Stat label={t("levels")} value={`${result.completedLevels}/${result.levelCount}`} />
+                <Stat label={t("stars")} value={`${result.totalStars}/${result.maxStars}`} />
+                {result.maxRaces > 0 && <Stat label={t("races")} value={`${result.totalRaces}/${result.maxRaces}`} />}
                 <Stat
-                  label="Лучшее суммарное время"
+                  label={t("bestTotalTime")}
                   value={result.totalBestTimeMs === null ? "—" : formatDurationMs(result.totalBestTimeMs)}
                 />
               </div>
@@ -103,7 +107,7 @@ export const SharedResultPage = ({ token }: SharedResultPageProps) => {
                 <Button asChild className="w-full">
                   <Link to="/">
                     <Home className="h-4 w-4" aria-hidden />
-                    Играть
+                    {t("play")}
                   </Link>
                 </Button>
               </div>

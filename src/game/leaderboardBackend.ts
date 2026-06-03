@@ -1,4 +1,4 @@
-import type { YsdkLeaderboardEntries, YsdkLeaderboardEntry } from "@/sdk/yandex";
+import type { YsdkLeaderboardEntries, YsdkLeaderboardEntry } from "@/platform/yandexGames";
 
 export const LEADERBOARD_BACKEND_URL = String(import.meta.env.VITE_LEADERBOARD_BACKEND_URL ?? "").trim();
 const BACKEND_PLAYER_ID_KEY = "crash-cubes:leaderboard-player-id";
@@ -53,7 +53,7 @@ function optionalString(value: unknown) {
 }
 
 function getBaseUrl() {
-  const origin = typeof window === "undefined" ? "http://localhost" : window.location.origin;
+  const origin = typeof window === "undefined" ? "https://invalid.local" : window.location.origin;
   const normalizedBase = LEADERBOARD_BACKEND_URL.endsWith("/")
     ? LEADERBOARD_BACKEND_URL
     : `${LEADERBOARD_BACKEND_URL}/`;

@@ -58,20 +58,20 @@ export const LeaderboardPanel = ({
   const isLoading = status === "loading";
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#110c08]/82 px-3 py-3 backdrop-blur-[2px] sm:px-4">
+    <div className="absolute inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#110c08]/82 px-[max(0.5rem,env(safe-area-inset-left))] py-[calc(0.5rem_+_env(safe-area-inset-top))] backdrop-blur-[2px] sm:px-[max(1rem,env(safe-area-inset-left))]">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="leaderboard-title"
-        className="game-panel relative flex h-[min(88svh,42rem)] w-full max-w-2xl flex-col overflow-hidden text-white"
+        className="game-panel relative flex h-[min(88svh,42rem)] max-h-[calc(100svh_-_1rem_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] w-full max-w-2xl min-w-0 flex-col overflow-hidden text-white"
       >
-        <div className="relative z-10 flex items-center justify-between gap-3 border-b-[3px] border-[#6b3716]/75 bg-[linear-gradient(180deg,rgba(92,52,24,0.92),rgba(36,20,10,0.92))] px-3 py-3 sm:px-5">
+        <div className="relative z-10 flex min-w-0 items-center justify-between gap-2 border-b-[3px] border-[#6b3716]/75 bg-[linear-gradient(180deg,rgba(92,52,24,0.92),rgba(36,20,10,0.92))] px-2 py-2.5 sm:gap-3 sm:px-5 sm:py-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="game-hud-chip flex h-10 w-10 shrink-0 items-center justify-center">
+            <div className="game-hud-chip flex h-10 w-10 min-w-10 shrink-0 items-center justify-center">
               <Trophy className="h-5 w-5 text-[#ffd35f]" aria-hidden />
             </div>
             <div className="min-w-0">
-              <h2 id="leaderboard-title" className="game-title truncate text-2xl leading-none sm:text-3xl">
+              <h2 id="leaderboard-title" className="game-title truncate text-xl leading-none sm:text-3xl">
                 Лидеры
               </h2>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#f6d9a6]/78">
@@ -111,7 +111,7 @@ export const LeaderboardPanel = ({
           </div>
         </div>
 
-        <div className="relative z-10 grid gap-3 border-b-[3px] border-[#6b3716]/50 bg-[radial-gradient(circle_at_24%_0%,rgba(255,204,69,0.18),transparent_34%),linear-gradient(180deg,rgba(58,34,14,0.62),rgba(14,9,6,0.88))] px-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center sm:px-5">
+        <div className="relative z-10 grid gap-2 border-b-[3px] border-[#6b3716]/50 bg-[radial-gradient(circle_at_24%_0%,rgba(255,204,69,0.18),transparent_34%),linear-gradient(180deg,rgba(58,34,14,0.62),rgba(14,9,6,0.88))] px-2 py-2.5 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-3 sm:px-5 sm:py-3">
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="game-stat-cell px-3 py-2">
               <div className="text-xs font-semibold text-white/52">Мой результат</div>
@@ -126,7 +126,7 @@ export const LeaderboardPanel = ({
             type="button"
             onClick={onSave}
             disabled={!canSave}
-            className="h-10 px-3"
+            className="h-10 min-w-0 px-3"
           >
             {saveStatus === "saving" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Save className="mr-2 h-4 w-4" aria-hidden />}
             {saveStatus === "saving" ? "Сохраняем" : "Сохранить результат"}
@@ -160,7 +160,7 @@ export const LeaderboardPanel = ({
                 <li
                   key={`${entry.rank}-${entry.uniqueID ?? entry.publicName}`}
                   className={cn(
-                    "grid min-h-16 grid-cols-[2.75rem_1fr_auto] items-center gap-3 rounded-[0.8rem] border-2 px-3 py-2 shadow-[0_5px_0_rgba(75,39,18,0.55),0_12px_20px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)]",
+                    "grid min-h-16 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-[0.8rem] border-2 px-2 py-2 shadow-[0_5px_0_rgba(75,39,18,0.55),0_12px_20px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:gap-3 sm:px-3",
                     entry.isCurrentUser
                       ? "border-[#ffd35f]/48 bg-[#ffd35f]/12"
                       : "border-white/10 bg-white/[0.045]",

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { FIRST_TUTORIAL_ARROW } from "@/components/tutorialArrow";
+import { useTranslation } from "@/platform/i18n";
 
 interface TutorialOverlayProps {
   /** Текущий индекс уровня (туториал только для levelIdx === 0) */
@@ -35,9 +36,10 @@ type TutorialArrowStyle = CSSProperties & {
  * Интерактивный онбординг для первого уровня.
  * - Шаг 1: подсказка про управление + пульсирующая стрелка над персонажем.
  * - Шаг 2: подсветка верхнего HUD (ходы / звёзды).
- * Прогресс сохраняется вместе с основным Yandex player data.
+ * Прогресс сохраняется вместе с основным player data.
  */
 export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }: TutorialOverlayProps) => {
+  const t = useTranslation();
   const [step, setStep] = useState<Step>("done");
   const overlayRef = useRef<HTMLDivElement>(null);
   const [highlightRects, setHighlightRects] = useState<HighlightRect[]>([]);
@@ -78,7 +80,7 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
   const limitPanelStyle: TutorialPanelStyle | undefined = goalRect
     ? {
         "--tutorial-panel-left": `clamp(0.75rem, ${goalRect.left}px, calc(100% - 22rem))`,
-        "--tutorial-panel-top": `${goalRect.top + goalRect.height + 18}px`,
+        "--tutorial-panel-top": `clamp(0.75rem, ${goalRect.top + goalRect.height + 18}px, calc(100% - 11rem - env(safe-area-inset-bottom)))`,
       }
     : undefined;
 
@@ -161,16 +163,16 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
           <div className="tutorial-move-panel pointer-events-auto">
             <div className="game-panel relative px-5 py-4 text-center text-white animate-in fade-in slide-in-from-bottom-4 duration-300">
               <p className="hidden text-sm font-black leading-relaxed text-[#fff0c2] sm:block">
-                Кликни по соседней плитке или используй клавиатуру, чтобы двигаться и закрашивать поле!
+                {t("moveDesktop")}
               </p>
               <p className="text-sm font-black leading-relaxed text-[#fff0c2] sm:hidden">
-                Свайпай, тапай по соседней плитке или тяни джойстик, чтобы двигаться и закрашивать поле!
+                {t("moveMobile")}
               </p>
               <p className="mt-2 hidden text-xs font-semibold text-[#f1d3a0]/80 sm:block">
-                ПК: карта клавиш слева показывает текущие направления. Кнопка поворота меняет ориентацию управления.
+                {t("desktopHint")}
               </p>
               <p className="mt-2 text-xs font-semibold text-[#f1d3a0]/80 sm:hidden">
-                Двигайся только на соседние плитки. Закрась всё поле.
+                {t("mobileHint")}
               </p>
             </div>
           </div>
@@ -184,8 +186,8 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
               key={rect.key}
               className="absolute rounded-xl ring-2 ring-yellow-300/85 tutorial-glow pointer-events-none"
               style={{
-                left: rect.left - 6,
-                top: rect.top - 6,
+                left: Math.max(0, rect.left - 6),
+                top: Math.max(0, rect.top - 6),
                 width: rect.width + 12,
                 height: rect.height + 12,
               }}
@@ -195,18 +197,18 @@ export const TutorialOverlay = ({ levelIdx, hops, tutorialComplete, onComplete }
 
           {/* Подсказка рядом со звёздами HUD */}
           <div
-            className="tutorial-limit-panel pointer-events-auto w-[min(21rem,calc(100%-1.5rem))]"
+            className="tutorial-limit-panel pointer-events-auto w-[min(21rem,calc(100%_-_1.5rem))]"
             style={limitPanelStyle}
           >
             <div className="game-panel relative px-5 py-4 text-white animate-in fade-in slide-in-from-top-4 duration-300">
               <p className="text-sm font-black leading-relaxed text-[#fff0c2]">
-                Твоя цель — закрасить всё поле за минимальное количество ходов.
+                {t("goal")}
               </p>
               <p className="mt-2 text-xs font-semibold text-[#f1d3a0]/80">
-                Уложишься в идеальное число — получишь 3 звезды! ★★★
+                {t("goalStars")} ★★★
               </p>
               <Button size="sm" className="w-full mt-3" onClick={finish}>
-                Понятно
+                {t("understood")}
               </Button>
             </div>
           </div>
