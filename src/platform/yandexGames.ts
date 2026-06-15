@@ -16,6 +16,6 @@ export {
   ysdkShowRewardedAd as showYandexRewardedAd,
   ysdkShowRewardedAd,
   type GameLanguage,
-  type RewardedAdResult,
+  type YsdkRewardedCallbacks,
   type YsdkFullscreenAdCallbacks,
 } from "@/sdk/yandex";

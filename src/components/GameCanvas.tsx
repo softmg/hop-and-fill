@@ -250,6 +250,7 @@ export const GameCanvas = () => {
   const [isLevelSelectOpen, setLevelSelectOpen] = useState(false);
   const [isInterstitialActive, setInterstitialActive] = useState(false);
   const [rewardedExtraMoves, setRewardedExtraMoves] = useState(0);
+  const [rewardedAdLevelIds, setRewardedAdLevelIds] = useState<Set<number>>(() => new Set());
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
   const [rewardedUndoState, setRewardedUndoState] = useState<"idle" | "loading" | "error">("idle");
   const [isDocumentVisible, setDocumentVisible] = useState(() => document.visibilityState !== "hidden");
@@ -645,25 +646,44 @@ export const GameCanvas = () => {
     }
   };
 
-  const triggerRewardedExtraMoves = async () => {
+  const triggerRewardedExtraMoves = () => {
     const game = gameRef.current;
-    if (!game || rewardedUndoState === "loading" || overlayMode !== "lost") return;
+    if (!game || rewardedUndoState === "loading" || overlayMode !== "lost" || rewardedAdLevelIds.has(levelIdx)) return;
 
     setRewardedUndoState("loading");
+    const rewardedLevelIdx = levelIdx;
 
-    const result = await ysdkShowRewardedAd();
-    const nextLimit = limit + REWARDED_EXTRA_MOVES;
-    if (result.status === "rewarded" && game.continueAfterLoss(nextLimit)) {
-      setRewardedExtraMoves((current) => current + REWARDED_EXTRA_MOVES);
-      attemptOutcomeRef.current = "playing";
-      setFinishedAttempt(null);
-      setRewardedUndoState("idle");
-      setOverlayMode("playing");
-      startAttemptTimer();
-      return;
-    }
+    ysdkShowRewardedAd({
+      onRewarded: () => {
+        const nextLimit = limit + REWARDED_EXTRA_MOVES;
+        if (!game.continueAfterLoss(nextLimit)) {
+          setRewardedUndoState("error");
+          return;
+        }
 
-    setRewardedUndoState("error");
+        setRewardedAdLevelIds((current) => {
+          const next = new Set(current);
+          next.add(rewardedLevelIdx);
+          return next;
+        });
+        setRewardedExtraMoves((current) => current + REWARDED_EXTRA_MOVES);
+        attemptOutcomeRef.current = "playing";
+        setFinishedAttempt(null);
+        setRewardedUndoState("idle");
+        setOverlayMode("playing");
+        startAttemptTimer();
+      },
+      onClose: () => {
+        setRewardedUndoState((current) => (current === "loading" ? "idle" : current));
+      },
+      onError: (error) => {
+        console.warn("[ads] rewarded ad failed", error);
+        setRewardedUndoState("error");
+      },
+    }).catch((error) => {
+      console.warn("[ads] rewarded ad failed", error);
+      setRewardedUndoState("error");
+    });
   };
 
   const continueAfterWin = () => {
@@ -713,7 +733,7 @@ export const GameCanvas = () => {
   const formattedRaceTarget = raceTimeLimitMs === null ? null : formatDurationMs(raceTimeLimitMs);
   const hasCurrentRaceAward = progress ? hasRaceAward(progress, levelIdx) : false;
   const isInteractionLocked = isStartScreenBlocking || isInterstitialActive;
-  const canShowRewardedExtraMoves = overlayMode === "lost";
+  const canShowRewardedExtraMoves = overlayMode === "lost" && !rewardedAdLevelIds.has(levelIdx);
   const isTutorialBlocking = levelIdx === 0 && progress !== null && !progress.tutorialComplete;
   const isGameplayActive = progressReady
     && isFirstSceneRenderable

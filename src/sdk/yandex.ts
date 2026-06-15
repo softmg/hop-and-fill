@@ -20,7 +20,7 @@ interface YsdkAdCallbacks {
   onError?: (error: unknown) => void;
 }
 
-interface YsdkRewardedCallbacks extends YsdkAdCallbacks {
+export interface YsdkRewardedCallbacks extends YsdkAdCallbacks {
   onOpen?: () => void;
   onRewarded?: () => void;
 }
@@ -305,56 +305,20 @@ export async function ysdkShowAd(callbacks?: YsdkFullscreenAdCallbacks) {
   });
 }
 
-export type RewardedAdResult =
-  | { status: "rewarded" }
-  | { status: "closed" }
-  | { status: "error"; error: unknown };
-
-/** Shows a rewarded ad and resolves only after the provider reports the reward outcome. */
-export async function ysdkShowRewardedAd(): Promise<RewardedAdResult> {
+/** Shows a rewarded ad using the platform callback contract. */
+export async function ysdkShowRewardedAd(callbacks?: YsdkRewardedCallbacks) {
   const sdk = await initYsdk();
 
   if (!sdk.adv.showRewardedVideo) {
-    return { status: "error", error: new Error("Rewarded video API is unavailable") };
+    callbacks?.onError?.(new Error("Rewarded video API is unavailable"));
+    return;
   }
 
-  return new Promise((resolve) => {
-    let rewarded = false;
-    let active = false;
-    let settled = false;
-
-    const settle = (result: RewardedAdResult) => {
-      if (settled) return;
-      settled = true;
-      if (active) {
-        active = false;
-        notifyFullscreenAdState(false);
-      }
-      resolve(result);
-    };
-
-    try {
-      sdk.adv.showRewardedVideo({
-        callbacks: {
-          onOpen: () => {
-            active = true;
-            notifyFullscreenAdState(true);
-          },
-          onRewarded: () => {
-            rewarded = true;
-          },
-          onClose: () => {
-            settle(rewarded ? { status: "rewarded" } : { status: "closed" });
-          },
-          onError: (error) => {
-            settle({ status: "error", error });
-          },
-        },
-      });
-    } catch (error) {
-      settle({ status: "error", error });
-    }
-  });
+  try {
+    sdk.adv.showRewardedVideo({ callbacks });
+  } catch (error) {
+    callbacks?.onError?.(error);
+  }
 }
 
 async function getYsdkPlayer() {

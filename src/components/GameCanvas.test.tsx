@@ -15,7 +15,10 @@ const mockYsdkReady = vi.fn().mockResolvedValue(undefined);
 const mockYsdkGameplayStart = vi.fn().mockResolvedValue(undefined);
 const mockYsdkGameplayStop = vi.fn().mockResolvedValue(undefined);
 const mockYsdkShowAd = vi.fn().mockResolvedValue(undefined);
-const mockYsdkShowRewardedAd = vi.fn().mockResolvedValue({ status: "closed" });
+const mockYsdkShowRewardedAd = vi.fn((callbacks?: { onClose?: () => void }) => {
+  callbacks?.onClose?.();
+  return Promise.resolve();
+});
 const mockYsdkIsPlayerAuthorized = vi.fn().mockResolvedValue(true);
 const mockYsdkRequestAuthorization = vi.fn().mockResolvedValue(true);
 const mockSubscribeToFullscreenAds = vi.fn(() => () => {});
@@ -360,7 +363,11 @@ describe("GameCanvas yandex lifecycle", () => {
   });
 
   it("continues a lost attempt with ten additional moves after a rewarded view", async () => {
-    mockYsdkShowRewardedAd.mockResolvedValueOnce({ status: "rewarded" });
+    mockYsdkShowRewardedAd.mockImplementationOnce((callbacks?: { onRewarded?: () => void; onClose?: () => void }) => {
+      callbacks?.onRewarded?.();
+      callbacks?.onClose?.();
+      return Promise.resolve();
+    });
 
     const { GameCanvas } = await import("./GameCanvas");
     render(<GameCanvas />);
@@ -380,6 +387,12 @@ describe("GameCanvas yandex lifecycle", () => {
       expect(screen.queryByText("Ходы закончились")).not.toBeInTheDocument();
     });
     expect(mockYsdkShowAd).not.toHaveBeenCalled();
+
+    await act(async () => {
+      onLoseCallback?.();
+    });
+
+    expect(screen.queryByRole("button", { name: /10 С…РѕРґРѕРІ/ })).not.toBeInTheDocument();
   });
 
   it("ignores a late win callback after game over", async () => {
