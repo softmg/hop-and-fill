@@ -1,6 +1,6 @@
 import { CarFront, Play, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import startScreenBg from "@/assets/start-screen-bg.jpg";
+import startScreenBg from "@/assets/start-screen-bg_new.jpg";
 import { useTranslation } from "@/platform/i18n";
 
 interface StartScreenProps {
@@ -30,7 +30,7 @@ export const StartScreen = ({
   return (
     <section
       aria-label={t("gameTitle")}
-      className="absolute inset-0 z-[70] overflow-hidden bg-black text-white"
+      className="absolute inset-0 z-[70] overflow-hidden bg-black text-white [--start-screen-offset:clamp(7rem,18svh,12rem)]"
       data-testid="start-screen"
       onContextMenu={(event) => event.preventDefault()}
     >
@@ -41,20 +41,14 @@ export const StartScreen = ({
         decoding="async"
         draggable={false}
       />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_43%,transparent_0%,rgba(0,0,0,0.04)_40%,rgba(0,0,0,0.62)_100%)]" />
-      <div
-        className="absolute inset-x-0 top-[31%] h-[42%] bg-[linear-gradient(180deg,rgba(18,8,4,0)_0%,#120804_18%,#120804_82%,rgba(18,8,4,0)_100%)]"
-        aria-hidden
-      />
-      <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#120804] via-[#120804]/74 to-transparent" />
 
-      <div className="absolute inset-x-0 top-[clamp(5rem,34svh,18rem)] flex justify-center px-[max(1rem,env(safe-area-inset-left))] text-center sm:top-[34%]">
+      <div className="absolute inset-x-0 top-[clamp(5rem,34svh,18rem)] flex justify-center px-[max(1rem,env(safe-area-inset-left))] text-center sm:top-[34%] lg:top-[calc(50%-var(--start-screen-offset))] lg:-translate-y-1/2">
         <h1 className="game-title max-w-[min(64rem,calc(100vw_-_2rem))] text-[clamp(2.25rem,10vw,6rem)] leading-[0.94] [text-wrap:balance]">
           {t("gameTitle")}
         </h1>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 flex max-h-[48svh] justify-center overflow-y-auto px-[max(0.75rem,env(safe-area-inset-left))] pb-[calc(1rem_+_env(safe-area-inset-bottom))] pt-3 sm:pb-[calc(2rem_+_env(safe-area-inset-bottom))]">
+      <div className="absolute inset-x-0 bottom-0 flex max-h-[48svh] justify-center overflow-y-auto px-[max(0.75rem,env(safe-area-inset-left))] pb-[calc(1rem_+_env(safe-area-inset-bottom))] pt-3 sm:pb-[calc(2rem_+_env(safe-area-inset-bottom))] lg:bottom-auto lg:top-[calc(50%+var(--start-screen-offset))] lg:max-h-none lg:-translate-y-1/2 lg:pb-0 lg:pt-0">
         <div className="flex w-full max-w-md flex-col items-center gap-3 px-2 py-3">
           {!isLoading && !isFirstStart && (
             <div className="game-hud-text flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
