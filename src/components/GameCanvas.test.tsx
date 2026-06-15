@@ -392,7 +392,7 @@ describe("GameCanvas yandex lifecycle", () => {
       onLoseCallback?.();
     });
 
-    expect(screen.queryByRole("button", { name: /10 С…РѕРґРѕРІ/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /10 ходов/i })).not.toBeInTheDocument();
   });
 
   it("ignores a late win callback after game over", async () => {

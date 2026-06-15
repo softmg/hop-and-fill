@@ -42,13 +42,13 @@ export const StartScreen = ({
         draggable={false}
       />
 
-      <div className="absolute inset-x-0 top-[clamp(5rem,34svh,18rem)] flex justify-center px-[max(1rem,env(safe-area-inset-left))] text-center sm:top-[34%] lg:top-[calc(50%-var(--start-screen-offset))] lg:-translate-y-1/2">
+      <div className="absolute inset-x-0 top-[clamp(5rem,34svh,18rem)] flex justify-center pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] text-center sm:top-[34%] lg:top-[calc(50%-var(--start-screen-offset))] lg:-translate-y-1/2">
         <h1 className="game-title max-w-[min(64rem,calc(100vw_-_2rem))] text-[clamp(2.25rem,10vw,6rem)] leading-[0.94] [text-wrap:balance]">
           {t("gameTitle")}
         </h1>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 flex max-h-[48svh] justify-center overflow-y-auto px-[max(0.75rem,env(safe-area-inset-left))] pb-[calc(1rem_+_env(safe-area-inset-bottom))] pt-3 sm:pb-[calc(2rem_+_env(safe-area-inset-bottom))] lg:bottom-auto lg:top-[calc(50%+var(--start-screen-offset))] lg:max-h-none lg:-translate-y-1/2 lg:pb-0 lg:pt-0">
+      <div className="absolute inset-x-0 bottom-0 flex max-h-[48svh] justify-center overflow-y-auto pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[calc(1rem_+_env(safe-area-inset-bottom))] pt-3 sm:pb-[calc(2rem_+_env(safe-area-inset-bottom))] lg:bottom-auto lg:top-[calc(50%+var(--start-screen-offset))] lg:max-h-none lg:-translate-y-1/2 lg:pb-0 lg:pt-0">
         <div className="flex w-full max-w-md flex-col items-center gap-3 px-2 py-3">
           {!isLoading && !isFirstStart && (
             <div className="game-hud-text flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">

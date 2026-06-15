@@ -47,7 +47,7 @@ The validator checks that:
 
 - `dist-yandex/index.html` exists;
 - the SDK is loaded as `/sdk.js` with `onload="initSDK()"`;
-- `server`, `api`, `node_modules`, and `.env*` files are not in the build;
+- `server`, `backend`, `api`, `node_modules`, and `.env*` files are not in the build;
 - output paths have no spaces or Cyrillic characters;
 - `dist-yandex` stays below 100 MB;
 - Vite JS/CSS entry assets use relative `./assets/...` paths for Yandex archive hosting;
