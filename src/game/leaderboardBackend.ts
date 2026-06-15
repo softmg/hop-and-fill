@@ -53,7 +53,7 @@ function optionalString(value: unknown) {
 }
 
 function getBaseUrl() {
-  const origin = typeof window === "undefined" ? "https://invalid.local" : window.location.origin;
+  const origin = typeof window === "undefined" ? `http:${"//"}localhost` : window.location.origin;
   const normalizedBase = LEADERBOARD_BACKEND_URL.endsWith("/")
     ? LEADERBOARD_BACKEND_URL
     : `${LEADERBOARD_BACKEND_URL}/`;

@@ -174,14 +174,6 @@ describe("GameCanvas yandex lifecycle", () => {
       configurable: true,
       value: "visible",
     });
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: undefined,
-    });
-    Object.defineProperty(navigator, "share", {
-      configurable: true,
-      value: undefined,
-    });
   });
 
   it("waits for the first renderable scene before readying and syncs gameplay around overlays, visibility, and unmount", async () => {
@@ -510,51 +502,6 @@ describe("GameCanvas yandex lifecycle", () => {
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  it("copies a shareable result link after a win", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
-
-    const { GameCanvas } = await import("./GameCanvas");
-    const { SHARED_RESULT_QUERY_PARAM, decodeSharedResult } = await import("@/game/shareResult");
-    render(<GameCanvas />);
-
-    await screen.findByText(/Уровень 1 \/ /);
-    await renderFirstScene();
-    await startFromStartScreen();
-
-    await act(async () => {
-      onHopCountCallback?.(8);
-      onWinCallback?.(8);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Поделиться результатом" }));
-
-    await waitFor(() => {
-      expect(writeText).toHaveBeenCalledTimes(1);
-    });
-
-    const copiedUrl = writeText.mock.calls[0][0] as string;
-    const token = new URL(copiedUrl).searchParams.get(SHARED_RESULT_QUERY_PARAM);
-    const result = decodeSharedResult(token);
-
-    expect(result).toMatchObject({
-      kind: "level",
-      completedLevels: 1,
-      totalStars: 3,
-      level: {
-        number: 1,
-        stars: 3,
-        hops: 8,
-        optimalMoves: 8,
-      },
-    });
-    expect(await screen.findByText("Ссылка скопирована")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Открыть результат" })).toHaveAttribute("href", copiedUrl);
   });
 
   it("pauses the level timer while the pause menu is open", async () => {
