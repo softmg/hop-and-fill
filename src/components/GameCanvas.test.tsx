@@ -19,8 +19,6 @@ const mockYsdkShowRewardedAd = vi.fn().mockResolvedValue({ status: "closed" });
 const mockYsdkIsPlayerAuthorized = vi.fn().mockResolvedValue(true);
 const mockYsdkRequestAuthorization = vi.fn().mockResolvedValue(true);
 const mockSubscribeToFullscreenAds = vi.fn(() => () => {});
-const mockYsdkSetLeaderboardScore = vi.fn().mockResolvedValue(undefined);
-const mockYsdkGetLeaderboardEntries = vi.fn().mockResolvedValue({ userRank: 0, entries: [] });
 const mockGameAudio = {
   setMuted: vi.fn(),
   setEnvironmentHold: vi.fn(),
@@ -124,8 +122,6 @@ vi.mock("@/sdk/yandex", () => ({
   ysdkIsPlayerAuthorized: mockYsdkIsPlayerAuthorized,
   ysdkRequestAuthorization: mockYsdkRequestAuthorization,
   subscribeToFullscreenAds: mockSubscribeToFullscreenAds,
-  ysdkSetLeaderboardScore: mockYsdkSetLeaderboardScore,
-  ysdkGetLeaderboardEntries: mockYsdkGetLeaderboardEntries,
 }));
 
 vi.mock("@/game/audio", () => ({
@@ -144,7 +140,6 @@ vi.mock("@/game/progress", async () => {
 
 describe("GameCanvas yandex lifecycle", () => {
   beforeEach(() => {
-    vi.stubEnv("VITE_LEADERBOARD_BACKEND_URL", "");
     vi.clearAllMocks();
     firstSceneRenderableCallback = null;
     onHopCountCallback = null;
@@ -286,59 +281,6 @@ describe("GameCanvas yandex lifecycle", () => {
     expect(screen.queryByText(/Yandex|Яндекс/i)).not.toBeInTheDocument();
     expect(mockYsdkRequestAuthorization).not.toHaveBeenCalled();
     expect(mockMigrateGuestProgressToCloud).not.toHaveBeenCalled();
-  });
-
-  it("opens the leaderboard and renders loaded leaders", async () => {
-    mockLoadPlayerProgress.mockResolvedValue({
-      version: 1,
-      unlockedLevel: 2,
-      completedLevels: [1],
-      bestStarsByLevel: { 1: 3 },
-      bestTimeMsByLevel: { 1: 1240 },
-      hasStarted: true,
-      tutorialComplete: true,
-      audioMuted: false,
-    });
-    mockYsdkGetLeaderboardEntries.mockResolvedValueOnce({
-      userRank: 2,
-      entries: [
-        {
-          rank: 1,
-          score: 6,
-          extraData: '{"completedLevels":2,"levelCount":25,"totalBestTimeMs":2800}',
-          player: {
-            publicName: "Ada",
-            uniqueID: "ada",
-            getAvatarSrc: () => "",
-          },
-        },
-        {
-          rank: 2,
-          score: 3,
-          extraData: '{"completedLevels":1,"levelCount":25,"totalBestTimeMs":1240}',
-          player: {
-            publicName: "You",
-            uniqueID: "you",
-            getAvatarSrc: () => "",
-          },
-        },
-      ],
-    });
-
-    const { GameCanvas } = await import("./GameCanvas");
-    render(<GameCanvas />);
-
-    await screen.findByText(/Уровень 2 \/ /);
-    expect(screen.getByText("Уровень 2")).toBeInTheDocument();
-    await startFromStartScreen();
-
-    fireEvent.click(screen.getByRole("button", { name: "Лидеры" }));
-
-    expect(await screen.findByRole("dialog", { name: "Лидеры" })).toBeInTheDocument();
-    expect(await screen.findByText("Ada")).toBeInTheDocument();
-    expect(screen.getByText("You")).toBeInTheDocument();
-    expect(screen.getByText("место 2")).toBeInTheDocument();
-    expect(screen.getByText("1/25 уровней")).toBeInTheDocument();
   });
 
   it("keeps gameplay paused while the tutorial overlay is blocking", async () => {
@@ -490,12 +432,6 @@ describe("GameCanvas yandex lifecycle", () => {
 
       const savedProgress = mockSavePlayerProgress.mock.calls.at(-1)?.[0];
       expect(savedProgress.bestTimeMsByLevel).toEqual({ 1: 1240 });
-      expect(mockYsdkSetLeaderboardScore).toHaveBeenCalledWith(
-        "crash_cubes_total_stars",
-        3,
-        expect.stringContaining('"totalStars":3'),
-        undefined,
-      );
       expect(screen.getByText("Уровень пройден!")).toBeInTheDocument();
       expect(screen.getByText(/Время: 0:01.2/)).toBeInTheDocument();
       expect(screen.getAllByText("Гонка получена").length).toBeGreaterThan(0);

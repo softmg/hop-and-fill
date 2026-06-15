@@ -23,7 +23,6 @@ import { LevelSelect } from "@/components/LevelSelect";
 import { ParallaxBackground, type BgTheme } from "@/components/ParallaxBackground";
 import { MobileJoystick } from "@/components/MobileJoystick";
 import { StartScreen } from "@/components/StartScreen";
-import { LeaderboardPanel } from "@/components/LeaderboardPanel";
 import {
   completeLevel,
   completeTutorial,
@@ -42,12 +41,9 @@ import {
   setAudioMuted,
   type PlayerProgress,
 } from "@/game/progress";
-import { calculateLeaderboardScore, LEADERBOARDS_ENABLED, loadLeaderboardSnapshot, saveLeaderboardScore, type LeaderboardRow } from "@/game/leaderboard";
 import { formatDurationMs } from "@/game/time";
 
 type OverlayMode = "playing" | "paused" | "won" | "lost" | "chapter" | "final";
-type LeaderboardStatus = "idle" | "loading" | "ready" | "error";
-type LeaderboardSaveStatus = "idle" | "saving" | "saved" | "error" | "skipped";
 type KeyboardCompassKeyStyle = CSSProperties & {
   "--control-from-left"?: string;
   "--control-from-top"?: string;
@@ -244,8 +240,6 @@ export const GameCanvas = () => {
   const timerIntervalRef = useRef<number | null>(null);
   const hasAttemptTimerStartedRef = useRef(false);
   const attemptOutcomeRef = useRef<"playing" | "win" | "loss">("playing");
-  const leaderboardRequestIdRef = useRef(0);
-  const lastSubmittedLeaderboardScoreRef = useRef(0);
   const [hops, setHops] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [overlayMode, setOverlayMode] = useState<OverlayMode>("playing");
@@ -254,11 +248,6 @@ export const GameCanvas = () => {
   const [progress, setProgress] = useState<PlayerProgress | null>(null);
   const [finishedAttempt, setFinishedAttempt] = useState<FinishedAttempt | null>(null);
   const [isLevelSelectOpen, setLevelSelectOpen] = useState(false);
-  const [isLeaderboardOpen, setLeaderboardOpen] = useState(false);
-  const [leaderboardStatus, setLeaderboardStatus] = useState<LeaderboardStatus>("idle");
-  const [leaderboardSaveStatus, setLeaderboardSaveStatus] = useState<LeaderboardSaveStatus>("idle");
-  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardRow[]>([]);
-  const [leaderboardUserRank, setLeaderboardUserRank] = useState<number | null>(null);
   const [isInterstitialActive, setInterstitialActive] = useState(false);
   const [rewardedExtraMoves, setRewardedExtraMoves] = useState(0);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
@@ -378,47 +367,6 @@ export const GameCanvas = () => {
     }
   }, []);
 
-  const refreshLeaderboard = useCallback(async () => {
-    const requestId = ++leaderboardRequestIdRef.current;
-    setLeaderboardStatus("loading");
-
-    try {
-      const snapshot = await loadLeaderboardSnapshot();
-      if (leaderboardRequestIdRef.current !== requestId) return;
-      setLeaderboardEntries(snapshot.entries);
-      setLeaderboardUserRank(snapshot.userRank);
-      setLeaderboardStatus("ready");
-    } catch (error) {
-      console.warn("[leaderboard] failed to load entries", error);
-      if (leaderboardRequestIdRef.current !== requestId) return;
-      setLeaderboardStatus("error");
-    }
-  }, []);
-
-  const syncLeaderboardResult = useCallback(async (sourceProgress: PlayerProgress, options?: { requestAuthorization?: boolean }) => {
-    const score = calculateLeaderboardScore(sourceProgress);
-    if (score <= 0) {
-      setLeaderboardSaveStatus("skipped");
-      return;
-    }
-    if (!options?.requestAuthorization && score <= lastSubmittedLeaderboardScoreRef.current) {
-      setLeaderboardSaveStatus("saved");
-      return;
-    }
-
-    setLeaderboardSaveStatus("saving");
-    try {
-      const result = await saveLeaderboardScore(sourceProgress, levels.length, options);
-      if (result.status === "saved") {
-        lastSubmittedLeaderboardScoreRef.current = Math.max(lastSubmittedLeaderboardScoreRef.current, result.score);
-      }
-      setLeaderboardSaveStatus(result.status === "saved" ? "saved" : "skipped");
-    } catch (error) {
-      console.warn("[leaderboard] failed to save score", error);
-      setLeaderboardSaveStatus("error");
-    }
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
 
@@ -518,9 +466,6 @@ export const GameCanvas = () => {
         const didCompleteNewLevel = !baseProgress.completedLevels.includes(wonLevelNumber);
         const nextProgress = completeLevel(baseProgress, wonLevelIdx, wonStars, levels.length, completionTimeMs);
         persistProgress(nextProgress);
-        if (LEADERBOARDS_ENABLED && calculateLeaderboardScore(nextProgress) > calculateLeaderboardScore(baseProgress)) {
-          void syncLeaderboardResult(nextProgress);
-        }
         setFinishedAttempt({
           id: ++attemptIdRef.current,
           outcome: "win",
@@ -599,7 +544,7 @@ export const GameCanvas = () => {
     const game = gameRef.current;
     if (!game) return;
 
-    if (isStartScreenBlocking || overlayMode !== "playing" || isLevelSelectOpen || isLeaderboardOpen) {
+    if (isStartScreenBlocking || overlayMode !== "playing" || isLevelSelectOpen) {
       game.pause();
       pauseAttemptTimer();
       return;
@@ -607,7 +552,7 @@ export const GameCanvas = () => {
 
     game.resume();
     resumeAttemptTimer();
-  }, [isStartScreenBlocking, overlayMode, isLevelSelectOpen, isLeaderboardOpen, pauseAttemptTimer, resumeAttemptTimer]);
+  }, [isStartScreenBlocking, overlayMode, isLevelSelectOpen, pauseAttemptTimer, resumeAttemptTimer]);
 
   const loadLevel = (nextLevelIdx: number) => {
     attemptOutcomeRef.current = "playing";
@@ -659,33 +604,6 @@ export const GameCanvas = () => {
 
   const closeLevelSelect = () => {
     setLevelSelectOpen(false);
-  };
-
-  const openLeaderboard = () => {
-    if (!LEADERBOARDS_ENABLED) return;
-    setLeaderboardOpen(true);
-    const baseProgress = progressRef.current;
-
-    void (async () => {
-      if (baseProgress && calculateLeaderboardScore(baseProgress) > 0) {
-        await syncLeaderboardResult(baseProgress);
-      }
-      await refreshLeaderboard();
-    })();
-  };
-
-  const closeLeaderboard = () => {
-    setLeaderboardOpen(false);
-  };
-
-  const saveLeaderboardResult = () => {
-    const baseProgress = progressRef.current;
-    if (!baseProgress) return;
-
-    void (async () => {
-      await syncLeaderboardResult(baseProgress, { requestAuthorization: true });
-      await refreshLeaderboard();
-    })();
   };
 
   const selectLevel = (nextLevelIdx: number) => {
@@ -794,7 +712,6 @@ export const GameCanvas = () => {
   const raceTimeLimitMs = getRaceTimeLimitMs(levelIdx);
   const formattedRaceTarget = raceTimeLimitMs === null ? null : formatDurationMs(raceTimeLimitMs);
   const hasCurrentRaceAward = progress ? hasRaceAward(progress, levelIdx) : false;
-  const currentLeaderboardScore = progress ? calculateLeaderboardScore(progress) : 0;
   const isInteractionLocked = isStartScreenBlocking || isInterstitialActive;
   const canShowRewardedExtraMoves = overlayMode === "lost";
   const isTutorialBlocking = levelIdx === 0 && progress !== null && !progress.tutorialComplete;
@@ -803,15 +720,14 @@ export const GameCanvas = () => {
     && !isStartScreenBlocking
     && overlayMode === "playing"
     && !isLevelSelectOpen
-    && !isLeaderboardOpen
     && !isTutorialBlocking
     && isDocumentVisible;
   const bgTheme: BgTheme = (currentLevel.theme as BgTheme) ?? "default";
   const currentChapter = getChapterForLevel(chapters, levelIdx);
-  const shouldShowKeyboardCompass = overlayMode === "playing" && !isLevelSelectOpen && !isLeaderboardOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
+  const shouldShowKeyboardCompass = overlayMode === "playing" && !isLevelSelectOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
   const shouldAnimateKeyboardCompassTutorial = shouldShowKeyboardCompass && isTutorialBlocking && hops < 1;
   const shouldShowMobileJoystick =
-    overlayMode === "playing" && !isLevelSelectOpen && !isLeaderboardOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
+    overlayMode === "playing" && !isLevelSelectOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
   const toggleKeyboardRotation = () => {
     setKeyboardRotation((current) => current === "default" ? "counterclockwise" : "default");
   };
@@ -899,17 +815,6 @@ export const GameCanvas = () => {
               >
                 ★ {optimal}
               </div>
-              {LEADERBOARDS_ENABLED && <Button
-                size="sm"
-                variant="ghost"
-                onClick={openLeaderboard}
-                disabled={isInteractionLocked}
-                className="game-hud-action game-hud-action-cyan"
-                title={t("leaders")}
-                aria-label={t("leaders")}
-              >
-                <Trophy className="h-4 w-4" aria-hidden />
-              </Button>}
             </div>
           </div>
         </div>
@@ -987,7 +892,7 @@ export const GameCanvas = () => {
         />
       )}
 
-      {overlayMode === "playing" && playerHudPosition && !isLevelSelectOpen && !isLeaderboardOpen && !isStartScreenBlocking && (
+      {overlayMode === "playing" && playerHudPosition && !isLevelSelectOpen && !isStartScreenBlocking && (
         <div
           className="game-floating-moves pointer-events-none absolute z-30 select-none tabular-nums"
           style={{
@@ -1219,19 +1124,6 @@ export const GameCanvas = () => {
           closeLevelSelect();
         }}
         onSelectLevel={selectLevel}
-      />
-
-      <LeaderboardPanel
-        open={isLeaderboardOpen}
-        currentScore={currentLeaderboardScore}
-        maxScore={maxStars}
-        entries={leaderboardEntries}
-        userRank={leaderboardUserRank}
-        status={leaderboardStatus}
-        saveStatus={leaderboardSaveStatus}
-        onClose={closeLeaderboard}
-        onRefresh={refreshLeaderboard}
-        onSave={saveLeaderboardResult}
       />
 
       {isStartScreenOpen && (

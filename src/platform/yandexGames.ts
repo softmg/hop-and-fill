@@ -11,8 +11,6 @@ export {
   ysdkReady,
   ysdkRequestAuthorization,
   ysdkSave,
-  ysdkSetLeaderboardScore,
-  ysdkGetLeaderboardEntries,
   ysdkShowAd as showYandexFullscreenAd,
   ysdkShowAd,
   ysdkShowRewardedAd as showYandexRewardedAd,
@@ -20,6 +18,4 @@ export {
   type GameLanguage,
   type RewardedAdResult,
   type YsdkFullscreenAdCallbacks,
-  type YsdkLeaderboardEntries,
-  type YsdkLeaderboardEntry,
 } from "@/sdk/yandex";
