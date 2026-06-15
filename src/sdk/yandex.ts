@@ -20,7 +20,7 @@ interface YsdkAdCallbacks {
   onError?: (error: unknown) => void;
 }
 
-interface YsdkRewardedCallbacks extends YsdkAdCallbacks {
+export interface YsdkRewardedCallbacks extends YsdkAdCallbacks {
   onOpen?: () => void;
   onRewarded?: () => void;
 }
@@ -29,35 +29,6 @@ export interface YsdkFullscreenAdCallbacks {
   onOpen?: () => void;
   onClose?: (wasShown: boolean) => void;
   onError?: () => void;
-}
-
-export interface YsdkLeaderboardEntry {
-  extraData?: string;
-  rank: number;
-  score: number;
-  player: {
-    publicName?: string;
-    uniqueID?: string;
-    getAvatarSrc?: (size?: "small" | "medium" | "large") => string;
-    getAvatarSrcSet?: (size?: "small" | "medium" | "large") => string;
-  };
-}
-
-export interface YsdkLeaderboardEntries {
-  userRank?: number;
-  entries: YsdkLeaderboardEntry[];
-}
-
-interface YsdkLeaderboards {
-  setScore: (leaderboardName: string, score: number, extraData?: string) => Promise<void>;
-  getEntries: (
-    leaderboardName: string,
-    options?: {
-      includeUser?: boolean;
-      quantityAround?: number;
-      quantityTop?: number;
-    },
-  ) => Promise<YsdkLeaderboardEntries>;
 }
 
 interface Ysdk {
@@ -81,7 +52,6 @@ interface Ysdk {
     }) => void;
     showRewardedVideo?: (opts?: { callbacks?: YsdkRewardedCallbacks }) => void;
   };
-  leaderboards?: YsdkLeaderboards;
   getPlayer: (opts?: { scopes?: boolean }) => Promise<YsdkPlayer>;
   isAvailableMethod?: (methodName: string) => Promise<boolean>;
 }
@@ -95,9 +65,6 @@ declare global {
 }
 
 const STORAGE_KEY = "pogo-paint:player-data";
-const MOCK_LEADERBOARD_KEY = "pogo-paint:leaderboards";
-const MOCK_PLAYER_ID = "local-player";
-const MOCK_PLAYER_NAME = "Вы";
 const SDK_READY_TIMEOUT_MS = 3000;
 const fullscreenAdListeners = new Set<(active: boolean) => void>();
 
@@ -122,35 +89,6 @@ function readMockData(): Record<string, unknown> {
   } catch {
     return {};
   }
-}
-
-function readMockLeaderboards(): Record<string, Array<{ uniqueID: string; publicName: string; score: number; extraData?: string }>> {
-  try {
-    return JSON.parse(localStorage.getItem(MOCK_LEADERBOARD_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function writeMockLeaderboards(data: ReturnType<typeof readMockLeaderboards>) {
-  localStorage.setItem(MOCK_LEADERBOARD_KEY, JSON.stringify(data));
-}
-
-function toMockLeaderboardEntry(
-  row: { uniqueID: string; publicName: string; score: number; extraData?: string },
-  index: number,
-): YsdkLeaderboardEntry {
-  return {
-    rank: index + 1,
-    score: row.score,
-    extraData: row.extraData,
-    player: {
-      publicName: row.publicName,
-      uniqueID: row.uniqueID,
-      getAvatarSrc: () => "",
-      getAvatarSrcSet: () => "",
-    },
-  };
 }
 
 const mockPlayer: YsdkPlayer = {
@@ -196,52 +134,11 @@ const mockSdk: Ysdk = {
       });
     },
   },
-  leaderboards: {
-    async setScore(leaderboardName, score, extraData) {
-      console.info("[ysdk-mock] leaderboards.setScore", leaderboardName, score);
-      const data = readMockLeaderboards();
-      const rows = data[leaderboardName] ?? [];
-      const existingIndex = rows.findIndex((row) => row.uniqueID === MOCK_PLAYER_ID);
-      const existing = existingIndex >= 0 ? rows[existingIndex] : null;
-      const nextRow = {
-        uniqueID: MOCK_PLAYER_ID,
-        publicName: MOCK_PLAYER_NAME,
-        score: existing ? Math.max(existing.score, score) : score,
-        extraData,
-      };
-
-      if (existingIndex >= 0) {
-        rows[existingIndex] = nextRow;
-      } else {
-        rows.push(nextRow);
-      }
-
-      data[leaderboardName] = rows;
-      writeMockLeaderboards(data);
-    },
-    async getEntries(leaderboardName, options) {
-      console.info("[ysdk-mock] leaderboards.getEntries", leaderboardName);
-      const quantityTop = Math.max(1, Math.min(20, options?.quantityTop ?? 5));
-      const rows = [...(readMockLeaderboards()[leaderboardName] ?? [])].sort((a, b) => b.score - a.score);
-      const entries = rows.map(toMockLeaderboardEntry);
-      const userEntry = entries.find((entry) => entry.player.uniqueID === MOCK_PLAYER_ID);
-      const topEntries = entries.slice(0, quantityTop);
-
-      if (options?.includeUser && userEntry && !topEntries.some((entry) => entry.player.uniqueID === MOCK_PLAYER_ID)) {
-        topEntries.push(userEntry);
-      }
-
-      return {
-        userRank: userEntry?.rank ?? 0,
-        entries: topEntries,
-      };
-    },
-  },
   getPlayer: async () => mockPlayer,
   auth: {
     openAuthDialog: async () => undefined,
   },
-  isAvailableMethod: async (methodName) => methodName.startsWith("leaderboards.") || methodName.startsWith("player."),
+  isAvailableMethod: async (methodName) => methodName.startsWith("player."),
 };
 
 let sdkPromise: Promise<Ysdk> | null = null;
@@ -408,56 +305,20 @@ export async function ysdkShowAd(callbacks?: YsdkFullscreenAdCallbacks) {
   });
 }
 
-export type RewardedAdResult =
-  | { status: "rewarded" }
-  | { status: "closed" }
-  | { status: "error"; error: unknown };
-
-/** Shows a rewarded ad and resolves only after the provider reports the reward outcome. */
-export async function ysdkShowRewardedAd(): Promise<RewardedAdResult> {
+/** Shows a rewarded ad using the platform callback contract. */
+export async function ysdkShowRewardedAd(callbacks?: YsdkRewardedCallbacks) {
   const sdk = await initYsdk();
 
   if (!sdk.adv.showRewardedVideo) {
-    return { status: "error", error: new Error("Rewarded video API is unavailable") };
+    callbacks?.onError?.(new Error("Rewarded video API is unavailable"));
+    return;
   }
 
-  return new Promise((resolve) => {
-    let rewarded = false;
-    let active = false;
-    let settled = false;
-
-    const settle = (result: RewardedAdResult) => {
-      if (settled) return;
-      settled = true;
-      if (active) {
-        active = false;
-        notifyFullscreenAdState(false);
-      }
-      resolve(result);
-    };
-
-    try {
-      sdk.adv.showRewardedVideo({
-        callbacks: {
-          onOpen: () => {
-            active = true;
-            notifyFullscreenAdState(true);
-          },
-          onRewarded: () => {
-            rewarded = true;
-          },
-          onClose: () => {
-            settle(rewarded ? { status: "rewarded" } : { status: "closed" });
-          },
-          onError: (error) => {
-            settle({ status: "error", error });
-          },
-        },
-      });
-    } catch (error) {
-      settle({ status: "error", error });
-    }
-  });
+  try {
+    sdk.adv.showRewardedVideo({ callbacks });
+  } catch (error) {
+    callbacks?.onError?.(error);
+  }
 }
 
 async function getYsdkPlayer() {
@@ -523,52 +384,3 @@ export async function ysdkIsPlayerAuthorized() {
   return player.isAuthorized?.() !== false;
 }
 
-/** Sends a leaderboard score after checking platform API availability. */
-export async function ysdkSetLeaderboardScore(
-  leaderboardName: string,
-  score: number,
-  extraData?: string,
-  options?: { requestAuthorization?: boolean },
-) {
-  const sdk = await initYsdk();
-
-  if (options?.requestAuthorization) {
-    const authorized = await ysdkRequestAuthorization();
-    if (!authorized) {
-      throw new Error("Yandex authorization is required to save leaderboard score");
-    }
-  }
-
-  const available = await ysdkIsMethodAvailable("leaderboards.setScore");
-  if (!available) {
-    throw new Error("Yandex leaderboard score API is unavailable");
-  }
-
-  if (!sdk.leaderboards?.setScore) {
-    throw new Error("Yandex leaderboards API is unavailable");
-  }
-
-  await sdk.leaderboards.setScore(leaderboardName, score, extraData);
-}
-
-/** Loads leaderboard entries after checking platform API availability. */
-export async function ysdkGetLeaderboardEntries(
-  leaderboardName: string,
-  options?: {
-    includeUser?: boolean;
-    quantityAround?: number;
-    quantityTop?: number;
-  },
-) {
-  const sdk = await initYsdk();
-  const available = await ysdkIsMethodAvailable("leaderboards.getEntries");
-  if (!available) {
-    throw new Error("Yandex leaderboard entries API is unavailable");
-  }
-
-  if (!sdk.leaderboards?.getEntries) {
-    throw new Error("Yandex leaderboards API is unavailable");
-  }
-
-  return sdk.leaderboards.getEntries(leaderboardName, options);
-}

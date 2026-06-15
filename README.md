@@ -1,27 +1,13 @@
 # Hop and Fill
 
-## Yandex Games leaderboard
+Browser puzzle game built with React, Vite, PixiJS, and the Yandex Games SDK.
 
-The game submits the player's total star count to a Yandex Games numeric leaderboard.
+## Yandex package
 
-- Default technical leaderboard name: `crash_cubes_total_stars`
-- Override at build time: `VITE_YANDEX_LEADERBOARD_NAME=your_leaderboard_name`
-- Console setup: numeric score, descending sort order
+Create the upload archive with:
 
-## Custom leaderboard backend
-
-Set `VITE_LEADERBOARD_BACKEND_URL` to store and read leaderboard scores through your backend instead of the Yandex Games leaderboard API.
-
-For local development this repo includes a backend in `backend/` and `.env.local` points the client to:
-
-```text
-VITE_LEADERBOARD_BACKEND_URL=http://localhost:8787
+```bash
+npm run package:yandex
 ```
 
-Expected endpoints:
-
-- `POST {VITE_LEADERBOARD_BACKEND_URL}/leaderboards/{leaderboardName}/scores`
-- `GET {VITE_LEADERBOARD_BACKEND_URL}/leaderboards/{leaderboardName}/entries?includeUser=true&quantityAround=3&quantityTop=10`
-
-The save request body is JSON: `{ "leaderboardName": string, "score": number, "extraData": string }`.
-The entries response should return `{ "userRank": number, "entries": [...] }`; each entry can include `rank`, `score`, `extraData`, and `player.publicName` / `player.uniqueID` / `player.avatarSrc`.
+This runs type checking, builds `dist-yandex/`, validates the Yandex output, creates `game-yandex.zip`, and validates the archive structure.

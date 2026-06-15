@@ -9,7 +9,6 @@ const forbiddenSegments = new Set(["server", "backend", "api", "node_modules"]);
 const forbiddenContent = [
   { pattern: /https?:\/\/localhost(?::\d+)?/i, label: "absolute localhost URL" },
   { pattern: /https?:\/\/127\.0\.0\.1(?::\d+)?/i, label: "absolute loopback URL" },
-  { pattern: /VITE_LEADERBOARD_BACKEND_URL/, label: "development backend environment name" },
 ];
 const contentExtensions = new Set([".css", ".html", ".js", ".json", ".map", ".mjs", ".txt"]);
 const failures = [];

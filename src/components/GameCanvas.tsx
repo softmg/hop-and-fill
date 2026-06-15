@@ -1,5 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import { CarFront, Check, Clock3, Map, Pause, Play, RotateCcw, Share2, Sparkles, Trophy, Volume2, VolumeX } from "lucide-react";
+import { CarFront, Clock3, Map, Pause, Play, RotateCcw, Sparkles, Trophy, Volume2, VolumeX } from "lucide-react";
 import { PixiGame } from "@/game/PixiGame";
 import { rotateKeyboardDir, type KeyboardRotation } from "@/game/Input";
 import type { Dir } from "@/game/iso";
@@ -23,7 +23,6 @@ import { LevelSelect } from "@/components/LevelSelect";
 import { ParallaxBackground, type BgTheme } from "@/components/ParallaxBackground";
 import { MobileJoystick } from "@/components/MobileJoystick";
 import { StartScreen } from "@/components/StartScreen";
-import { LeaderboardPanel } from "@/components/LeaderboardPanel";
 import {
   completeLevel,
   completeTutorial,
@@ -42,14 +41,9 @@ import {
   setAudioMuted,
   type PlayerProgress,
 } from "@/game/progress";
-import { calculateLeaderboardScore, LEADERBOARDS_ENABLED, loadLeaderboardSnapshot, saveLeaderboardScore, type LeaderboardRow } from "@/game/leaderboard";
-import { buildSharedResultUrl, createSharedResult, type SharedResultContext } from "@/game/shareResult";
 import { formatDurationMs } from "@/game/time";
 
 type OverlayMode = "playing" | "paused" | "won" | "lost" | "chapter" | "final";
-type LeaderboardStatus = "idle" | "loading" | "ready" | "error";
-type LeaderboardSaveStatus = "idle" | "saving" | "saved" | "error" | "skipped";
-type ShareStatus = "idle" | "copied" | "shared" | "error";
 type KeyboardCompassKeyStyle = CSSProperties & {
   "--control-from-left"?: string;
   "--control-from-top"?: string;
@@ -218,18 +212,6 @@ const shouldUpdatePlayerHudPosition = (
   return Math.abs(current.x - next.x) > 0.5 || Math.abs(current.y - next.y) > 0.5;
 };
 
-async function copyShareUrlToClipboard(url: string) {
-  if (!navigator.clipboard?.writeText) {
-    throw new Error("Clipboard API is unavailable");
-  }
-
-  await navigator.clipboard.writeText(url);
-}
-
-function isShareAbortError(error: unknown) {
-  return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
-}
-
 interface FinishedAttempt {
   id: number;
   outcome: "win" | "loss";
@@ -258,8 +240,6 @@ export const GameCanvas = () => {
   const timerIntervalRef = useRef<number | null>(null);
   const hasAttemptTimerStartedRef = useRef(false);
   const attemptOutcomeRef = useRef<"playing" | "win" | "loss">("playing");
-  const leaderboardRequestIdRef = useRef(0);
-  const lastSubmittedLeaderboardScoreRef = useRef(0);
   const [hops, setHops] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [overlayMode, setOverlayMode] = useState<OverlayMode>("playing");
@@ -268,15 +248,9 @@ export const GameCanvas = () => {
   const [progress, setProgress] = useState<PlayerProgress | null>(null);
   const [finishedAttempt, setFinishedAttempt] = useState<FinishedAttempt | null>(null);
   const [isLevelSelectOpen, setLevelSelectOpen] = useState(false);
-  const [isLeaderboardOpen, setLeaderboardOpen] = useState(false);
-  const [leaderboardStatus, setLeaderboardStatus] = useState<LeaderboardStatus>("idle");
-  const [leaderboardSaveStatus, setLeaderboardSaveStatus] = useState<LeaderboardSaveStatus>("idle");
-  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardRow[]>([]);
-  const [leaderboardUserRank, setLeaderboardUserRank] = useState<number | null>(null);
-  const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
-  const [shareUrl, setShareUrl] = useState("");
   const [isInterstitialActive, setInterstitialActive] = useState(false);
   const [rewardedExtraMoves, setRewardedExtraMoves] = useState(0);
+  const [rewardedAdLevelIds, setRewardedAdLevelIds] = useState<Set<number>>(() => new Set());
   const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
   const [rewardedUndoState, setRewardedUndoState] = useState<"idle" | "loading" | "error">("idle");
   const [isDocumentVisible, setDocumentVisible] = useState(() => document.visibilityState !== "hidden");
@@ -394,47 +368,6 @@ export const GameCanvas = () => {
     }
   }, []);
 
-  const refreshLeaderboard = useCallback(async () => {
-    const requestId = ++leaderboardRequestIdRef.current;
-    setLeaderboardStatus("loading");
-
-    try {
-      const snapshot = await loadLeaderboardSnapshot();
-      if (leaderboardRequestIdRef.current !== requestId) return;
-      setLeaderboardEntries(snapshot.entries);
-      setLeaderboardUserRank(snapshot.userRank);
-      setLeaderboardStatus("ready");
-    } catch (error) {
-      console.warn("[leaderboard] failed to load entries", error);
-      if (leaderboardRequestIdRef.current !== requestId) return;
-      setLeaderboardStatus("error");
-    }
-  }, []);
-
-  const syncLeaderboardResult = useCallback(async (sourceProgress: PlayerProgress, options?: { requestAuthorization?: boolean }) => {
-    const score = calculateLeaderboardScore(sourceProgress);
-    if (score <= 0) {
-      setLeaderboardSaveStatus("skipped");
-      return;
-    }
-    if (!options?.requestAuthorization && score <= lastSubmittedLeaderboardScoreRef.current) {
-      setLeaderboardSaveStatus("saved");
-      return;
-    }
-
-    setLeaderboardSaveStatus("saving");
-    try {
-      const result = await saveLeaderboardScore(sourceProgress, levels.length, options);
-      if (result.status === "saved") {
-        lastSubmittedLeaderboardScoreRef.current = Math.max(lastSubmittedLeaderboardScoreRef.current, result.score);
-      }
-      setLeaderboardSaveStatus(result.status === "saved" ? "saved" : "skipped");
-    } catch (error) {
-      console.warn("[leaderboard] failed to save score", error);
-      setLeaderboardSaveStatus("error");
-    }
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
 
@@ -534,9 +467,6 @@ export const GameCanvas = () => {
         const didCompleteNewLevel = !baseProgress.completedLevels.includes(wonLevelNumber);
         const nextProgress = completeLevel(baseProgress, wonLevelIdx, wonStars, levels.length, completionTimeMs);
         persistProgress(nextProgress);
-        if (LEADERBOARDS_ENABLED && calculateLeaderboardScore(nextProgress) > calculateLeaderboardScore(baseProgress)) {
-          void syncLeaderboardResult(nextProgress);
-        }
         setFinishedAttempt({
           id: ++attemptIdRef.current,
           outcome: "win",
@@ -615,7 +545,7 @@ export const GameCanvas = () => {
     const game = gameRef.current;
     if (!game) return;
 
-    if (isStartScreenBlocking || overlayMode !== "playing" || isLevelSelectOpen || isLeaderboardOpen) {
+    if (isStartScreenBlocking || overlayMode !== "playing" || isLevelSelectOpen) {
       game.pause();
       pauseAttemptTimer();
       return;
@@ -623,7 +553,7 @@ export const GameCanvas = () => {
 
     game.resume();
     resumeAttemptTimer();
-  }, [isStartScreenBlocking, overlayMode, isLevelSelectOpen, isLeaderboardOpen, pauseAttemptTimer, resumeAttemptTimer]);
+  }, [isStartScreenBlocking, overlayMode, isLevelSelectOpen, pauseAttemptTimer, resumeAttemptTimer]);
 
   const loadLevel = (nextLevelIdx: number) => {
     attemptOutcomeRef.current = "playing";
@@ -677,33 +607,6 @@ export const GameCanvas = () => {
     setLevelSelectOpen(false);
   };
 
-  const openLeaderboard = () => {
-    if (!LEADERBOARDS_ENABLED) return;
-    setLeaderboardOpen(true);
-    const baseProgress = progressRef.current;
-
-    void (async () => {
-      if (baseProgress && calculateLeaderboardScore(baseProgress) > 0) {
-        await syncLeaderboardResult(baseProgress);
-      }
-      await refreshLeaderboard();
-    })();
-  };
-
-  const closeLeaderboard = () => {
-    setLeaderboardOpen(false);
-  };
-
-  const saveLeaderboardResult = () => {
-    const baseProgress = progressRef.current;
-    if (!baseProgress) return;
-
-    void (async () => {
-      await syncLeaderboardResult(baseProgress, { requestAuthorization: true });
-      await refreshLeaderboard();
-    })();
-  };
-
   const selectLevel = (nextLevelIdx: number) => {
     if (isInterstitialActiveRef.current) return;
     if (!progress || !isLevelUnlocked(progress, nextLevelIdx)) return;
@@ -743,25 +646,44 @@ export const GameCanvas = () => {
     }
   };
 
-  const triggerRewardedExtraMoves = async () => {
+  const triggerRewardedExtraMoves = () => {
     const game = gameRef.current;
-    if (!game || rewardedUndoState === "loading" || overlayMode !== "lost") return;
+    if (!game || rewardedUndoState === "loading" || overlayMode !== "lost" || rewardedAdLevelIds.has(levelIdx)) return;
 
     setRewardedUndoState("loading");
+    const rewardedLevelIdx = levelIdx;
 
-    const result = await ysdkShowRewardedAd();
-    const nextLimit = limit + REWARDED_EXTRA_MOVES;
-    if (result.status === "rewarded" && game.continueAfterLoss(nextLimit)) {
-      setRewardedExtraMoves((current) => current + REWARDED_EXTRA_MOVES);
-      attemptOutcomeRef.current = "playing";
-      setFinishedAttempt(null);
-      setRewardedUndoState("idle");
-      setOverlayMode("playing");
-      startAttemptTimer();
-      return;
-    }
+    ysdkShowRewardedAd({
+      onRewarded: () => {
+        const nextLimit = limit + REWARDED_EXTRA_MOVES;
+        if (!game.continueAfterLoss(nextLimit)) {
+          setRewardedUndoState("error");
+          return;
+        }
 
-    setRewardedUndoState("error");
+        setRewardedAdLevelIds((current) => {
+          const next = new Set(current);
+          next.add(rewardedLevelIdx);
+          return next;
+        });
+        setRewardedExtraMoves((current) => current + REWARDED_EXTRA_MOVES);
+        attemptOutcomeRef.current = "playing";
+        setFinishedAttempt(null);
+        setRewardedUndoState("idle");
+        setOverlayMode("playing");
+        startAttemptTimer();
+      },
+      onClose: () => {
+        setRewardedUndoState((current) => (current === "loading" ? "idle" : current));
+      },
+      onError: (error) => {
+        console.warn("[ads] rewarded ad failed", error);
+        setRewardedUndoState("error");
+      },
+    }).catch((error) => {
+      console.warn("[ads] rewarded ad failed", error);
+      setRewardedUndoState("error");
+    });
   };
 
   const continueAfterWin = () => {
@@ -810,124 +732,27 @@ export const GameCanvas = () => {
   const raceTimeLimitMs = getRaceTimeLimitMs(levelIdx);
   const formattedRaceTarget = raceTimeLimitMs === null ? null : formatDurationMs(raceTimeLimitMs);
   const hasCurrentRaceAward = progress ? hasRaceAward(progress, levelIdx) : false;
-  const currentLeaderboardScore = progress ? calculateLeaderboardScore(progress) : 0;
   const isInteractionLocked = isStartScreenBlocking || isInterstitialActive;
-  const canShowRewardedExtraMoves = overlayMode === "lost";
+  const canShowRewardedExtraMoves = overlayMode === "lost" && !rewardedAdLevelIds.has(levelIdx);
   const isTutorialBlocking = levelIdx === 0 && progress !== null && !progress.tutorialComplete;
   const isGameplayActive = progressReady
     && isFirstSceneRenderable
     && !isStartScreenBlocking
     && overlayMode === "playing"
     && !isLevelSelectOpen
-    && !isLeaderboardOpen
     && !isTutorialBlocking
     && isDocumentVisible;
   const bgTheme: BgTheme = (currentLevel.theme as BgTheme) ?? "default";
   const currentChapter = getChapterForLevel(chapters, levelIdx);
-  const shouldShowKeyboardCompass = overlayMode === "playing" && !isLevelSelectOpen && !isLeaderboardOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
+  const shouldShowKeyboardCompass = overlayMode === "playing" && !isLevelSelectOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
   const shouldAnimateKeyboardCompassTutorial = shouldShowKeyboardCompass && isTutorialBlocking && hops < 1;
   const shouldShowMobileJoystick =
-    overlayMode === "playing" && !isLevelSelectOpen && !isLeaderboardOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
+    overlayMode === "playing" && !isLevelSelectOpen && !isInteractionLocked && isFirstSceneRenderable && !isStartScreenBlocking;
   const toggleKeyboardRotation = () => {
     setKeyboardRotation((current) => current === "default" ? "counterclockwise" : "default");
   };
   const pauseButtonLabel = overlayMode === "paused" ? t("continue") : t("pause");
   const currentLevelName = getLevelName(currentLevel.name, language);
-  const shareStatusLabel =
-    shareStatus === "copied"
-      ? t("copied")
-      : shareStatus === "shared"
-        ? t("shared")
-        : shareStatus === "error"
-          ? t("shareError")
-          : "";
-
-  const getShareContext = (): SharedResultContext => {
-    if (overlayMode === "won" && finishedAttempt?.outcome === "win") {
-      const resultStars = stars === 1 || stars === 2 || stars === 3 ? stars : 1;
-
-      return {
-        kind: "level",
-        levelNumber: levelIdx + 1,
-        levelName: currentLevelName,
-        stars: resultStars,
-        hops,
-        optimalMoves: optimal,
-        timeMs: elapsedMs > 0 ? Math.trunc(elapsedMs) : null,
-      };
-    }
-
-    if (overlayMode === "final") {
-      return { kind: "final" };
-    }
-
-    return { kind: "progress" };
-  };
-
-  const shareCurrentResult = async () => {
-    const baseProgress = progressRef.current ?? progress;
-    if (!baseProgress) return;
-
-    const sharedResult = createSharedResult(baseProgress, levels.length, getShareContext());
-    const nextShareUrl = buildSharedResultUrl(sharedResult);
-    setShareUrl(nextShareUrl);
-    setShareStatus("idle");
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: t("shareTitle"),
-          text: t("shareMessage"),
-          url: nextShareUrl,
-        });
-        setShareStatus("shared");
-        return;
-      }
-    } catch (error) {
-      if (isShareAbortError(error)) return;
-    }
-
-    try {
-      await copyShareUrlToClipboard(nextShareUrl);
-      setShareStatus("copied");
-    } catch {
-      setShareStatus("error");
-    }
-  };
-
-  const shareResultControls = (
-    <div className="flex flex-col gap-2">
-      <Button onClick={shareCurrentResult} disabled={isInteractionLocked} variant="secondary" className="w-full">
-        {shareStatus === "copied" || shareStatus === "shared" ? (
-          <Check className="h-4 w-4" aria-hidden />
-        ) : (
-          <Share2 className="h-4 w-4" aria-hidden />
-        )}
-        {t("shareResult")}
-      </Button>
-      {shareStatusLabel && (
-        <div
-          className={`rounded-md border px-3 py-2 text-xs ${
-            shareStatus === "error"
-              ? "border-red-200/25 bg-red-400/10 text-red-100"
-              : "border-white/10 bg-white/[0.06] text-white/70"
-          }`}
-        >
-          <span>{shareStatusLabel}</span>
-          {shareUrl && (
-            <a href={shareUrl} target="_blank" rel="noreferrer" className="ml-2 font-bold text-white underline underline-offset-2">
-              {t("openResult")}
-            </a>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
-  useEffect(() => {
-    setShareStatus("idle");
-    setShareUrl("");
-  }, [levelIdx, overlayMode]);
 
   useEffect(() => {
     if (lastGameplayActiveRef.current === isGameplayActive) return;
@@ -1010,17 +835,6 @@ export const GameCanvas = () => {
               >
                 ★ {optimal}
               </div>
-              {LEADERBOARDS_ENABLED && <Button
-                size="sm"
-                variant="ghost"
-                onClick={openLeaderboard}
-                disabled={isInteractionLocked}
-                className="game-hud-action game-hud-action-cyan"
-                title={t("leaders")}
-                aria-label={t("leaders")}
-              >
-                <Trophy className="h-4 w-4" aria-hidden />
-              </Button>}
             </div>
           </div>
         </div>
@@ -1098,7 +912,7 @@ export const GameCanvas = () => {
         />
       )}
 
-      {overlayMode === "playing" && playerHudPosition && !isLevelSelectOpen && !isLeaderboardOpen && !isStartScreenBlocking && (
+      {overlayMode === "playing" && playerHudPosition && !isLevelSelectOpen && !isStartScreenBlocking && (
         <div
           className="game-floating-moves pointer-events-none absolute z-30 select-none tabular-nums"
           style={{
@@ -1165,7 +979,6 @@ export const GameCanvas = () => {
                         ? t("openChapter", { chapter: pendingChapterTransition.toChapter.chapterIndex })
                         : t("nextLevel")}
                   </Button>
-                  {shareResultControls}
                   <Button onClick={restart} disabled={isInteractionLocked} variant="secondary" className="w-full">
                     {t("playAgain")}
                   </Button>
@@ -1308,7 +1121,6 @@ export const GameCanvas = () => {
                   {t("finalBody")}
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
-                  {shareResultControls}
                   <Button onClick={restart} className="w-full">
                     {t("replayFinal")}
                   </Button>
@@ -1332,19 +1144,6 @@ export const GameCanvas = () => {
           closeLevelSelect();
         }}
         onSelectLevel={selectLevel}
-      />
-
-      <LeaderboardPanel
-        open={isLeaderboardOpen}
-        currentScore={currentLeaderboardScore}
-        maxScore={maxStars}
-        entries={leaderboardEntries}
-        userRank={leaderboardUserRank}
-        status={leaderboardStatus}
-        saveStatus={leaderboardSaveStatus}
-        onClose={closeLeaderboard}
-        onRefresh={refreshLeaderboard}
-        onSave={saveLeaderboardResult}
       />
 
       {isStartScreenOpen && (

@@ -164,7 +164,7 @@ describe("player progress", () => {
     expect(progress.audioMuted).toBe(true);
   });
 
-  it("stores tutorial completion in the shared progress object", () => {
+  it("stores tutorial completion in the player progress object", () => {
     const progress = completeTutorial(createDefaultProgress(), 10);
 
     expect(progress.hasStarted).toBe(true);

@@ -15,21 +15,26 @@ describe("ysdkShowRewardedAd", () => {
     vi.stubGlobal("location", new URL("http://localhost:5173/"));
 
     const { ysdkShowRewardedAd } = await import("./yandex");
+    const onRewarded = vi.fn();
 
-    await expect(ysdkShowRewardedAd()).resolves.toEqual({ status: "rewarded" });
+    await ysdkShowRewardedAd({ onRewarded });
+    await Promise.resolve();
+
+    expect(onRewarded).toHaveBeenCalledTimes(1);
   });
 
-  it("resolves closed when the provider closes without reward", async () => {
+  it("passes callbacks to the provider rewarded API", async () => {
     vi.stubGlobal("location", new URL("https://yandex.ru/games/"));
+    const showRewardedVideo = vi.fn(({ callbacks }: { callbacks?: { onClose?: () => void } }) => {
+      callbacks?.onClose?.();
+    });
 
     window.YaGames = {
       init: vi.fn().mockResolvedValue({
         features: {},
         adv: {
           showFullscreenAdv: vi.fn(),
-          showRewardedVideo: ({ callbacks }: { callbacks?: { onClose?: () => void } }) => {
-            callbacks?.onClose?.();
-          },
+          showRewardedVideo,
         },
         getPlayer: vi.fn(),
       }),
@@ -42,7 +47,13 @@ describe("ysdkShowRewardedAd", () => {
     });
 
     const { ysdkShowRewardedAd } = await import("./yandex");
+    const onClose = vi.fn();
 
-    await expect(ysdkShowRewardedAd()).resolves.toEqual({ status: "closed" });
+    await ysdkShowRewardedAd({ onClose });
+
+    expect(showRewardedVideo).toHaveBeenCalledWith({
+      callbacks: expect.objectContaining({ onClose }),
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

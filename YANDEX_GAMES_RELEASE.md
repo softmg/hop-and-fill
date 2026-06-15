@@ -8,9 +8,7 @@ Yandex Games receives only the static client build:
 - `dist-yandex/assets/`
 - static files copied by Vite from `public/`
 
-The `backend/` folder, root `node_modules/`, `.env*` files, source files, tests, and dev logs are not copied into `dist-yandex` and are not packaged into the upload zip.
-
-The Yandex build currently disables the leaderboard UI and automatic leaderboard saves. The existing backend and Yandex leaderboard code stay in the repository for normal development and a later release.
+Root `node_modules/`, source files, tests, and dev logs are not copied into `dist-yandex` and are not packaged into the upload zip.
 
 ## Build it yourself
 
@@ -49,12 +47,11 @@ The validator checks that:
 
 - `dist-yandex/index.html` exists;
 - the SDK is loaded as `/sdk.js` with `onload="initSDK()"`;
-- `backend`, `server`, `api`, `node_modules`, and `.env*` files are not in the build;
+- `server`, `backend`, `api`, `node_modules`, and `.env*` files are not in the build;
 - output paths have no spaces or Cyrillic characters;
 - `dist-yandex` stays below 100 MB;
 - Vite JS/CSS entry assets use relative `./assets/...` paths for Yandex archive hosting;
 - built text files do not contain absolute localhost or loopback URLs;
-- the backend env name is not bundled into the release output.
 
 To smoke-test the static output locally:
 
@@ -89,11 +86,10 @@ npm run lint
 npm run build
 ```
 
-The Yandex-specific Vite mode is selected only by `npm run build:yandex`. `.env.yandex` clears `VITE_LEADERBOARD_BACKEND_URL` for that mode. Do not put backend URLs into a Yandex mode env file.
+The Yandex-specific Vite mode is selected only by `npm run build:yandex`.
 
 ## Remaining manual checks
 
 - Run the build inside the Yandex Games console test environment before publishing so `/sdk.js`, ad callbacks, and platform focus behavior are exercised against the real SDK.
-- Review the English copy on all gameplay overlays before opening non-Russian locales. Main gameplay, start, tutorial, level map, pause/win/loss/final overlays, and shared result screens are localized; the disabled leaderboard panel remains outside this Yandex release.
-- If the leaderboard is enabled later, configure the leaderboard in the Yandex console first and remove the Yandex-mode disable switch deliberately.
+- Review the English copy on all gameplay overlays before opening non-Russian locales. Main gameplay, start, tutorial, level map, and pause/win/loss/final overlays are localized.
 - The app still references Google Fonts and social preview URLs in client metadata/CSS. Verify Yandex moderation accepts those network references or self-host/remove them before upload if moderation flags them.
