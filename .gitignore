@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-web
 dist-yandex
 game-yandex.zip
 dist-ssr
@@ -45,4 +46,3 @@ backend/data/*.tmp
 *.njsproj
 *.sln
 *.sw?
-

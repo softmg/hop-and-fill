@@ -1,6 +1,8 @@
 // Обёртка над Yandex Games SDK v2 с локальной заглушкой.
 // На домене Яндекса подгружает реальный SDK; локально использует mock + localStorage.
 
+import { isWebBuild } from "@/platform/platform";
+
 interface YsdkPlayer {
   setData(data: Record<string, unknown>, flush?: boolean): Promise<void>;
   getData(keys?: string[]): Promise<Record<string, unknown>>;
@@ -104,6 +106,11 @@ const mockPlayer: YsdkPlayer = {
   isAuthorized: () => true,
 };
 
+const webPlayer: YsdkPlayer = {
+  ...mockPlayer,
+  isAuthorized: () => false,
+};
+
 const mockSdk: Ysdk = {
   environment: {
     i18n: {
@@ -141,6 +148,31 @@ const mockSdk: Ysdk = {
   isAvailableMethod: async (methodName) => methodName.startsWith("player."),
 };
 
+const webSdk: Ysdk = {
+  environment: {
+    i18n: {
+      lang: getMockLanguage(),
+    },
+  },
+  features: {
+    LoadingAPI: { ready: () => undefined },
+    GameplayAPI: {
+      start: () => undefined,
+      stop: () => undefined,
+    },
+  },
+  adv: {
+    showFullscreenAdv: (opts) => {
+      queueMicrotask(() => opts?.callbacks?.onClose?.(false));
+    },
+  },
+  getPlayer: async () => webPlayer,
+  auth: {
+    openAuthDialog: async () => undefined,
+  },
+  isAvailableMethod: async () => false,
+};
+
 let sdkPromise: Promise<Ysdk> | null = null;
 let playerPromise: Promise<YsdkPlayer> | null = null;
 let gameplayTargetActive = false;
@@ -166,6 +198,10 @@ async function waitForSdkLoader() {
 /** Initializes the platform SDK once and falls back to local mocks outside the hosted environment. */
 export function initYsdk(): Promise<Ysdk> {
   if (sdkPromise) return sdkPromise;
+  if (isWebBuild) {
+    sdkPromise = Promise.resolve(webSdk);
+    return sdkPromise;
+  }
   sdkPromise = (async () => {
     await waitForSdkLoader();
 
@@ -184,6 +220,11 @@ export function initYsdk(): Promise<Ysdk> {
   })();
 
   return sdkPromise;
+}
+
+/** Reports whether rewarded ads can be offered in the current build. */
+export function isRewardedAdAvailable() {
+  return !isWebBuild;
 }
 
 /** Notifies the platform that the game is interactive. */
@@ -383,4 +424,3 @@ export async function ysdkIsPlayerAuthorized() {
   const player = await getYsdkPlayer();
   return player.isAuthorized?.() !== false;
 }
-
