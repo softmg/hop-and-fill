@@ -5,17 +5,18 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import { getConfiguredBasename, getDirectoryBasename } from "./platform/routing";
 
 const queryClient = new QueryClient();
 
-/** Returns the stable directory prefix used by archive-hosted builds. */
-function getYandexBasename() {
-  const baseDir = new URL(".", window.location.href).pathname;
-  const normalized = baseDir.endsWith("/") ? baseDir.slice(0, -1) : baseDir;
-  return normalized === "" ? "/" : normalized;
-}
-
-const yandexBasename = import.meta.env.MODE === "yandex" ? getYandexBasename() : undefined;
+// Архивная сборка для Яндекса лежит по неизвестному заранее пути, поэтому
+// basename там берётся из адреса. У web-сборки путь известен на сборке.
+const directoryBasename =
+  import.meta.env.MODE === "web"
+    ? getConfiguredBasename()
+    : import.meta.env.MODE === "yandex"
+      ? getDirectoryBasename()
+      : undefined;
 
 const AppRoutes = () => (
   <Routes>
@@ -31,7 +32,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter basename={yandexBasename}>
+      <BrowserRouter basename={directoryBasename}>
         <AppRoutes />
       </BrowserRouter>
     </TooltipProvider>

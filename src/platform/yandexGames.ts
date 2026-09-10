@@ -1,6 +1,7 @@
 export {
   initYsdk as initYandexGames,
   initYsdk,
+  isRewardedAdAvailable,
   subscribeToFullscreenAds,
   ysdkGameplayStart,
   ysdkGameplayStop,

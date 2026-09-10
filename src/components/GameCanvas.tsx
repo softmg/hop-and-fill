@@ -9,6 +9,7 @@ import { getLevelName, levels } from "@/game/levels";
 import { deriveChapters, getChapterForLevel, getChapterTransition, getLevelTheme, getThemeLabel, type ChapterTransition } from "@/game/levels/chapters";
 import { computeOptimalMoves, computeStars, moveLimit } from "@/game/difficulty";
 import {
+  isRewardedAdAvailable,
   subscribeToFullscreenAds,
   ysdkGameplayStart,
   ysdkGameplayStop,
@@ -733,7 +734,8 @@ export const GameCanvas = () => {
   const formattedRaceTarget = raceTimeLimitMs === null ? null : formatDurationMs(raceTimeLimitMs);
   const hasCurrentRaceAward = progress ? hasRaceAward(progress, levelIdx) : false;
   const isInteractionLocked = isStartScreenBlocking || isInterstitialActive;
-  const canShowRewardedExtraMoves = overlayMode === "lost" && !rewardedAdLevelIds.has(levelIdx);
+  const canShowRewardedExtraMoves =
+    isRewardedAdAvailable() && overlayMode === "lost" && !rewardedAdLevelIds.has(levelIdx);
   const isTutorialBlocking = levelIdx === 0 && progress !== null && !progress.tutorialComplete;
   const isGameplayActive = progressReady
     && isFirstSceneRenderable

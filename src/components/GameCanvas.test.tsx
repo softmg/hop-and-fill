@@ -122,6 +122,7 @@ vi.mock("@/sdk/yandex", () => ({
   ysdkGameplayStop: mockYsdkGameplayStop,
   ysdkShowAd: mockYsdkShowAd,
   ysdkShowRewardedAd: mockYsdkShowRewardedAd,
+  isRewardedAdAvailable: () => true,
   ysdkIsPlayerAuthorized: mockYsdkIsPlayerAuthorized,
   ysdkRequestAuthorization: mockYsdkRequestAuthorization,
   subscribeToFullscreenAds: mockSubscribeToFullscreenAds,

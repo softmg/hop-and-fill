@@ -9,6 +9,33 @@ describe("ysdkShowRewardedAd", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     delete window.YaGames;
+    vi.unstubAllEnvs();
+  });
+
+  it("uses a guest-only adapter without Yandex SDK in web mode", async () => {
+    vi.stubEnv("MODE", "web");
+    vi.stubGlobal("location", new URL("https://example.com/games/hop-and-fill/"));
+
+    const {
+      initYsdk,
+      isRewardedAdAvailable,
+      ysdkIsPlayerAuthorized,
+      ysdkShowAd,
+      ysdkShowRewardedAd,
+    } = await import("./yandex");
+    const onClose = vi.fn();
+    const onError = vi.fn();
+
+    await expect(initYsdk()).resolves.toBeDefined();
+    await expect(ysdkIsPlayerAuthorized()).resolves.toBe(false);
+    await ysdkShowAd({ onClose });
+    await Promise.resolve();
+    await ysdkShowRewardedAd({ onError });
+
+    expect(window.YaGames).toBeUndefined();
+    expect(onClose).toHaveBeenCalledWith(false);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(isRewardedAdAvailable()).toBe(false);
   });
 
   it("resolves rewarded in local mock mode", async () => {
